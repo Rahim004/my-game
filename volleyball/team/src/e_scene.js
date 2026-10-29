@@ -498,6 +498,15 @@ resize();
 /* ================= HUD (screen space, css px) ================= */
 function skew(c, x, y, w, h, s) { c.beginPath(); c.moveTo(x + s, y); c.lineTo(x + w, y); c.lineTo(x + w - s, y + h); c.lineTo(x, y + h); c.closePath(); }
 const TONE = { org: '#f07a22', gold: '#f2c230', teal: '#14a3ab' };
+/* Подпись команды на табло и в заставке — по режиму: solo «№4 · №10»/«ГОСТИ», local2 «ИГРОК 1/2», онлайн «ТЫ»/«ДРУГ» со стороны этого устройства. */
+function hudName(T) {
+  if (mode === 'local2') return T === TL ? 'ИГРОК 1' : 'ИГРОК 2';
+  if (mode === 'host' || mode === 'guest') return T === myTeam() ? 'ТЫ' : 'ДРУГ';
+  return T === TL ? '№4 · №10' : 'ГОСТИ';
+}
+function hudSide(T) {   // короткая метка в заставке: НАШИ/ГОСТИ, ИГРОК 1/2 или ТЫ/ДРУГ
+  return mode === 'solo' ? (T === TL ? 'НАШИ' : 'ГОСТИ') : hudName(T);
+}
 function drawScoreboard(c) {
   if (!TL) return;
   const u = clamp(cssW / 820, .7, 1.25), cx = cssW / 2, y = 8 * u;
@@ -506,8 +515,8 @@ function drawScoreboard(c) {
   c.fillStyle = TONE.org; c.fillRect(cx - hw / 2 - nw * .78, y + bh, nw * .78 - 4 * u, 2.2 * u);
   c.fillStyle = TONE.teal; c.fillRect(cx + hw / 2 + 4 * u, y + bh, nw * .78 - 4 * u, 2.2 * u);
   c.font = `500 ${12.5 * u}px Oswald, "Arial Narrow", sans-serif`; c.textBaseline = 'middle'; c.fillStyle = '#ffffff';
-  c.textAlign = 'right'; c.fillText(TL.name, cx - hw / 2 - 12 * u, y + bh / 2 + .5);
-  c.textAlign = 'left'; c.fillText(TR.name, cx + hw / 2 + 12 * u, y + bh / 2 + .5);
+  c.textAlign = 'right'; c.fillText(hudName(TL), cx - hw / 2 - 12 * u, y + bh / 2 + .5);
+  c.textAlign = 'left'; c.fillText(hudName(TR), cx + hw / 2 + 12 * u, y + bh / 2 + .5);
   const sy = y + bh + 4 * u, sw = 34 * u, shh = 20 * u;
   [[TL, -1, 0], [TR, 1, 1]].forEach(([T, sd, i]) => {
     const bx = sd < 0 ? cx - hw / 2 - 6 * u - sw : cx + hw / 2 + 6 * u;
@@ -600,7 +609,7 @@ function drawCutin(c) {
   const w0 = c.measureText(nm).width; if (w0 > room) { fs *= room / w0; c.font = `700 ${fs}px Oswald, "Arial Narrow", sans-serif`; }
   c.fillStyle = '#ffffff'; c.fillText(nm, tx, y + H * .7);
   c.fillStyle = 'rgba(255,255,255,.7)'; c.font = `500 ${12 * u}px Oswald, "Arial Narrow", sans-serif`;
-  c.fillText(ours ? `№${p.num}  ·  НАШИ` : `№${p.num}  ·  ГОСТИ`, tx, y + H * .88);
+  c.fillText(`№${p.num}  ·  ${hudSide(team)}`, tx, y + H * .88);
   c.restore();
 }
 
@@ -663,10 +672,13 @@ function render() {
       out.fillStyle = 'rgba(0,0,0,.55)'; out.fillText(lb, x + .3, y + .3);
       out.fillStyle = p.team === TL ? '#ffffff' : '#e3f6f7'; out.fillText(lb, x, y);
     }
-    if (active && (state === 'play' || state === 'serve')) {
-      const p = active, sl = sOf(p.lane), x = PX(p.x, p.lane), y = p.lane - (p.h + 42 * p.look.tall) * sl - 4 + Math.sin(clock * 6) * 1.2;
-      out.fillStyle = '#4da3ff'; out.strokeStyle = '#ffffff'; out.lineWidth = .55; out.lineJoin = 'round';
-      out.beginPath(); out.moveTo(x - 3.2, y - 3); out.lineTo(x + 3.2, y - 3); out.lineTo(x, y + 1.8); out.closePath(); out.fill(); out.stroke();
+    if (state === 'play' || state === 'serve') {   // маркер активного игрока: синий — этот игрок (или игрок 1), красно-оранжевый — второй человек
+      for (const [p, col] of [[active, '#4da3ff'], [active2, '#ff5436']]) {
+        if (!p) continue;
+        const sl = sOf(p.lane), x = PX(p.x, p.lane), y = p.lane - (p.h + 42 * p.look.tall) * sl - 4 + Math.sin(clock * 6) * 1.2;
+        out.fillStyle = col; out.strokeStyle = '#ffffff'; out.lineWidth = .55; out.lineJoin = 'round';
+        out.beginPath(); out.moveTo(x - 3.2, y - 3); out.lineTo(x + 3.2, y - 3); out.lineTo(x, y + 1.8); out.closePath(); out.fill(); out.stroke();
+      }
     }
   } else out.drawImage(netL, NLX0, NLY0, NLX1 - NLX0, NLY1 - NLY0);
 
