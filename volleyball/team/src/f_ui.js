@@ -110,6 +110,10 @@ onNetStatus = t => {   // g_net.js сообщает о ходе подключе
   if (!ovOnline.hidden) { setNetStatus(t); if (t === NET_NOWEB) setNoweb(true); }
   else if (t && !PROGRESS.test(t)) toast(t);
 };
+onNetEnd = () => {   // сессия оборвалась сама: снять блокировку кнопок, вернуть «Создать»; текст статуса сохраняем
+  if (ovOnline.hidden) { resetOnline(); return; }
+  const t = netStatusEl.textContent; resetOnline(); setNetStatus(t); if (t === NET_NOWEB) setNoweb(true);
+};
 function setNoweb(on) { $('noweb').hidden = !on; $('onlSheet').classList.toggle('nw', on); }
 function resetOnline() {
   setNoweb(false); setNetStatus(''); setBusy(false);
@@ -121,8 +125,9 @@ function openOnline(code) {
   if (code) codeIn.value = fixCode(code);
   show('online');
 }
+let opSeq = 0;   // номер последней операции экрана онлайна: устаревший await (после «Назад») ничего не трогает
 function closeOnline() {
-  netLeave(); resetOnline();
+  opSeq++; netLeave(); resetOnline();
   try { if (location.hash) history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
   show('menu');
 }
@@ -132,14 +137,18 @@ function showRoom(code) {
 }
 async function doHost() {
   if (netBusy) return; audio(); setBusy(true); setNoweb(false);
+  const seq = ++opSeq;
   const code = await netHost(netKind());
+  if (seq !== opSeq) return;
   setBusy(false);
   if (code) showRoom(code);
 }
 async function doJoin() {
   if (netBusy) return; audio(); setBusy(true); setNoweb(false);
   $('roomBox').hidden = true; $('hostBtn').hidden = false;
+  const seq = ++opSeq;
   const ok = await netJoin(fixCode(codeIn.value), netKind());
+  if (seq !== opSeq) return;
   if (ok) $('hostBtn').disabled = $('joinBtn').disabled = true; else setBusy(false);
 }
 function selectLink() {
@@ -161,7 +170,7 @@ $('onlBack').addEventListener('click', closeOnline);
 $('nowebLocal').addEventListener('click', () => { closeOnline(); pick = 'local2'; syncMode(); startMatch('local2'); });
 codeIn.addEventListener('input', () => { const v = fixCode(codeIn.value); if (codeIn.value !== v) codeIn.value = v; });
 codeIn.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); doJoin(); } });
-function checkInvite() { const c = roomFromHash(); if (c && state === 'menu' && !isOnline()) openOnline(c); }
+function checkInvite() { const c = roomFromHash(); if (c && state === 'menu' && !isOnline() && !netInfo()) openOnline(c); }   // уже есть сессия (netInfo) — приглашение игнорируем
 addEventListener('hashchange', checkInvite);
 checkInvite();
 

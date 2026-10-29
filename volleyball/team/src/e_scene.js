@@ -174,15 +174,6 @@ function drawStandsFront(c, signs) {
     const g = c.createRadialGradient(lx, -25, .5, lx, -25, 9); g.addColorStop(0, 'rgba(255,248,225,.95)'); g.addColorStop(1, 'rgba(255,240,200,0)');
     c.fillStyle = g; c.fillRect(lx - 9, -34, 18, 18);
   }
-  // hanging screens
-  c.strokeStyle = '#59606c'; c.lineWidth = .7; c.beginPath();
-  for (const s of SCR) for (const dx of [3, s.w - 3]) { c.moveTo(s.x + dx, -29); c.lineTo(s.x + dx, s.y - 2); }
-  for (const dx of [8, BIG.w - 8]) { c.moveTo(BIG.x + dx, -29); c.lineTo(BIG.x + dx, BIG.y - 2); } c.stroke();
-  for (const s of SCR) screenFrame(c, s.x, s.y, s.w, s.h, s.side ? TEAM_R : TEAM_L, s.side ? 'ГОСТИ' : '№4 · №10', false);
-  screenFrame(c, BIG.x, BIG.y, BIG.w, BIG.h, '#c9941c', 'ВОЛЕЙБОЛ 3 НА 3', true);
-  c.fillStyle = TEAM_L; c.fillRect(BIG.x + 3, BIG.y + 9, 34, 22); c.fillStyle = TEAM_R; c.fillRect(BIG.x + BIG.w - 37, BIG.y + 9, 34, 22);
-  c.fillStyle = 'rgba(0,0,0,.55)'; c.fillRect(BIG.x + 3.6, BIG.y + 9.6, 32.8, 20.8); c.fillRect(BIG.x + BIG.w - 36.4, BIG.y + 9.6, 32.8, 20.8);
-  c.fillStyle = '#f2c230'; c.textAlign = 'center'; c.textBaseline = 'middle'; fitText(c, '№4 × №10', BIG.x + BIG.w / 2, BIG.y + 20.5, 40, 8.5);
   // posters
   c.textAlign = 'center'; c.textBaseline = 'middle';
   for (const s of signs) {
@@ -210,13 +201,7 @@ function buildBg(res) {
   };
   return { calm: make(false), cheer: make(true), res };
 }
-function drawFlag(c, x, y, col, ink, text) {
-  const wv = Math.sin(clock * 1.6 + x) * .5;
-  c.fillStyle = col; c.beginPath(); c.moveTo(x, y); c.lineTo(x + 40, y);
-  c.quadraticCurveTo(x + 41 + wv, y + 8, x + 40, y + 15); c.quadraticCurveTo(x + 20, y + 13.6 + wv, x, y + 15.5); c.quadraticCurveTo(x - 1 + wv, y + 8, x, y); c.fill();
-  c.strokeStyle = ink; c.lineWidth = .7; c.strokeRect(x + 1.6, y + 1.6, 36.8, 11.4);
-  c.fillStyle = ink; c.font = '600 6.2px Oswald, "Arial Narrow", sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(text, x + 20, y + 7.7);
-}
+let ledW = 0;
 function drawLed(c) {
   c.save(); c.beginPath(); c.rect(BGX0, 172.7, BGX1 - BGX0, 10.6); c.clip();
   c.font = '600 7px Oswald, "Arial Narrow", sans-serif'; c.textBaseline = 'middle';
@@ -225,21 +210,54 @@ function drawLed(c) {
     for (const x of [60, 200, 340, 470]) c.fillText(led.text + ' КМ/Ч', x, 178.3);
   } else {
     c.fillStyle = 'rgba(190,225,255,.85)'; c.textAlign = 'left';
-    const msg = '№4 × №10   •   ВОЛЕЙБОЛ 3 НА 3   •   ', w = c.measureText(msg).width || 120, off = -((clock * 16) % w);
+    const msg = '№4 × №10   •   ВОЛЕЙБОЛ 3 НА 3   •   ', w = ledW || (ledW = c.measureText(msg).width || 120), off = -((clock * 16) % w);
     for (let x = BGX0 + off; x < BGX1; x += w) c.fillText(msg, x, 178.3);
   }
   c.restore();
 }
+/* Экраны под потолком рисуются каждый кадр (не в слое фона), чтобы гаснуть там, где они попали бы под главное табло HUD: верхний центр остаётся чистым. */
+const scrSpr = {}, scrAlpha = [1, 1, 1];
+function scrSprite(key, x, y, w, h, col, label, big) {
+  const k = key + '|' + label; if (scrSpr[k]) return scrSpr[k];
+  const R = 4, cv2 = document.createElement('canvas'); cv2.width = Math.ceil((w + 4) * R); cv2.height = Math.ceil((h + 4) * R);
+  const c = cv2.getContext('2d'); c.scale(R, R); c.translate(-(x - 2), -(y - 2));
+  screenFrame(c, x, y, w, h, col, label, big);
+  if (big) {
+    c.fillStyle = TEAM_L; c.fillRect(x + 3, y + 9, 34, 22); c.fillStyle = TEAM_R; c.fillRect(x + w - 37, y + 9, 34, 22);
+    c.fillStyle = 'rgba(0,0,0,.55)'; c.fillRect(x + 3.6, y + 9.6, 32.8, 20.8); c.fillRect(x + w - 36.4, y + 9.6, 32.8, 20.8);
+    c.fillStyle = '#f2c230'; c.textAlign = 'center'; c.textBaseline = 'middle'; fitText(c, '№4 × №10', x + w / 2, y + 20.5, 40, 8.5);
+  }
+  return (scrSpr[k] = cv2);
+}
+function drawScreens(c, bounce) {
+  const sc = cam.scale, bgx = 240 + (cam.x - 240) * .62, u = clamp(cssW / 820, .7, 1.25);
+  const hx0 = cssW / 2 - 162 * u, hx1 = cssW / 2 + 162 * u, hy1 = 60 * u;   // зона главного табло HUD в css-пикселях
+  const lab = TL ? [hudName(TL), hudName(TR)] : ['№4 · №10', 'ГОСТИ'];
+  const list = [[SCR[0], lab[0], TEAM_L, 0], [SCR[1], lab[1], TEAM_R, 0], [BIG, 'ВОЛЕЙБОЛ 3 НА 3', '#c9941c', 1]];
+  c.strokeStyle = '#59606c'; c.lineWidth = .7;
+  list.forEach(([s, label, col, big], i) => {
+    const sx0 = cssW / 2 + (s.x - 3 - bgx) * sc, sx1 = cssW / 2 + (s.x + s.w + 3 - bgx) * sc, sy1 = (s.y + s.h + 3 + bounce - cam.top) * sc;
+    const hit = sx1 > hx0 && sx0 < hx1 && sy1 > 0 && (s.y - 2 + bounce - cam.top) * sc < hy1;
+    scrAlpha[i] += ((hit ? 0 : 1) - scrAlpha[i]) * .25;
+    const a = scrAlpha[i]; if (a < .03) return;
+    c.globalAlpha = a;
+    c.beginPath(); for (const dx of [big ? 8 : 3, s.w - (big ? 8 : 3)]) { c.moveTo(s.x + dx, -29); c.lineTo(s.x + dx, s.y - 2 + bounce); } c.stroke();
+    c.drawImage(scrSprite(i, s.x, s.y, s.w, s.h, col, label, big), s.x - 2, s.y - 2 + bounce, s.w + 4, s.h + 4);
+    c.globalAlpha = 1;
+  });
+}
 function drawArenaDyn(c, bounce) {
+  drawScreens(c, bounce);
   const hot = hype > .25, pulse = hot ? .1 + .08 * Math.sin(clock * 12) : 0;
   c.textAlign = 'center'; c.textBaseline = 'middle';
   for (const s of SCR) {
+    if (scrAlpha[s.side] < .5) continue;
     if (pulse) { c.fillStyle = `rgba(255,222,140,${pulse})`; c.fillRect(s.x, s.y + 6.2 + bounce, s.w, s.h - 6.2); }
     const T = TL ? (s.side ? TR : TL) : null, pop = 1 + (T && typeof scorePop !== 'undefined' ? (scorePop[s.side] || 0) * .4 : 0);
-    c.save(); c.translate(s.x + s.w / 2, s.y + s.h * .64 + bounce); c.scale(pop, pop);
+    c.save(); c.globalAlpha = scrAlpha[s.side]; c.translate(s.x + s.w / 2, s.y + s.h * .64 + bounce); c.scale(pop, pop);
     c.font = `700 15px ${FONT}`; c.fillStyle = s.side ? '#a8f6f8' : '#ffd36a'; c.fillText(T ? String(T.score) : '–', 0, 0); c.restore();
   }
-  if (TL) {
+  if (TL && scrAlpha[2] > .5) {
     c.font = `700 14px ${FONT}`;
     c.fillStyle = '#ffd36a'; c.fillText(String(TL.score), BIG.x + 20, BIG.y + 21 + bounce);
     c.fillStyle = '#a8f6f8'; c.fillText(String(TR.score), BIG.x + BIG.w - 20, BIG.y + 21 + bounce);
@@ -295,7 +313,7 @@ function paintFloor(c) {
   seg2(c, q2(NETX - 72, FAR_Y), q2(NETX - 72, NEAR_Y), .9); seg2(c, q2(NETX + 72, FAR_Y), q2(NETX + 72, NEAR_Y), .9);
   seg2(c, [netX(FAR_Y), FAR_Y], [netX(NEAR_Y), NEAR_Y], 1);
   c.fillStyle = 'rgba(255,255,255,.55)'; for (const [P, Q] of [[A, B], [D, C]]) c.fillRect(P[0] + (Q[0] - P[0]) / 2 - .6, P[1] - .5, 1.2, 1);
-  for (const [X, txt] of [[NETX - 112, '№4 × №10'], [NETX + 112, 'ГОСТИ']]) {
+  for (const [X, txt] of [[NETX - 112, LAB[0]], [NETX + 112, LAB[1]]]) {
     c.save(); c.translate(PX(X, LANE0), LANE0 + 1); c.scale(1, .34);
     c.strokeStyle = 'rgba(255,255,255,.18)'; c.lineWidth = 1.6; c.beginPath(); c.arc(0, 0, 30, 0, 6.283); c.stroke();
     c.lineWidth = .7; c.beginPath(); c.arc(0, 0, 25.5, 0, 6.283); c.stroke();
@@ -427,27 +445,31 @@ function paintAdStand(c, x, y, kind) {
 }
 function paintProps(c, cheer) {
   paintRefTower(c, cheer);
-  paintBench(c, 98, 202.3, '#e8701c', '#2a2731', cheer, 3, '№4 × №10');
-  paintBench(c, 384, 202.3, '#118a92', '#1b3a3e', cheer, 9, 'ГОСТИ');
+  paintBench(c, 98, 202.3, '#e8701c', '#2a2731', cheer, 3, LAB[0]);
+  paintBench(c, 384, 202.3, '#118a92', '#1b3a3e', cheer, 9, LAB[1]);
   paintAdStand(c, 28, 203, 0); paintAdStand(c, 172, 203, 1); paintAdStand(c, 316, 203, 0); paintAdStand(c, 452, 203, 1);
 }
 function drawProps(c) {
   const p = hype > .25 ? propsL.cheer : propsL.calm;
   c.drawImage(p, PRX0, PRY0, PRX1 - PRX0, PRY1 - PRY0);
 }
+let LAB = ['№4 · №10', 'ГОСТИ'];   // подписи команд на полу и скамейках — по режиму; слои пересобираются при смене
 const FLX0 = -80, FLX1 = 560, FLY0 = 196, FLY1 = 300, NLX0 = 226, NLX1 = 254, NLY0 = 126, NLY1 = 242;
 let floorL = null, netL = null, vigL = null, propsL = null;
 function layer(x0, x1, y0, y1, res, paint) {
   const cv2 = document.createElement('canvas'); cv2.width = Math.max(1, Math.ceil((x1 - x0) * res)); cv2.height = Math.max(1, Math.ceil((y1 - y0) * res));
   const c = cv2.getContext('2d'); c.scale(res, res); c.translate(-x0, -y0); paint(c); return cv2;
 }
+let labKey = '', layRes = 0;
 function ensureLayers() {
   const want = clamp(cam.scale * dpr, 1.4, 3.4);
-  if (!bgL || Math.abs(bgL.res - want) / want > .22) {
-    bgL = buildBg(want);
-    floorL = layer(FLX0, FLX1, FLY0, FLY1, want, paintFloor);
-    netL = layer(NLX0, NLX1, NLY0, NLY1, want, c => drawNet(c, 0));
-    propsL = { calm: layer(PRX0, PRX1, PRY0, PRY1, want, c => paintProps(c, false)), cheer: layer(PRX0, PRX1, PRY0, PRY1, want, c => paintProps(c, true)) };
+  const lk = TL ? hudName(TL) + '|' + hudName(TR) : '№4 · №10|ГОСТИ';
+  const full = !bgL || Math.abs(bgL.res - want) / want > .22;
+  if (full || lk !== labKey) {   // подписи команд на полу и скамейках зависят от режима: пересобираем только пол и скамейки
+    labKey = lk; LAB = lk.split('|');
+    if (full) { bgL = buildBg(want); netL = layer(NLX0, NLX1, NLY0, NLY1, want, c => drawNet(c, 0)); layRes = want; }
+    floorL = layer(FLX0, FLX1, FLY0, FLY1, layRes, paintFloor);
+    propsL = { calm: layer(PRX0, PRX1, PRY0, PRY1, layRes, c => paintProps(c, false)), cheer: layer(PRX0, PRX1, PRY0, PRY1, layRes, c => paintProps(c, true)) };
   }
   if (!vigL) {
     vigL = document.createElement('canvas'); vigL.width = 320; vigL.height = 160;
@@ -476,7 +498,7 @@ function updateCamera(dt, snap) {
     else if (state === 'play' || state === 'point') tx = lerp(240, PX(ball.x, ball.lane), .78);
   }
   const half = visW / 2; tx = clamp(tx, half - 10, VW - half + 10);
-  const base = 274 - visH; let tt = base;
+  const base = (mode === 'local2' ? 288 : 274) - visH; let tt = base;   // local2: низ кадра ниже, чтобы подписи у ног не закрывались кнопками
   if (TL && ball && state !== 'menu') { const by = ball.lane - ball.h * sOf(ball.lane) - 16; if (by < tt) tt = Math.max(by, base - 22); }
   const a = snap ? 1 : 1 - Math.exp(-dt * 3), b = snap ? 1 : 1 - Math.exp(-dt * 2.2);
   cam.x += (tx - cam.x) * a; cam.top += (tt - cam.top) * b;
@@ -515,8 +537,8 @@ function drawScoreboard(c) {
   c.fillStyle = TONE.org; c.fillRect(cx - hw / 2 - nw * .78, y + bh, nw * .78 - 4 * u, 2.2 * u);
   c.fillStyle = TONE.teal; c.fillRect(cx + hw / 2 + 4 * u, y + bh, nw * .78 - 4 * u, 2.2 * u);
   c.font = `500 ${12.5 * u}px Oswald, "Arial Narrow", sans-serif`; c.textBaseline = 'middle'; c.fillStyle = '#ffffff';
-  c.textAlign = 'right'; c.fillText(hudName(TL), cx - hw / 2 - 12 * u, y + bh / 2 + .5);
-  c.textAlign = 'left'; c.fillText(hudName(TR), cx + hw / 2 + 12 * u, y + bh / 2 + .5);
+  const nm = [hudName(TL), hudName(TR)], room = nw * .78 - 14 * u, f0 = c.font;   // длинное имя ужимается, а не режется краем табло
+  for (let i = 0; i < 2; i++) { const w = c.measureText(nm[i]).width; if (w > room) c.font = f0.replace(/[\d.]+px/, (12.5 * u * room / w).toFixed(2) + 'px'); c.textAlign = i ? 'left' : 'right'; c.fillText(nm[i], i ? cx + hw / 2 + 12 * u : cx - hw / 2 - 12 * u, y + bh / 2 + .5); c.font = f0; }
   const sy = y + bh + 4 * u, sw = 34 * u, shh = 20 * u;
   [[TL, -1, 0], [TR, 1, 1]].forEach(([T, sd, i]) => {
     const bx = sd < 0 ? cx - hw / 2 - 6 * u - sw : cx + hw / 2 + 6 * u;
@@ -614,7 +636,12 @@ function drawCutin(c) {
 }
 
 /* ================= frame ================= */
+let lastRT = 0, frameEma = 16, slowDev = false;
 function render() {
+  const nowT = performance.now();   // медленное устройство (кадр > ~38 мс) сразу отключает отражения и виньетку, не дожидаясь снижения разрешения
+  if (lastRT && nowT - lastRT < 250) { frameEma += (nowT - lastRT - frameEma) * .2; slowDev = frameEma > 38 ? true : frameEma < 28 ? false : slowDev; }
+  lastRT = nowT;
+  const fancy = qScale > .85 && !slowDev;
   const D = dpr, sc = cam.scale;
   out.setTransform(1, 0, 0, 1, 0, 0);
   out.fillStyle = '#1b1517'; out.fillRect(0, 0, cv.width, cv.height);
@@ -628,8 +655,6 @@ function render() {
   out.drawImage(layer, 0, 0, layer.width, (split + 4 - BGY0) * r, BGX0, BGY0 + bounce, BGX1 - BGX0, split + 4 - BGY0);
   out.drawImage(layer, 0, (split - BGY0) * r, layer.width, (BGY1 - split) * r, BGX0, split, BGX1 - BGX0, BGY1 - split);
   drawLed(out); drawArenaDyn(out, bounce);
-  drawFlag(out, 92, 166.2, '#f07a22', '#1b1a20', '№4 · №10');
-  drawFlag(out, 348, 166.2, '#138f97', '#f1f4f6', 'ГОСТИ');
 
   out.setTransform(D * sc, 0, 0, D * sc, D * (cssW / 2 - cam.x * sc) + sx, -D * cam.top * sc + sy);
   out.drawImage(floorL, FLX0, FLY0, FLX1 - FLX0, FLY1 - FLY0); drawProps(out);
@@ -640,7 +665,7 @@ function render() {
     for (const p of all) { const sl = sOf(p.lane); shadow(out, PX(p.x, p.lane), p.lane + .3, 6.5 * sl * Math.max(.45, 1 - p.h / 70), .3); }
     shadow(out, PX(ball.x, ball.lane), ball.lane + .2, 3 * sOf(ball.lane) * Math.max(.3, 1 - ball.h / 150), .28);
     all.sort((a, b) => a.lane - b.lane);
-    if (qScale > .75) {
+    if (fancy) {
       out.save(); out.beginPath(); out.rect(-80, FAR_Y, 640, 100); out.clip(); out.globalAlpha = .12;
       for (const p of all) { const sl = sOf(p.lane); out.save(); out.translate(0, 2 * p.lane); out.scale(1, -1); drawPlayerAt(out, p, PX(p.x, p.lane), p.lane - p.h * sl, sl, true); out.restore(); }
       out.restore(); out.globalAlpha = 1;
@@ -698,7 +723,7 @@ function render() {
     out.globalAlpha = Math.min(1, (q.life - q.t) / .5); out.fillStyle = q.col; out.fillRect(-3, -1.5, 6, 3); out.restore();
   }
   out.globalAlpha = 1;
-  if (qScale > .75) out.drawImage(vigL, 0, 0, cssW, cssH);
+  if (fancy) out.drawImage(vigL, 0, 0, cssW, cssH);
   if (wipe > 0) { out.fillStyle = `rgba(10,10,14,${Math.min(1, wipe / .5) * .85})`; out.fillRect(0, 0, cssW, cssH); }
   drawBanners(out);
   drawCutin(out);

@@ -4,9 +4,14 @@
    Для UI: netHost(kind) → Promise<код|null>, netJoin(код, kind) → Promise<bool>, netLeave(), netInfo(), roomFromHash(), roomLink(код),
    onNetStatus = (текст) => {}  (UI заменяет своей функцией), netStatus(текст) — вызвать колбэк безопасно. */
 let onNetStatus = () => {};
+let onNetEnd = () => {};   // сессия закончилась сама (обрыв, «комната занята», разные версии): UI снимает блокировку кнопок
 function netStatus(text) { try { onNetStatus(text); } catch (e) {} }
+function netEnd() { try { onNetEnd(); } catch (e) {} }
+const PROTO = 1;   // версия сетевого протокола: хост и гость должны совпадать
 const NET_NOWEB = 'Онлайн-игра работает в версии на GitHub';
-const NET_ERR = { noweb: NET_NOWEB, net: 'Нет связи с сервером комнат. Проверьте интернет', room: 'Комната не найдена', full: 'В комнате уже играют двое' };
+const NET_VER = 'Версии игры разные — обновите страницу у обоих';
+const NET_ERR = { noweb: NET_NOWEB, net: 'Нет связи с сервером комнат. Проверьте интернет', conn: 'Не удалось соединиться. Попробуйте другую сеть или Wi-Fi', room: 'Комната не найдена', full: 'В комнате уже играют двое' };
+let netGen = 0;   // растёт в netLeave: отменяет незавершённые netHost/netJoin
 const NET = { hz: 25, delay: 90, timeout: 12000 };
 const CODE_ABC = 'ABCDEFGHJKLMNPQRSTUVWXYZ';   // без O и I; цифр нет совсем
 const newRoomCode = () => Array.from({ length: 5 }, () => CODE_ABC[Math.random() * CODE_ABC.length | 0]).join('');
@@ -95,34 +100,44 @@ function bcJoin(code) {   // → Promise<{tr}|{err}>
 }
 
 let peerLoading = null;
-function loadPeerJS() {   // → Promise<bool>; не бросает исключений
+function loadPeerJS() {   // → Promise<'ok'|'noscript'|'nortc'>; не бросает исключений
   try {
-    if (window.Peer) return Promise.resolve(true);
-    if (typeof RTCPeerConnection === 'undefined') return Promise.resolve(false);
+    if (window.Peer) return Promise.resolve('ok');
+    if (typeof RTCPeerConnection === 'undefined') return Promise.resolve('nortc');
     if (peerLoading) return peerLoading;
     peerLoading = new Promise(res => {
       let sc = null, fin = false;
-      const done = ok => { if (fin) return; fin = true; clearTimeout(to); if (!ok) { peerLoading = null; try { sc && sc.remove(); } catch (e) {} } res(!!(ok && window.Peer)); };
+      const done = ok => { if (fin) return; fin = true; clearTimeout(to); if (!ok) { peerLoading = null; try { sc && sc.remove(); } catch (e) {} } res(ok && window.Peer ? 'ok' : 'noscript'); };
       const to = setTimeout(() => done(false), 10000);
       try {
         sc = document.createElement('script'); sc.src = 'https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js'; sc.async = true;
+        sc.crossOrigin = 'anonymous';
+        // TODO: добавить sc.integrity = 'sha384-<хеш>'. Хеш считать так (на машине с интернетом):
+        //   curl -s https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js | openssl dgst -sha384 -binary | openssl base64 -A
         sc.onload = () => done(true); sc.onerror = () => done(false);
         document.head.appendChild(sc);
       } catch (e) { done(false); }
     });
     return peerLoading;
-  } catch (e) { return Promise.resolve(false); }
+  } catch (e) { return Promise.resolve('noscript'); }
 }
-const peerErr = e => (e && (e.type === 'peer-unavailable') ? 'room' : e && /network|server-error|socket/.test(e.type || '') ? 'net' : 'noweb');
+const peerErr = e => {
+  const ty = (e && e.type) || '';
+  if (ty === 'peer-unavailable') return 'room';
+  if (/^(network|server-error|socket-error|socket-closed)$/.test(ty)) return 'net';
+  return 'conn';   // webrtc, browser-incompatible, прочее
+};
+const PEER_FATAL = /^(network|server-error|socket-error|socket-closed)$/;
 async function peerHost() {   // → { tr, code } | { err }
-  if (!(await loadPeerJS())) return { err: 'noweb' };
+  const ld = await loadPeerJS();
+  if (ld !== 'ok') return { err: ld === 'nortc' ? 'conn' : 'noweb' };
   for (let attempt = 0; attempt < 6; attempt++) {
     const code = newRoomCode();
     const r = await new Promise(res => {
       let peer, fin = false;
       const done = v => { if (fin) return; fin = true; clearTimeout(to); res(v); };
-      const to = setTimeout(() => { try { peer.destroy(); } catch (e) {} done({ err: 'net' }); }, 12000);
-      try { peer = new window.Peer('vb4x10-' + code, { debug: 0 }); } catch (e) { done({ err: 'noweb' }); return; }
+      const to = setTimeout(() => { try { peer.destroy(); } catch (e) {} done({ err: 'conn' }); }, 12000);
+      try { peer = new window.Peer('vb4x10-' + code, { debug: 0 }); } catch (e) { done({ err: 'conn' }); return; }
       peer.on('open', () => done({ peer, code }));
       peer.on('error', err => { if (fin) return; try { peer.destroy(); } catch (e) {} done(err && err.type === 'unavailable-id' ? { retry: 1 } : { err: peerErr(err) }); });
     });
@@ -130,14 +145,17 @@ async function peerHost() {   // → { tr, code } | { err }
     if (!r.peer) continue;
     const { peer } = r, t = mkTr(); let conn = null; t.kind = 'peer';
     peer.on('connection', c => {
-      if (conn) { c.on('open', () => { try { c.send({ t: 'full' }); setTimeout(() => c.close(), 300); } catch (e) {} }); return; }
+      if (t.open) { c.on('open', () => { try { c.send({ t: 'full' }); setTimeout(() => c.close(), 300); } catch (e) {} }); return; }   // комната занята только когда гость уже подключён
+      if (conn && !conn.open) { const old = conn; conn = null; try { old.close(); } catch (e) {} }   // висящее неоткрытое соединение не блокирует комнату
       conn = c;
-      c.on('open', () => t._open());
-      c.on('data', d => t._msg(d));
-      c.on('close', () => t._close());
-      c.on('error', () => t._close());
+      c.on('open', () => { if (c === conn) t._open(); });
+      c.on('data', d => { if (c === conn) t._msg(d); });
+      c.on('close', () => { if (c !== conn) return; if (t.open) t._close(); else conn = null; });
+      c.on('error', () => { if (c === conn && !c.open) conn = null; });   // ошибка живого соединения не рвёт игру: ждём close или таймаут
     });
-    peer.on('error', err => { if (err && err.type === 'unavailable-id') return; if (t.open) t._close(); });   // ошибки после старта: в ожидании игнорируем, в игре ловит таймаут/close
+    peer.on('error', err => {   // после подключения друга ошибки уровня Peer игнорируем; до него фатальные закрывают комнату
+      if (!t.open && err && PEER_FATAL.test(err.type || '')) t._close();
+    });
     peer.on('disconnected', () => { try { if (!t.closed) peer.reconnect(); } catch (e) {} });
     t.sendRaw = d => { if (conn && conn.open) conn.send(d); };
     t.closeRaw = () => { try { conn && conn.close(); } catch (e) {} try { peer.destroy(); } catch (e) {} };
@@ -146,22 +164,23 @@ async function peerHost() {   // → { tr, code } | { err }
   return { err: 'net' };
 }
 async function peerJoin(code) {   // → { tr } | { err }
-  if (!(await loadPeerJS())) return { err: 'noweb' };
+  const ld = await loadPeerJS();
+  if (ld !== 'ok') return { err: ld === 'nortc' ? 'conn' : 'noweb' };
   return new Promise(res => {
     let peer, conn = null, settled = false; const t = mkTr(); t.kind = 'peer';
     const fin = v => { if (settled) return; settled = true; clearTimeout(to); if (v.err) { try { peer.destroy(); } catch (e) {} } res(v); };
-    const to = setTimeout(() => fin({ err: 'room' }), 15000);
-    try { peer = new window.Peer(undefined, { debug: 0 }); } catch (e) { fin({ err: 'noweb' }); return; }
+    const to = setTimeout(() => fin({ err: 'conn' }), 15000);
+    try { peer = new window.Peer(undefined, { debug: 0 }); } catch (e) { fin({ err: 'conn' }); return; }
     peer.on('open', () => {
       try {
         conn = peer.connect('vb4x10-' + code, { reliable: true });
         conn.on('open', () => { t._open(); fin({ tr: t }); });
         conn.on('data', d => t._msg(d));
         conn.on('close', () => t._close());
-        conn.on('error', () => { if (!settled) fin({ err: 'room' }); else t._close(); });
-      } catch (e) { fin({ err: 'noweb' }); }
+        conn.on('error', () => { if (!settled) fin({ err: 'conn' }); });   // после подключения ждём close/таймаут
+      } catch (e) { fin({ err: 'conn' }); }
     });
-    peer.on('error', err => { if (!settled) fin({ err: peerErr(err) }); else t._close(); });
+    peer.on('error', err => { if (!settled) fin({ err: peerErr(err) }); });   // после подключения ошибки Peer игнорируем
     t.sendRaw = d => { if (conn && conn.open) conn.send(d); };
     t.closeRaw = () => { try { conn && conn.close(); } catch (e) {} try { peer.destroy(); } catch (e) {} };
   });
@@ -181,6 +200,7 @@ function netClose(sendBye) {   // закрыть транспорт, верну�
   if (n.saved) { Object.assign(names, n.saved.names); TARGET = n.saved.target; }
 }
 function netLeave() {   // выйти из комнаты/матча без шума: хост продолжит против ИИ, гость остаётся на экране (UI сам идёт в меню)
+  netGen++;   // отменяет незавершённые netHost/netJoin
   const wasHost = mode === 'host', wasGuest = mode === 'guest';
   netClose(true);
   if (wasHost || wasGuest) mode = 'solo';
@@ -198,22 +218,28 @@ addEventListener('pagehide', () => { try { if (net && net.connected) net.tr.send
 async function netHost(kind) {
   kind = kind === 'bc' ? 'bc' : 'peer';
   netLeave();
+  const gen = netGen;
+  let r = null;
   try {
-    let r;
-    if (kind === 'bc') { if (typeof BroadcastChannel === 'undefined') r = { err: 'noweb' }; else r = bcHost(newRoomCode()); }
+    if (kind === 'bc') { if (typeof BroadcastChannel === 'undefined') r = { err: 'conn' }; else r = bcHost(newRoomCode()); }
     else { netStatus('Создаём комнату…'); r = await peerHost(); }
-    if (r.err) { netStatus(NET_ERR[r.err] || NET_NOWEB); return null; }
-    net = { role: 'host', kind, code: r.code, tr: r.tr, connected: false, seq: 0, acc: 0, gn: null, lastRx: performance.now(), matchId: 0, hb: setInterval(netBeat, 1000) };
+    if (gen !== netGen) { if (r && r.tr) r.tr.close(); return null; }   // пока ждали, нажали «Назад»
+    if (r.err) { netStatus(NET_ERR[r.err] || NET_ERR.conn); return null; }
+    net = { role: 'host', kind, code: r.code, tr: r.tr, connected: false, seq: 0, acc: 0, gn: null, lastRx: performance.now(), lastIn: 0, matchId: 0, hb: setInterval(netBeat, 1000) };
     r.tr.listen(hostOnMsg);
     r.tr.onopen = hostStart;
     r.tr.onclose = hostPeerLost;
     netStatus('Ждём друга…');
     return r.code;
-  } catch (e) { net = null; netStatus(NET_NOWEB); return null; }
+  } catch (e) {
+    try { if (r && r.tr) r.tr.close(); } catch (e2) {}
+    if (gen === netGen) { net = null; netStatus(NET_ERR.conn); }
+    return null;
+  }
 }
 function sendInit() {
   net.matchId++;
-  net.tr.send({ t: 'init', id: net.matchId, target: TARGET, names: Object.assign({}, names), tl: TL.name, tr: TR.name });
+  net.tr.send({ t: 'init', v: PROTO, id: net.matchId, target: TARGET, names: Object.assign({}, names), tl: TL.name, tr: TR.name });
 }
 function hostStart() {
   if (!net || net.connected || net.role !== 'host') return;
@@ -225,20 +251,23 @@ function netRestart() {   // реванш для хоста: новая игра
   if (mode !== 'host' || !net || !net.connected) return false;
   audio(); newMatch(); show(null); updateCamera(0, true); sendInit(); return true;
 }
-function hostPeerLost() {
+function hostPeerLost(text) {
   if (!net || net.role !== 'host') return;
   const was = net.connected;
   netClose(false);
-  if (!was) { netStatus('Соединение потеряно'); return; }
+  if (!was) { netStatus(typeof text === 'string' ? text : 'Соединение потеряно'); netEnd(); return; }
   mode = 'solo'; toSolo();
   if (TL && ['serve', 'play', 'point'].includes(state)) banner('ДРУГ ОТКЛЮЧИЛСЯ', 'teal', 2.4);
-  netStatus('Друг отключился');
+  netStatus(typeof text === 'string' ? text : 'Друг отключился'); netEnd();
 }
 function hostOnMsg(m) {
-  if (!net || !m) return;
+  if (!net || !m || typeof m !== 'object') return;
   net.lastRx = performance.now();
   if (m.t === 'bye') { hostPeerLost(); return; }
+  if (m.t === 'hello') { if (m.v !== PROTO) { net.tr.send({ t: 'bye' }); hostPeerLost(NET_VER); } return; }
   if (m.t !== 'in' || mode !== 'host' || !TR || !TR.human) return;
+  if (!Number.isFinite(m.jn) || !Number.isFinite(m.hn) || !Number.isFinite(m.an)) return;
+  net.lastIn = performance.now();
   const i = input2;
   i.left = !!m.l; i.right = !!m.r; i.jump = !!m.j; i.hit = !!m.h; i.act = !!m.a;
   const g = net.gn;
@@ -276,6 +305,7 @@ function buildSnap() {
 }
 function netHostFrame(dt) {
   if (!net || !net.connected || !TL) return;
+  if (net.lastIn && performance.now() - net.lastIn > 400) { input2.left = input2.right = input2.jump = input2.hit = input2.act = false; }   // гость молчит — кнопки считаем отпущенными
   net.acc += dt;
   const period = state === 'over' ? .25 : 1 / NET.hz;
   if (net.acc < period) return;
@@ -288,18 +318,21 @@ async function netJoin(code, kind) {
   kind = kind === 'bc' ? 'bc' : 'peer';
   code = normCode(code);
   netLeave();
+  const gen = netGen;
   if (code.length !== 5) { netStatus('Введите код комнаты из 5 букв'); return false; }
   netStatus('Подключаемся…'); audio();
-  let r;
+  let r = null;
   try {
-    if (kind === 'bc') r = typeof BroadcastChannel === 'undefined' ? { err: 'noweb' } : await bcJoin(code);
+    if (kind === 'bc') r = typeof BroadcastChannel === 'undefined' ? { err: 'conn' } : await bcJoin(code);
     else r = await peerJoin(code);
-  } catch (e) { r = { err: 'noweb' }; }
-  if (!r || r.err) { netStatus(NET_ERR[r && r.err] || NET_NOWEB); return false; }
+  } catch (e) { r = { err: 'conn' }; }
+  if (gen !== netGen) { try { if (r && r.tr) r.tr.close(); } catch (e) {} return false; }   // пока ждали, нажали «Назад»
+  if (!r || r.err) { netStatus(NET_ERR[r && r.err] || NET_ERR.conn); return false; }
   net = { role: 'guest', kind, code, tr: r.tr, connected: true, buf: [], off: 1e9, evN: 0, dn: 0, initId: -1, ciKey: '', lastRx: performance.now(),
-    lastSig: '', lastSend: 0, saved: { names: Object.assign({}, names), target: TARGET }, hb: setInterval(netBeat, 1000) };
+    lastSig: '', lastSend: 0, bad: 0, saved: { names: Object.assign({}, names), target: TARGET }, hb: setInterval(netBeat, 1000) };
   r.tr.listen(guestOnMsg);
   r.tr.onclose = () => guestLost('Соединение потеряно');
+  r.tr.send({ t: 'hello', v: PROTO });
   netStatus('Подключено, ждём начала матча…');
   return true;
 }
@@ -308,36 +341,91 @@ function guestLost(text) {
   netClose(false);
   const was = mode === 'guest';
   mode = 'solo';
-  netStatus(text);
+  netStatus(text); netEnd();
   if (was) toMenu();
 }
 function guestOnMsg(m) {
-  if (!net || !m) return;
+  if (!net || !m || typeof m !== 'object') return;
   net.lastRx = performance.now();
-  if (m.t === 's') { if (mode === 'guest' && TL) guestPush(m); return; }
-  if (m.t === 'init') { guestInit(m); return; }
-  if (m.t === 'bye') guestLost('Друг вышел из игры');
-  else if (m.t === 'full') { netClose(false); netStatus(NET_ERR.full); }
+  try {
+    if (m.t === 's') { if (mode === 'guest' && TL) guestPush(m); return; }
+    if (m.t === 'init') { guestInit(m); return; }
+    if (m.t === 'bye') guestLost('Друг вышел из игры');
+    else if (m.t === 'full') { netClose(false); netStatus(NET_ERR.full); netEnd(); }
+  } catch (e) { net && net.bad++; }
 }
+const cleanName = v => String(v == null ? '' : v).slice(0, 12);
 function guestInit(m) {
-  if (m.id === net.initId) return;
+  if (m.v !== PROTO) { netClose(true); const was = mode === 'guest'; mode = 'solo'; netStatus(NET_VER); netEnd(); if (was) toMenu(); return; }
+  if (!Number.isFinite(m.id) || m.id === net.initId) return;
   net.initId = m.id;
   mode = 'guest'; audio();
-  if (m.names) Object.assign(names, m.names);
+  if (m.names && typeof m.names === 'object') for (const k of [4, 7, 10]) if (k in m.names) names[k] = cleanName(m.names[k]);
   if ([7, 11, 15].includes(m.target)) TARGET = m.target;
   newMatch();
-  if (m.tl) TL.name = String(m.tl).slice(0, 20);
-  if (m.tr) TR.name = String(m.tr).slice(0, 20);
+  if (m.tl != null) TL.name = cleanName(m.tl);
+  if (m.tr != null) TR.name = cleanName(m.tr);
   banners = []; cutin = null; confetti = []; parts = []; rings = []; marks = [];
   for (const T of [TL, TR]) for (const p of T.players) p.pose = P_({});   // render() не должен упасть до первого снимка
   net.buf.length = 0; net.evN = 0; net.dn = 0; net.ciKey = ''; net.off = 1e9;
   show(null); updateCamera(0, true);
   netStatus('Игра началась');
 }
+/* ---- проверка снимка хоста: всё, что пришло из сети, — недоверенные данные ---- */
+const inR = (v, lo, hi) => typeof v === 'number' && v >= lo && v <= hi;   // NaN и Infinity не проходят
+const allIn = (a, lo, hi) => a.every(v => inR(v, lo, hi));
+const isA = (a, n) => Array.isArray(a) && a.length === n;
+const isI = (v, lo, hi) => inR(v, lo, hi) && Number.isInteger(v);
+const cleanStr = (v, n) => String(v == null ? '' : v).slice(0, n);
+const COL_RE = /^[#\w(),.% -]{1,40}$/;
+function validEv(e) {
+  if (!Array.isArray(e) || e.length < 2 || e.length > 8) return false;
+  switch (e[0]) {
+    case 's': return typeof e[1] === 'string' && Object.prototype.hasOwnProperty.call(sfx, e[1]) && e.length <= 3 && (e.length === 2 || inR(e[2], 0, 2));
+    case 'r': return e.length === 5 && (e[1] === 'w' || e[1] === 'floor') && inR(e[2], -200, 700) && inR(e[3], -50, 600) && inR(e[4], 100, 400);
+    case 'p': return e.length === 8 && isI(e[1], 0, 40) && Array.isArray(e[2]) && e[2].length >= 1 && e[2].length <= 6 && e[2].every(c => typeof c === 'string' && COL_RE.test(c))
+      && inR(e[3], 0, 600) && inR(e[4], 0, 3) && inR(e[5], -200, 700) && inR(e[6], -50, 600) && inR(e[7], 100, 400);
+    case 'd': return e.length === 4 && inR(e[1], -200, 700) && inR(e[2], 100, 400) && isI(e[3], 0, 40);
+    case 'b': return e.length === 2 && inR(e[1], 0, 500);
+  }
+  return false;
+}
+function validSnap(m) {   // true — снимок годится (строки заодно обрезаются); иначе отбрасываем целиком
+  try {
+    if (!m || m.t !== 's' || !inR(m.n, 0, 1e9) || !inR(m.ts, 0, 1e12)) return false;
+    if (!['serve', 'play', 'point', 'over'].includes(m.st)) return false;
+    if (!inR(m.sT, 0, 1e5) || !inR(m.tm, -10, 100)) return false;
+    if (!isA(m.sc, 2) || !allIn(m.sc, 0, 99) || !isI(m.sv, 0, 1) || !isI(m.pw, -1, 1)) return false;
+    if (!isA(m.sr, 2) || !isI(m.sr[0], 0, 1) || !isI(m.sr[1], 0, 2)) return false;
+    const b = m.b;
+    if (!isA(b, 7) || !inR(b[0], -200, 700) || !inR(b[1], -50, 600) || !inR(b[2], 100, 400) || !inR(b[3], -3000, 3000) || !inR(b[4], -3000, 3000) || !inR(b[5], -1e7, 1e7) || !isI(b[6], 0, 1)) return false;
+    if (!isA(m.pl, 6)) return false;
+    for (const r of m.pl) {
+      if (!isA(r, 8 + PF.length)) return false;
+      if (!inR(r[0], -100, 600) || !inR(r[1], -50, 600) || !inR(r[2], 100, 400) || !inR(r[3], -3000, 3000) || !inR(r[4], -3000, 3000) || !isI(r[5], 0, 1) || !inR(r[6], 0, 2) || !isI(r[7], 0, SWT.length - 1)) return false;
+      for (let j = 8; j < r.length; j++) if (!inR(r[j], -30, 30)) return false;
+    }
+    if (!isA(m.ac, 2) || !allIn(m.ac, -1, 2) || !isA(m.tc, 2) || !allIn(m.tc, 0, 9) || !isA(m.ro, 4) || !allIn(m.ro, -1, 2)) return false;
+    if (!Array.isArray(m.bn) || m.bn.length > 6) return false;
+    for (const x of m.bn) {
+      if (!isA(x, 5) || !inR(x[2], 0, 30) || !inR(x[3], 0, 30) || !isI(x[4], 0, 1)) return false;
+      x[0] = cleanStr(x[0], 40); x[1] = ['org', 'gold', 'teal'].includes(x[1]) ? x[1] : 'org';
+    }
+    if (m.ci != null) { if (!isA(m.ci, 5) || !isI(m.ci[0], 0, 99) || !isI(m.ci[1], 0, 1) || !inR(m.ci[3], 0, 30) || !inR(m.ci[4], 0, 30)) return false; m.ci[2] = cleanStr(m.ci[2], 40); }
+    for (const k of ['sx', 'ld']) if (m[k] != null) { if (!isA(m[k], 2) || !inR(m[k][1], 0, 30)) return false; m[k][0] = cleanStr(m[k][0], 60); }
+    if (!isA(m.fx, 5) || !allIn(m.fx, 0, 50)) return false;
+    if (m.sl != null && (!isA(m.sl, 3) || !inR(m.sl[0], -2000, 3000) || !inR(m.sl[1], -2000, 3000) || !inR(m.sl[2], 0, 5))) return false;
+    if (!Array.isArray(m.ev) || m.ev.length > 60 || !m.ev.every(validEv)) return false;
+    return true;
+  } catch (e) { return false; }
+}
 function guestPush(m) {
+  if (!validSnap(m)) { net.bad++; return; }
+  const buf = net.buf, lastS = buf[buf.length - 1];
+  if (lastS && (m.n <= lastS.n || m.ts < lastS.ts)) return;   // порядок снимков должен расти
   const at = performance.now(), lat = at - m.ts;
   net.off = Math.min(lat, net.off + .25);   // оценка смещения часов + минимальной задержки; медленно «отпускается» вверх
-  const buf = net.buf; buf.push(m);
+  buf.push(m);
   if (buf.length > 24) buf.splice(0, buf.length - 24);
 }
 function netGuestSend() {
@@ -407,7 +495,10 @@ function guestContinuous(a, b, al, rt) {
     for (let j = 0; j < PF.length; j++) p.pose[PF[j]] = L(ra[8 + j], rb[8 + j], kk);
   }
 }
-function netGuestFrame(dt) {
+function netGuestFrame(dt) {   // свой try/catch: плохой снимок не должен останавливать рендер
+  try { guestFrameInner(dt); } catch (e) { if (net && net.buf) net.buf.length = 0; if (net) net.bad = (net.bad || 0) + 1; }
+}
+function guestFrameInner(dt) {
   if (!net || net.role !== 'guest' || !TL || !net.buf.length) return;
   const buf = net.buf, rt = performance.now() - net.off - NET.delay;
   let i = 0;

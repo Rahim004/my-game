@@ -21,16 +21,16 @@ const MOCK_PEER = `(() => {
   }
   class Peer extends Em {
     constructor(id) { super(); this.id = id || 'g' + Math.random().toString(36).slice(2); this.conns = {}; peers[this.id] = this; setTimeout(() => this.emit('open', this.id), 20); }
-    connect(remote, o) { const cid = Math.random().toString(36).slice(2), c = new Conn(this, remote, cid); c.reliable = o && o.reliable; bc.postMessage({ k: 'conn', to: remote, from: this.id, cid }); setTimeout(() => { if (!c.open) this.emit('error', { type: 'peer-unavailable' }); }, 700); return c; }
+    connect(remote, o) { const cid = Math.random().toString(36).slice(2), c = new Conn(this, remote, cid); c.reliable = o && o.reliable; bc.postMessage({ k: 'conn', to: remote, from: this.id, cid, noopen: !!(o && o.noopen) }); setTimeout(() => { if (!c.open) this.emit('error', { type: 'peer-unavailable' }); }, 700); return c; }
     destroy() { for (const c of Object.values(this.conns)) c.close(); delete peers[this.id]; }
     reconnect() {}
   }
   bc.onmessage = ev => {
     const m = ev.data, p = peers[m.to]; if (!p) return;
-    if (m.k === 'conn') { const c = new Conn(p, m.from, m.cid); p.emit('connection', c); setTimeout(() => { c.open = true; bc.postMessage({ k: 'ack', to: m.from, cid: m.cid }); c.emit('open'); }, 10); }
+    if (m.k === 'conn') { const c = new Conn(p, m.from, m.cid); p.emit('connection', c); if (!m.noopen) setTimeout(() => { c.open = true; bc.postMessage({ k: 'ack', to: m.from, cid: m.cid }); c.emit('open'); }, 10); }
     else { const c = p.conns[m.cid]; if (!c) return; if (m.k === 'ack') { c.open = true; c.emit('open'); } else if (m.k === 'd') c.emit('data', m.d); else if (m.k === 'c' && !c.closed) { c.closed = true; c.open = false; c.emit('close'); } }
   };
-  window.Peer = Peer;
+  window.Peer = Peer; window.__peers = peers;
 })();`;
 
 const BOT = (side) => `(() => {
@@ -161,6 +161,77 @@ async function pair(ctx, base, kind, errs, routeFn) {
     await p5.goto(base + '/test.html'); await sleep(400);
     const c5 = await p5.evaluate(async () => { const c = await window.__vb.netHost('peer'); const j = await window.__vb.netJoin('ABCDE', 'peer'); return { c, j, st: window.__vb.statuses }; });
     check(c5.c === null && c5.j === false && c5.st.some(t => t.includes('версии на GitHub')), 'без PeerJS: статусы ' + JSON.stringify(c5.st));
+    await ctx.close();
+
+    // ---------- фаза 6: мусорные снимки не роняют гостя, ввод гостя устаревает, версия протокола ----------
+    ctx = await b.newContext({ viewport: { width: 844, height: 390 } });
+    q = await pair(ctx, base, 'bc', errs);
+    await q.gp.evaluate(() => { window.__maxBn = 0; setInterval(() => { for (const b of window.__vb.banners) window.__maxBn = Math.max(window.__maxBn, b.text.length); }, 20); });
+    const junk = [
+      s => { s.b[0] = NaN; }, s => { s.pl.length = 3; }, s => { s.pl[2][9] = Infinity; }, s => { s.st = 'hax'; }, s => { s.ev = [['s', '__proto__'], ['p', 1e9, ['x'], 1, 1, 0, 0, 200]]; },
+      s => { s.b[1] = 1e9; }, s => { s.sc = 'abc'; }, s => { delete s.fx; }, s => { s.bn = new Array(500).fill(['a', 'org', 0, 1, 0]); },
+    ];
+    for (const j of junk) await q.hp.evaluate(`(() => { const s = window.__vb.netSnap(); (${j.toString()})(s); window.__vb.netRaw(s); })()`);
+    await q.hp.evaluate(() => { for (const m of ['str', null, 5, [], { t: 's' }, { t: 'zzz' }]) window.__vb.netRaw(m); });
+    await q.hp.evaluate(() => { const s = window.__vb.netSnap(); s.bn = [['X'.repeat(5000), 'bogus', 0, 3, 0]]; s.ci = [4, 0, 'Y'.repeat(900), 0, 2]; window.__vb.netRaw(s); });
+    await sleep(1500);
+    const gs = await q.gp.evaluate(() => ({ mode: window.__vb.mode, ok: Number.isFinite(window.__vb.ball.x) && Number.isFinite(window.__vb.TR.players[0].x) && window.__vb.TR.players.every(p => p.pose && Object.values(p.pose).every(Number.isFinite)), err: document.querySelectorAll('.errbox').length, maxBn: window.__maxBn, conn: !!window.__vb.net }));
+    check(gs.mode === 'guest' && gs.ok && gs.err === 0 && gs.conn, 'мусорные снимки (NaN/обрезанные/чужие поля) отброшены: ' + JSON.stringify(gs));
+    check(gs.maxBn <= 40, 'длинный баннер обрезан до 40 символов (макс ' + gs.maxBn + ')');
+    await q.hp.evaluate(() => window.__vb.netRaw({ t: 'init', v: 1, id: 777, names: { 4: 'N'.repeat(100), evil: 1 }, target: 'abc', tl: {}, tr: 5 }));
+    await sleep(400);
+    const nm = await q.gp.evaluate(() => ({ n4: String(window.__vb.names[4]).length, keys: Object.keys(window.__vb.names).join(), mode: window.__vb.mode }));
+    check(nm.n4 <= 12 && nm.keys === '4,7,10' && nm.mode === 'guest', 'init: имена обрезаны, чужие ключи не принимаются: ' + JSON.stringify(nm));
+    // ввод гостя устаревает: гость один раз шлёт «вправо» и замолкает
+    await q.gp.evaluate(() => { window.requestAnimationFrame = () => 0; });
+    await sleep(300);
+    await q.gp.evaluate(() => window.__vb.netRaw({ t: 'in', l: 0, r: 1, j: 0, h: 0, a: 0, jn: 0, hn: 0, an: 0 }));
+    await sleep(150);
+    const held1 = await q.hp.evaluate(() => window.__vb.input2.right);
+    await sleep(700);
+    const held2 = await q.hp.evaluate(() => window.__vb.input2.right);
+    check(held1 === true && held2 === false, 'ввод гостя у хоста сбрасывается через 400 мс тишины: ' + held1 + ' -> ' + held2);
+    await q.hp.evaluate(() => window.__vb.netRaw({ t: 'init', v: 2, id: 778 }));
+    await sleep(500);
+    const vr = await q.gp.evaluate(() => ({ mode: window.__vb.mode, st: window.__vb.state, status: window.__vb.statuses.slice(-1)[0] }));
+    check(vr.mode === 'solo' && vr.st === 'menu' && /Версии игры разные/.test(vr.status), 'другая версия протокола: выход со статусом «' + vr.status + '»');
+    await ctx.close();
+
+    // ---------- фаза 7: «Назад» во время создания комнаты / подключения ----------
+    ctx = await b.newContext({ viewport: { width: 844, height: 390 } });
+    const p7 = await ctx.newPage(); p7.on('pageerror', e => errs.push('p7: ' + e.message));
+    await p7.route('**/peerjs.min.js', rt => setTimeout(() => rt.fulfill({ contentType: 'application/javascript', body: MOCK_PEER }), 1200));
+    await p7.goto(base + '/test.html'); await sleep(400);
+    await p7.evaluate(() => { window.__r = window.__vb.netHost('peer'); });
+    await sleep(300);
+    await p7.evaluate(() => window.__vb.netLeave());
+    const r7 = await p7.evaluate(async () => ({ code: await window.__r, net: window.__vb.net, mode: window.__vb.mode, st: window.__vb.state }));
+    await sleep(1500);
+    const s7 = await p7.evaluate(() => ({ net: window.__vb.net, mode: window.__vb.mode, st: window.__vb.state, peers: Object.keys(window.__peers || {}).length, status: window.__vb.statuses }));
+    check(r7.code === null && r7.net === null && s7.net === null && s7.mode === 'solo' && s7.st === 'menu' && s7.peers === 0 && !s7.status.includes('Ждём друга…'), '«Назад» при создании комнаты: сессии и матча нет ' + JSON.stringify(s7));
+    // две параллельные попытки: живёт только последняя
+    const two = await p7.evaluate(async () => { const a = window.__vb.netHost('peer'), c = window.__vb.netHost('peer'); const r = await Promise.all([a, c]); return { r, net: window.__vb.net, peers: Object.keys(window.__peers).length }; });
+    check(two.r[0] === null && /^[A-Z]{5}$/.test(two.r[1]) && two.net && two.net.code === two.r[1] && two.peers === 1, 'две параллельные попытки: одна сессия ' + JSON.stringify(two));
+    const j7 = await p7.evaluate(async () => { const p = window.__vb.netJoin('ZZZZZ', 'bc'); await new Promise(r => setTimeout(r, 300)); window.__vb.netLeave(); const ok = await p; return { ok, status: window.__vb.statuses.slice(-1)[0], net: window.__vb.net }; });
+    check(j7.ok === false && j7.net === null && j7.status !== 'Комната не найдена', '«Назад» при подключении: тихая отмена ' + JSON.stringify(j7));
+    await ctx.close();
+
+    // ---------- фаза 8: ошибки Peer после старта не рвут игру; висящее соединение не делает комнату «занятой» ----------
+    ctx = await b.newContext({ viewport: { width: 844, height: 390 } });
+    const route8 = p => p.route('**/peerjs.min.js', rt => rt.fulfill({ contentType: 'application/javascript', body: MOCK_PEER }));
+    const h8 = await ctx.newPage(), g8 = await ctx.newPage(), d8 = await ctx.newPage();
+    for (const [n, p] of [['h8', h8], ['g8', g8], ['d8', d8]]) { p.on('pageerror', e => errs.push(n + ': ' + e.message)); await route8(p); await p.goto(base + '/test.html'); }
+    await sleep(400);
+    const code8 = await h8.evaluate(() => window.__vb.netHost('peer'));
+    await d8.evaluate(async c => { await window.__vb.netJoin('ABCDE', 'peer').catch(() => 0); const P = new window.Peer(); await new Promise(r => P.on('open', r)); P.connect('vb4x10-' + c, { noopen: true }); }, code8);
+    await sleep(300);
+    const ok8 = await g8.evaluate(c => window.__vb.netJoin(c, 'peer'), code8);
+    await sleep(800);
+    check(ok8 === true && await h8.evaluate(() => window.__vb.mode) === 'host', 'висящее неоткрытое соединение не блокирует комнату');
+    await Promise.all([h8, g8].map(p => p.evaluate(() => { for (const pr of Object.values(window.__peers)) { pr.emit('error', { type: 'network' }); pr.emit('error', { type: 'server-error' }); for (const c of Object.values(pr.conns)) c.emit('error', new Error('x')); } })));
+    await sleep(1500);
+    const a8 = await Promise.all([h8, g8].map(p => p.evaluate(() => ({ mode: window.__vb.mode, c: window.__vb.net && window.__vb.net.connected, st: window.__vb.state }))));
+    check(a8[0].mode === 'host' && a8[1].mode === 'guest' && a8[0].c && a8[1].c, 'ошибки Peer/conn после старта игру не рвут: ' + JSON.stringify(a8));
     await ctx.close();
   } catch (e) { console.log('TEST CRASH', e); fails++; }
   console.log(errs.length ? 'ERRORS:\n' + errs.join('\n') : 'NO ERRORS');
