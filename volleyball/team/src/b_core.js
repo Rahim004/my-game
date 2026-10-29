@@ -97,6 +97,7 @@ function buzz(ms) { try { navigator.vibrate && navigator.vibrate(ms); } catch (e
 /* ================= state ================= */
 let TL = null, TR = null, ball = null, server = null, servingTeam = null;
 let state = 'menu', timer = 0, serveT = 0, clock = 0, frameDt = 0;
+let ARENA = 'hall';   // площадка: 'hall' — зал, 'beach' — пляж. Менять только через setArena() (e_scene.js)
 let lastToucher = null, lastTeam = null, blockDone = false, netHitThisRally = false, pointWinner = null;
 let banners = [], parts = [], confetti = [], marks = [], rings = [];
 let freeze = 0, flash = 0, shake = 0, punch = 0, speedLines = null, hype = 0, setHints = 0, netShake = 0, wipe = 0;

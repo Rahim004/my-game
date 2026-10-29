@@ -187,6 +187,9 @@ function drawStandsFront(c, signs) {
   }
 }
 let bgL = null;
+function setArena(a) {   // сменить площадку: перестроить заранее нарисованные слои
+  ARENA = a === 'beach' ? 'beach' : 'hall'; bgL = null;
+}
 function buildBg(res) {
   const w = Math.ceil((BGX1 - BGX0) * res), h = Math.ceil((BGY1 - BGY0) * res);
   const make = cheer => {
