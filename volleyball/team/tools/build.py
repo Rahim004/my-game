@@ -16,9 +16,15 @@ if not photos:
     src = re.sub(r'<div class="polaroid"><img[^>]*></div>', '', src)
     print('фото нет — собрано без фотографий')
 dist = root / 'dist'; dist.mkdir(exist_ok=True)
+SKELETON = ('<!doctype html>\n<html lang="ru">\n<head>\n<meta charset="utf-8">\n'
+  '<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">\n'
+  '<style>:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}'
+  'body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>\n</head>\n<body>\n')
+# фрагмент для Claude (оболочку добавляет просмотрщик) и полноценная страница для GitHub Pages
 (dist / 'volleyball.html').write_text(src.replace('/*__DEBUG__*/', ''), encoding='utf-8')
+(dist / 'index.html').write_text(SKELETON + src.replace('/*__DEBUG__*/', '') + '\n</body>\n</html>\n', encoding='utf-8')
 dbg = src.replace('/*__DEBUG__*/', 'window.__vb = { get state() { return state; }, get TL() { return TL; }, get TR() { return TR; }, get ball() { return ball; }, get active() { return active; }, get active2() { return active2; }, get serveT() { return serveT; }, get server() { return server; }, get servingTeam() { return servingTeam; }, get mode() { return mode; }, get banners() { return banners; }, get input() { return input; }, get input2() { return input2; }, get net() { return net && { role: net.role, kind: net.kind, code: net.code, connected: net.connected }; }, get target() { return TARGET; }, set target(v) { TARGET = v; }, get statuses() { return window.__vbStatus || []; }, get names() { return names; }, netRaw: m => net && net.tr.send(m), netSnap: () => buildSnap(), startMatch, netHost, netJoin, netLeave, press, press2, roomFromHash, roomLink };\n{ const ui = onNetStatus; onNetStatus = t => { (window.__vbStatus = window.__vbStatus || []).push(t); ui(t); }; }')
-(dist / 'test.html').write_text('<!doctype html><html><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>body{margin:0}[hidden]{display:none!important}</style></head><body>' + dbg + '</body></html>', encoding='utf-8')
+(dist / 'test.html').write_text(SKELETON + dbg + '\n</body>\n</html>\n', encoding='utf-8')
 js = re.search(r'<script>(.*)</script>', src, re.S).group(1)
 (dist / '_check.js').write_text(js, encoding='utf-8')
 r = subprocess.run(['node', '--check', str(dist / '_check.js')], capture_output=True, text=True)
