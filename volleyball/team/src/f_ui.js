@@ -237,6 +237,18 @@ function syncModeUi() {   // подписи и раскладка под тек�
 }
 function setActLabel(btns, serve) { btns.forEach(b => { b.textContent = serve ? 'СИЛОВАЯ' : 'ПРИЁМ'; b.classList.toggle('serve', serve); }); }
 
+const netLinkEl = $('netLink'); let netLinkAt = 0, netLinkTxt = '', netLinkCls = '';
+function updNetLink(now) {   // плашка связи в онлайне: пинг в углу, при обрыве — крупно по центру
+  if (now - netLinkAt < 250) return; netLinkAt = now;
+  let txt = '', cls = 'netlink';
+  const L = state === 'menu' ? null : netLink();
+  if (L) {
+    if (L.warn) { txt = L.warn; cls += ' warn'; }
+    else if (L.ms > 0) { txt = '● ' + Math.round(L.ms) + ' мс'; cls += L.ms > 600 ? ' slow' : L.ms > 300 ? ' mid' : ''; }
+  }
+  if (txt !== netLinkTxt) { netLinkTxt = txt; netLinkEl.textContent = txt; netLinkEl.hidden = !txt; }
+  if (cls !== netLinkCls) { netLinkCls = cls; netLinkEl.className = cls; }
+}
 /* ================= loop ================= */
 let last = performance.now(), staticDone = false, perfAcc = 0, perfN = 0, perfSkip = 0;
 const ovMenu = $('menu'), ovPause = $('pause'), ovEnd = $('end');
@@ -252,6 +264,7 @@ function frame(now) {
     if (mode === 'host') netHostFrame(dt); else if (mode === 'guest') netGuestSend(dt);
     updateCamera(dt, false);
     syncModeUi();
+    updNetLink(now);
     const am = state === 'serve' && servingTeam === myTeam() ? 'serve' : 'recv';
     if (am !== actMode) { actMode = am; setActLabel(actBtns1, am === 'serve'); }
     const am2 = state === 'serve' && TR && servingTeam === TR && mode === 'local2' ? 'serve' : 'recv';   // подача второго игрока (только local2: в онлайне вторая кнопка не нужна)
