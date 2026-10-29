@@ -392,7 +392,7 @@ function buildSnap() {
     t: 's', n: ++net.seq, ts: performance.now(), st: state, sT: nq2(serveT), tm: nq2(timer),
     sc: [TL.score, TR.score], sv: servingTeam === TR ? 1 : 0, pw: pointWinner ? (pointWinner === TR ? 1 : 0) : -1,
     sr: [server.team === TR ? 1 : 0, server.idx],
-    b: [nq2(ball.x), nq2(ball.h), nq2(ball.lane), nq2(ball.vx), nq2(ball.vh), nq3(ball.rot), ball.spiked ? 1 : 0], pl,
+    b: [nq2(clamp(ball.x, -150, 650)), nq2(clamp(ball.h, -40, 550)), nq2(ball.lane), nq2(ball.vx), nq2(ball.vh), nq3(ball.rot), ball.spiked ? 1 : 0], pl,
     ac: [idxOf(TL, TL.act), idxOf(TR, TR.act)], tc: [TL.touches, TR.touches],
     ro: [idxOf(TL, TL.roles.hitter), idxOf(TL, TL.roles.setter), idxOf(TR, TR.roles.hitter), idxOf(TR, TR.roles.setter)],
     bn: banners.filter(b => b.own !== 'L').map(b => [b.text, b.tone, nq2(b.t), b.life, b.small ? 1 : 0]),
@@ -508,6 +508,7 @@ function validSnap(m) {   // true — снимок годится (строки 
     if (!isA(m.sc, 2) || !allIn(m.sc, 0, 99) || !isI(m.sv, 0, 1) || !isI(m.pw, -1, 1)) return false;
     if (!isA(m.sr, 2) || !isI(m.sr[0], 0, 1) || !isI(m.sr[1], 0, 2)) return false;
     const b = m.b;
+    if (isA(b, 7) && Number.isFinite(b[0]) && Number.isFinite(b[1])) { b[0] = clamp(b[0], -200, 700); b[1] = clamp(b[1], -50, 600); }
     if (!isA(b, 7) || !inR(b[0], -200, 700) || !inR(b[1], -50, 600) || !inR(b[2], 100, 400) || !inR(b[3], -3000, 3000) || !inR(b[4], -3000, 3000) || !inR(b[5], -1e7, 1e7) || !isI(b[6], 0, 1)) return false;
     if (!isA(m.pl, 6)) return false;
     for (const r of m.pl) {

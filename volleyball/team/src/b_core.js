@@ -401,6 +401,7 @@ function stepBall(dt) {
     ball.vh = Math.abs(ball.vh) * .42; ball.vx *= .6; if (ball.vh < 25) ball.vh = 0;
   }
   if (state !== 'play' && ball.h <= BR + .1) ball.vx *= .985;
+  if (ball.x < -40) { ball.x = -40; ball.vx = Math.abs(ball.vx) * .3; } else if (ball.x > VW + 40) { ball.x = VW + 40; ball.vx = -Math.abs(ball.vx) * .3; }   // стены арены: мяч не улетает за край
 }
 function land() {
   const x = ball.x; let W, out = false;
