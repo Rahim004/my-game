@@ -95,7 +95,7 @@ syncMode();
 $('playBtn').addEventListener('click', () => { audio(); if (pick === 'online') openOnline(); else startMatch(pick); });
 
 const ovOnline = $('online'), netStatusEl = $('netStatus'), codeIn = $('codeIn');
-const netKind = () => { try { return /[?&]net=bc\b/.test(location.search) ? 'bc' : 'peer'; } catch (e) { return 'peer'; } };
+const netKind = () => { try { const q = location.search; return /[?&]net=bc\b/.test(q) ? 'bc' : /[?&]net=peer\b/.test(q) ? 'peer' : 'auto'; } catch (e) { return 'auto'; } };
 const RU2LAT = { 'й': 'Q', 'ц': 'W', 'у': 'E', 'к': 'R', 'е': 'T', 'н': 'Y', 'г': 'U', 'ш': 'I', 'щ': 'O', 'з': 'P', 'ф': 'A', 'ы': 'S', 'в': 'D', 'а': 'F', 'п': 'G', 'р': 'H', 'о': 'J', 'л': 'K', 'д': 'L', 'я': 'Z', 'ч': 'X', 'с': 'C', 'м': 'V', 'и': 'B', 'т': 'N', 'ь': 'M' };
 const fixCode = v => normCode(String(v || '').toLowerCase().replace(/[а-яё]/g, ch => RU2LAT[ch] || '').toUpperCase());   // кириллица той же клавиши → латиница, заглавные, 5 символов
 const PROGRESS = /^(Создаём|Подключаемся|Ждём друга|Подключено|Друг подключился|Игра началась)/;
