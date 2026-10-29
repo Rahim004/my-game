@@ -23,18 +23,18 @@ const poseSetPrep = () => P_({ hipH: 18.6, lean: -.02, head: -.7, ffx: -2.4, nfx
 const poseSetHit = s => P_({ hipH: lerp(18.8, 20.2, s), lean: -.08, head: -.75, ffx: -2.3, nfx: 2.5, fu: lerp(2.5, 2.95, s), fl: lerp(3.5, 3.0, s), nu: lerp(2.55, 3.0, s), nl: lerp(3.55, 3.05, s) });
 const poseBlockReady = () => P_({ hipH: 18, lean: .1, head: -.25, ffx: -2.1, nfx: 2.1, fu: 2.0, fl: 2.9, nu: 2.08, nl: 2.95 });
 const poseBlockAir = () => P_({ hipH: 20.4, lean: .03, head: -.25, ffx: -.9, ffy: 1.6, nfx: .9, nfy: 1.0, ffa: -.95, nfa: -.95, fu: 2.92, fl: 2.95, nu: 2.82, nl: 2.86 });
-const poseSpikeCock = () => P_({ hipH: 20.5, lean: -.26, head: -.5, ffx: -4.4, ffy: 5.2, nfx: -2.5, nfy: 3.4, ffa: -1.0, nfa: -.9, fu: 2.5, fl: 2.72, nu: 3.92, nl: 5.25 });
+const poseSpikeCock = () => P_({ hipH: 20.5, lean: -.36, head: -.55, ffx: -4.7, ffy: 5.5, nfx: -2.7, nfy: 3.7, ffa: -1.05, nfa: -.95, fu: 2.7, fl: 2.9, nu: 4.08, nl: 5.5 });
 function poseSpikeHit(s) {
   const e = easeOut(s), e2 = ease(clamp((s - .08) / .92, 0, 1));
-  return P_({ hipH: 20.5, lean: lerp(-.26, .5, e), head: lerp(-.5, .1, e), ffx: lerp(-4.4, -1.2, e), ffy: lerp(5.2, 2.4, e), nfx: lerp(-2.5, 1.8, e), nfy: lerp(3.4, 1.3, e), ffa: -.9, nfa: -.8,
-    fu: lerp(2.5, .35, e), fl: lerp(2.72, .8, e), nu: lerp(3.92, 1.2, e), nl: lerp(5.25, 1.45, e2) });
+  return P_({ hipH: 20.5, lean: lerp(-.36, .5, e), head: lerp(-.55, .1, e), ffx: lerp(-4.7, -1.2, e), ffy: lerp(5.5, 2.4, e), nfx: lerp(-2.7, 1.8, e), nfy: lerp(3.7, 1.3, e), ffa: -.9, nfa: -.8,
+    fu: lerp(2.7, .35, e), fl: lerp(2.9, .8, e), nu: lerp(4.08, 1.2, e), nl: lerp(5.5, 1.45, e2) });
 }
 const poseAir = () => P_({ hipH: 20.3, lean: .05, head: -.2, ffx: -1.4, ffy: 2.4, nfx: 1.2, nfy: 1.1, ffa: -.8, nfa: -.8, fu: 2.3, fl: 2.6, nu: 2.1, nl: 2.45 });
 const poseServeHold = () => P_({ hipH: 19.8, lean: .12, head: -.12, ffx: -2.6, nfx: 2.3, fu: .3, fl: 1.0, nu: .34, nl: 1.05 });
-const poseServeToss = () => P_({ hipH: 19.6, lean: -.14, head: -.6, ffx: -2.9, nfx: 2.6, fu: 2.85, fl: 2.95, nu: 3.9, nl: 5.1 });
+const poseServeToss = () => P_({ hipH: 19.6, lean: -.22, head: -.62, ffx: -3.0, nfx: 2.7, fu: 2.9, fl: 3.0, nu: 4.05, nl: 5.4 });
 function poseServeHit(s) {
   const e = easeOut(s);
-  return P_({ hipH: 19.6, lean: lerp(-.14, .38, e), head: lerp(-.6, -.1, e), ffx: lerp(-2.9, -3.6, e), nfx: lerp(2.6, 3.2, e), fu: lerp(2.85, .3, e), fl: lerp(2.95, .7, e), nu: lerp(3.9, 1.0, e), nl: lerp(5.1, 1.25, ease(s)) });
+  return P_({ hipH: 19.6, lean: lerp(-.22, .38, e), head: lerp(-.62, -.1, e), ffx: lerp(-3.0, -3.6, e), nfx: lerp(2.7, 3.2, e), fu: lerp(2.9, .3, e), fl: lerp(3.0, .7, e), nu: lerp(4.05, 1.0, e), nl: lerp(5.4, 1.25, ease(s)) });
 }
 function poseDive(s) {
   const e = easeOut(Math.min(1, s * 1.6));
@@ -138,6 +138,18 @@ function shade(hex, f) {
   if (!v) { const n = parseInt(hex.slice(1), 16); v = `rgb(${Math.min(255, (n >> 16) * f) | 0},${Math.min(255, (n >> 8 & 255) * f) | 0},${Math.min(255, (n & 255) * f) | 0})`; shadeCache.set(key, v); }
   return v;
 }
+/* светлая прядь: цвет волос, смешанный со светом (тёмные волосы получают холодный блик, светлые — тёплый) */
+const tintCache = new Map();
+function tint(hex, t) {
+  const key = hex + t; let v = tintCache.get(key);
+  if (!v) {
+    const n = parseInt(hex.slice(1), 16), r = n >> 16, g = n >> 8 & 255, b = n & 255, dark = (r + g + b) < 190;
+    const T = dark ? [150, 168, 215] : [255, 238, 200];
+    v = `rgb(${(r + (T[0] - r) * t) | 0},${(g + (T[1] - g) * t) | 0},${(b + (T[2] - b) * t) | 0})`; tintCache.set(key, v);
+  }
+  return v;
+}
+const lumOf = hex => { const n = parseInt(hex.slice(1), 16); return ((n >> 16) * .3 + (n >> 8 & 255) * .59 + (n & 255) * .11); };
 function capsule(c, a, ra, b, rb) {
   const th = Math.atan2(b[1] - a[1], b[0] - a[0]);
   c.moveTo(a[0] + Math.cos(th + 1.5708) * ra, a[1] + Math.sin(th + 1.5708) * ra);
@@ -145,16 +157,17 @@ function capsule(c, a, ra, b, rb) {
   c.arc(b[0], b[1], rb, th - 1.5708, th + 1.5708);
   c.closePath();
 }
-const INKC = 'rgba(18,12,20,.85)'; let INK = 0;
+const INKC = 'rgba(18,12,20,.85)'; let INK = 0, DET = 1; /* DET: мелкие детали (в отражении выключены) */
 function fcap(c, a, ra, b, rb, col) {
   c.beginPath(); capsule(c, a, ra, b, rb);
   if (INK) { c.lineWidth = INK; c.strokeStyle = INKC; c.lineJoin = 'round'; c.stroke(); }
   c.fillStyle = col; c.fill();
 }
-function scap(c, a, ra, b, rb, col) {
+function scapPath(c, a, ra, b, rb) {
   const o = [-.42 * ra, -.12 * ra];
-  c.beginPath(); capsule(c, [a[0] + o[0], a[1] + o[1]], ra * .56, [b[0] + o[0] * rb / ra, b[1] + o[1] * rb / ra], rb * .56); c.fillStyle = col; c.fill();
+  capsule(c, [a[0] + o[0], a[1] + o[1]], ra * .56, [b[0] + o[0] * rb / ra, b[1] + o[1] * rb / ra], rb * .56);
 }
+function scap(c, a, ra, b, rb, col) { c.beginPath(); scapPath(c, a, ra, b, rb); c.fillStyle = col; c.fill(); }
 const L2 = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
 function smoothPath(c, pts, sharp) {
   c.beginPath();
@@ -176,60 +189,159 @@ HAIR.curly = (() => {
   out.push([-1.4, .2], [-.4, .85], [.8, 1.55], [1.8, 1.55]);
   return out;
 })();
+/* светлые пряди [x0,y0, cx,cy, x1,y1] и тёмные линии прядей — в координатах головы */
+const HAIR_HI = {
+  short: [[-2.0, 1.9, -.9, 3.05, .7, 2.95], [1.0, 2.45, 1.7, 2.35, 2.05, 1.75]],
+  swept: [[-2.2, 2.0, -.8, 3.3, 1.2, 3.0], [1.3, 2.7, 2.2, 2.3, 2.6, 1.45]],
+  spiky: [[-2.2, 2.6, -1.5, 3.4, -.5, 3.1], [.2, 3.0, .6, 3.9, .75, 3.35], [1.6, 2.4, 2.0, 2.8, 2.45, 2.55]],
+  buzz: [[-1.7, 1.8, -.5, 2.95, .9, 2.7]],
+  curly: [[-2.4, 1.7, -1.3, 3.0, .2, 3.2], [.7, 3.1, 1.6, 2.8, 2.2, 2.0]],
+};
+const HAIR_LN = {
+  short: [[-.3, 3.2, .9, 2.9, 1.6, 1.75], [-1.5, 2.6, -.5, 2.3, .1, 1.5]],
+  swept: [[-.4, 3.4, 1.2, 3.0, 2.3, 1.2], [-1.6, 2.9, -.6, 2.4, .5, 1.2]],
+  spiky: [[-.3, 3.4, .1, 2.5, .6, 1.5], [-1.6, 3.1, -1.2, 2.3, -.8, 1.0]],
+  buzz: [],
+  curly: [[-1.8, 2.4, -1.0, 2.0, -.7, 1.0]],
+};
+function hairPts(p, style) {
+  const base = HAIR[style] || HAIR.short;
+  if (!DET) return base;
+  const air = p.ground === false, vh = air ? (p.vh || 0) : 0, vx = (p.vx || 0) * (p.face || 1);
+  const lift = clamp(-vh / 260, -1, 1) * .55, back = clamp(vx / 120, -1, 1) * .4 + (air ? .12 : 0);
+  const sw = (air || Math.abs(vx) > 8) ? Math.sin(clock * 15 + (p.idx || 0) * 1.3) * .1 : 0;
+  if (!lift && !back && !sw) return base;
+  return base.map(q => { const w = Math.max(0, Math.hypot(q[0], q[1] - .4) - 2.45); return [q[0] - (back + sw) * w, q[1] + lift * w]; });
+}
 
 function drawLeg(c, sk, leg, fa, far, p) {
   const kit = p.kit, look = p.look, k = look.tall, hip = sk.hip, { knee, ankle } = leg;
-  const skin = far ? look.skinD : look.skin, dim = far ? .8 : 1;
+  const skin = far ? look.skinD : look.skin, dim = far ? .8 : 1, det = DET && !far;
+  const m = L2(knee, ankle, .5), s0 = L2(knee, ankle, .45);
   fcap(c, hip, 2.1 * k, knee, 1.55 * k, skin);
-  fcap(c, knee, 1.5 * k, L2(knee, ankle, .5), 1.32 * k, skin);
-  scap(c, L2(hip, knee, .4), 1.9 * k, knee, 1.4 * k, 'rgba(90,45,30,.22)');
-  scap(c, knee, 1.45 * k, L2(knee, ankle, .45), 1.3 * k, 'rgba(90,45,30,.22)');
-  fcap(c, L2(knee, ankle, .45), 1.3 * k, ankle, .98 * k, shade(kit.sock, dim));
-  fcap(c, L2(knee, ankle, .45), 1.34 * k, L2(knee, ankle, .53), 1.28 * k, shade(kit.sockBand, dim));
-  fcap(c, L2(knee, ankle, -.02), 1.62 * k, L2(knee, ankle, .15), 1.5 * k, shade(kit.pad, dim));
+  fcap(c, knee, 1.5 * k, m, 1.32 * k, skin);
+  c.beginPath(); scapPath(c, L2(hip, knee, .4), 1.9 * k, knee, 1.4 * k); scapPath(c, knee, 1.45 * k, s0, 1.3 * k);
+  c.fillStyle = 'rgba(90,45,30,.22)'; c.fill();
+  /* гетра с полосой */
+  fcap(c, s0, 1.3 * k, ankle, .98 * k, shade(kit.sock, dim));
+  fcap(c, s0, 1.34 * k, L2(knee, ankle, .53), 1.28 * k, shade(kit.sockBand, dim));
+  /* наколенник */
+  const pa = L2(knee, ankle, -.07), pb = L2(knee, ankle, .17);
+  fcap(c, pa, 1.68 * k, pb, 1.52 * k, shade(kit.pad, dim));
+  if (det) {
+    let dx = ankle[0] - knee[0], dy = ankle[1] - knee[1]; const dl = Math.hypot(dx, dy) || 1; dx /= dl; dy /= dl;
+    const nx = dy < 0 ? -dy : dy, ny = dy < 0 ? dx : -dx; /* нормаль вперёд */
+    c.beginPath(); c.moveTo(pa[0] + nx * 1.0 * k - dx * .2 * k, pa[1] + ny * 1.0 * k - dy * .2 * k); c.lineTo(pb[0] + nx * .85 * k, pb[1] + ny * .85 * k);
+    c.strokeStyle = 'rgba(255,255,255,.3)'; c.lineWidth = .38 * k; c.lineCap = 'round'; c.stroke();
+  }
+  /* кроссовок: подошва, верх, полоска, шнуровка */
   const ca = Math.cos(fa), sa = Math.sin(fa);
-  const heel = [ankle[0] - ca * k, ankle[1] - sa * k - .25 * k], toe = [ankle[0] + ca * FOOT * k, ankle[1] + sa * FOOT * k - .3 * k];
-  fcap(c, [heel[0], heel[1] - .35 * k], .95 * k, [toe[0], toe[1] - .3 * k], .68 * k, shade(kit.sole, dim));
-  fcap(c, heel, 1.0 * k, toe, .75 * k, shade(kit.shoe, far ? .82 : 1));
+  const F = (x, y) => [ankle[0] + (ca * x - sa * y) * k, ankle[1] + (sa * x + ca * y) * k];
+  fcap(c, F(-.9, -1.32), .42 * k, F(3.0, -1.22), .38 * k, shade(kit.sole, dim));
+  c.beginPath();
+  let q = F(-1.1, -1.0); c.moveTo(q[0], q[1]);
+  const Q = (cx, cy, x, y) => { const a = F(cx, cy), b = F(x, y); c.quadraticCurveTo(a[0], a[1], b[0], b[1]); };
+  Q(-1.5, -.3, -1.15, .3); Q(-.8, .75, -.2, .55); q = F(.5, .28); c.lineTo(q[0], q[1]);
+  Q(1.4, .12, 2.1, -.4); Q(2.9, -.55, 3.3, -.85); Q(3.5, -1.05, 3.1, -1.1); c.closePath();
+  if (INK) { c.lineWidth = INK; c.strokeStyle = INKC; c.lineJoin = 'round'; c.stroke(); }
+  c.fillStyle = shade(kit.shoe, far ? .82 : 1); c.fill();
+  if (det) {
+    q = F(.1, -.9); c.beginPath(); c.moveTo(q[0], q[1]); q = F(1.0, .05); c.lineTo(q[0], q[1]);
+    c.strokeStyle = kit.sole; c.lineWidth = .55 * k; c.lineCap = 'butt'; c.stroke();
+    c.beginPath();
+    for (let i = 0; i < 3; i++) { const x = .75 + i * .5, y = .18 - i * .21, a = F(x - .12, y - .3), b = F(x + .2, y + .1); c.moveTo(a[0], a[1]); c.lineTo(b[0], b[1]); }
+    c.strokeStyle = lumOf(kit.shoe) > 140 ? 'rgba(40,40,64,.6)' : 'rgba(255,255,255,.65)'; c.lineWidth = .17 * k; c.lineCap = 'round'; c.stroke();
+  }
+}
+/* кисть-«варежка» с большим пальцем; clasp — сцепленные руки при приёме */
+function drawHand(c, arm, k, skin, skinD, far, clasp) {
+  const d = arm.dir, H = arm.h, rot = Math.atan2(d[1], d[0]);
+  const px = d[1], py = -d[0], sd = clamp((px * .54 + py * .84) * 3.5, -1, 1), tx = px * sd, ty = py * sd, ts = .55 + .45 * Math.abs(sd);
+  const open = !clasp && d[1] > .4, rx = (clasp ? 1.18 : open ? 1.12 : 1.02) * k, ry = (clasp ? .98 : open ? .92 : .82) * k, off = (clasp ? .95 : .8) * k;
+  const cx = H[0] + d[0] * off, cy = H[1] + d[1] * off;
+  if (clasp) { /* два больших пальца рядом, поверх кулака */
+    fcap(c, [H[0] + d[0] * .5 * k + tx * .5 * k, H[1] + d[1] * .5 * k + ty * .5 * k], .38 * k, [H[0] + d[0] * 1.75 * k + tx * .55 * k, H[1] + d[1] * 1.75 * k + ty * .55 * k], .33 * k, skin);
+  } else fcap(c, [H[0] + d[0] * .45 * k + tx * .45 * k, H[1] + d[1] * .45 * k + ty * .45 * k], .4 * k, [H[0] + (d[0] * .9 * ts + d[0] * .45) * k + tx * (.5 + .45 * ts) * k, H[1] + (d[1] * .9 * ts + d[1] * .45) * k + ty * (.5 + .45 * ts) * k], .32 * k, skin);
+  c.beginPath(); c.ellipse(cx, cy, rx, ry, rot, 0, 6.2832);
+  if (INK) { c.lineWidth = INK; c.strokeStyle = INKC; c.stroke(); } c.fillStyle = skin; c.fill();
+  if (DET && !far) {
+    c.beginPath(); c.strokeStyle = skinD; c.lineWidth = .17 * k; c.lineCap = 'round';
+    if (clasp) { c.moveTo(cx - d[0] * .5 * k, cy - d[1] * .5 * k); c.lineTo(cx + d[0] * .8 * k, cy + d[1] * .8 * k); }
+    else if (open) for (const s of [-1, 1]) { c.moveTo(cx + d[0] * .05 * k - px * s * .28 * k, cy + d[1] * .05 * k - py * s * .28 * k); c.lineTo(cx + d[0] * .95 * k - px * s * .34 * k, cy + d[1] * .95 * k - py * s * .34 * k); }
+    else { c.moveTo(cx + d[0] * .15 * k - px * .1 * k, cy + d[1] * .15 * k - py * .1 * k); c.lineTo(cx + d[0] * .85 * k - px * .12 * k, cy + d[1] * .85 * k - py * .12 * k); }
+    c.stroke();
+  }
 }
 function drawArm(c, sk, arm, far, p) {
   const kit = p.kit, look = p.look, k = look.tall, sh = sk.sh, skin = far ? look.skinD : look.skin;
   fcap(c, sh, 1.28 * k, arm.e, 1.0 * k, skin);
   fcap(c, arm.e, .98 * k, arm.h, .78 * k, skin);
-  scap(c, arm.e, .98 * k, arm.h, .78 * k, 'rgba(90,45,30,.2)');
-  c.beginPath(); c.arc(arm.h[0] + arm.dir[0] * .7 * k, arm.h[1] + arm.dir[1] * .7 * k, 1.0 * k, 0, 6.2832);
-  if (INK) { c.lineWidth = INK; c.strokeStyle = INKC; c.stroke(); } c.fillStyle = skin; c.fill();
-  fcap(c, [sh[0], sh[1] + .2 * k], 1.85 * k, L2(sh, arm.e, .44), 1.48 * k, far ? kit.shade : kit.jersey);
+  if (DET && !far) scap(c, arm.e, .98 * k, arm.h, .78 * k, 'rgba(90,45,30,.2)');
+  drawHand(c, arm, k, skin, look.skinD, far, sk.clasp && !far);
+  const s2 = L2(sh, arm.e, .44);
+  fcap(c, [sh[0], sh[1] + .2 * k], 1.85 * k, s2, 1.48 * k, far ? kit.shade : kit.jersey);
+  if (DET && !far) { /* окантовка рукава */
+    let dx = arm.e[0] - sh[0], dy = arm.e[1] - sh[1]; const dl = Math.hypot(dx, dy) || 1; dx /= dl; dy /= dl;
+    const bx = s2[0] + dx * .8 * k, by = s2[1] + dy * .8 * k, hw = 1.2 * k;
+    c.beginPath(); c.moveTo(bx - dy * hw, by + dx * hw); c.lineTo(bx + dy * hw, by - dx * hw);
+    c.strokeStyle = kit.trim; c.lineWidth = .45 * k; c.lineCap = 'butt'; c.stroke();
+  }
 }
 function drawShorts(c, sk, p) {
-  const kit = p.kit, k = p.look.tall, hip = sk.hip;
+  const kit = p.kit, k = p.look.tall, hip = sk.hip, ln = p.pose.lean;
   fcap(c, hip, 2.5 * k, L2(hip, sk.fLeg.knee, .36), 2.15 * k, shade(kit.shorts, .82));
   fcap(c, hip, 2.55 * k, L2(hip, sk.nLeg.knee, .38), 2.2 * k, kit.shorts);
   c.beginPath(); c.ellipse(hip[0] - .2 * k, hip[1] + .6 * k, 2.9 * k, 2.4 * k, 0, 0, 6.2832);
   if (INK) { c.lineWidth = INK; c.strokeStyle = INKC; c.stroke(); } c.fillStyle = kit.shorts; c.fill();
-  const e1 = L2(hip, sk.nLeg.knee, .02), e2 = L2(hip, sk.nLeg.knee, .36);
-  c.strokeStyle = kit.shortsTrim; c.lineWidth = .5 * k; c.lineCap = 'round';
-  c.beginPath(); c.moveTo(e1[0], e1[1]); c.lineTo(e2[0], e2[1]); c.stroke();
+  const e2 = L2(hip, sk.nLeg.knee, .36), e1 = L2(hip, sk.nLeg.knee, .02);
+  c.strokeStyle = kit.shortsTrim; c.lineWidth = .5 * k; c.lineCap = 'round'; c.lineJoin = 'round';
+  c.beginPath();
+  if (DET) { /* боковая полоса от пояса до низа + резинка пояса */
+    const wx = hip[0] - .1 * k + Math.sin(ln) * 1.55 * k, wy = hip[1] + Math.cos(ln) * 1.55 * k;
+    c.moveTo(wx, wy); c.quadraticCurveTo(e1[0] + .2 * k, e1[1] + .6 * k, e2[0], e2[1]);
+    const a = [hip[0] - 2.0 * k + Math.sin(ln) * 1.45 * k, hip[1] + Math.cos(ln) * 1.45 * k], b = [hip[0] + 2.35 * k + Math.sin(ln) * 1.8 * k, hip[1] + Math.cos(ln) * 1.8 * k];
+    c.moveTo(a[0], a[1]); c.lineTo(b[0], b[1]);
+  } else { c.moveTo(e1[0], e1[1]); c.lineTo(e2[0], e2[1]); }
+  c.stroke();
 }
 const TORSO_PTS = [[-.05, 2.3], [.3, 2.0], [.6, 2.65], [.84, 2.55], [1.0, 1.55], [1.08, .3], [1.04, -1.05], [.92, -2.15], [.62, -2.1], [.3, -1.95], [-.05, -2.3]];
 function drawTorso(c, sk, p) {
   const kit = p.kit, k = p.look.tall, hip = sk.hip, L = TORSO * k, ln = p.pose.lean;
   const t = [Math.sin(ln), Math.cos(ln)], n = [Math.cos(ln), -Math.sin(ln)];
   const at = (u, v) => [hip[0] + t[0] * u * L + n[0] * v * k, hip[1] + t[1] * u * L + n[1] * v * k];
-  smoothPath(c, TORSO_PTS.map(([u, v]) => at(u, v)));
+  /* развевание подола: в падении поддувает вверх, в беге чуть колышется */
+  const air = p.ground === false ? clamp((p.vh || 0) / JUMP_V, -1, 1) : 0, run = p.ground === false ? 0 : Math.min(1, Math.abs(p.vx || 0) / 120) * .3;
+  const fl = DET ? Math.max(air < 0 ? -air : air * .35, run) : 0, wob = fl ? Math.sin(clock * 22 + (p.idx || 0) * 1.7) * .035 * fl : 0;
+  smoothPath(c, TORSO_PTS.map(([u, v], i) => {
+    if (fl && (i < 2 || i > 8)) { const w = (i === 0 || i === 10) ? 1 : .6; return [u + fl * .15 * w * (v < 0 ? 1.2 : .6) + wob, v + (v < 0 ? -1.15 : .45) * fl * w]; }
+    return [u, v];
+  }).map(([u, v]) => at(u, v)));
   const a = at(.5, -2.3), b = at(.5, 2.6);
   const g = c.createLinearGradient(a[0], a[1], b[0], b[1]);
   g.addColorStop(0, kit.shade); g.addColorStop(.5, kit.jersey); g.addColorStop(1, kit.jersey);
   if (INK) { c.lineWidth = INK; c.strokeStyle = INKC; c.lineJoin = 'round'; c.stroke(); }
   c.fillStyle = g; c.fill();
-  const h1 = at(.1, 1.9), h2 = at(.62, 2.45), h3 = at(.9, 2.2);
-  c.strokeStyle = 'rgba(255,255,255,.2)'; c.lineWidth = .45 * k; c.lineCap = 'round';
-  c.beginPath(); c.moveTo(h1[0], h1[1]); c.quadraticCurveTo(h2[0], h2[1], h3[0], h3[1]); c.stroke();
-  c.strokeStyle = kit.trim;
-  const s1 = at(.08, -.75), s2 = at(.92, -1.15);
-  c.lineWidth = .6 * k; c.beginPath(); c.moveTo(s1[0], s1[1]); c.lineTo(s2[0], s2[1]); c.stroke();
-  const c1 = at(1.0, 1.35), c2 = at(1.06, -.3);
-  c.lineWidth = .7 * k; c.beginPath(); c.moveTo(c1[0], c1[1]); c.quadraticCurveTo(at(.93, .5)[0], at(.93, .5)[1], c2[0], c2[1]); c.stroke();
+  c.lineCap = 'round'; c.lineJoin = 'round';
+  if (DET) {
+    /* складка на животе и тень под грудью */
+    const f1 = at(.16, 1.75), f2 = at(.3, .8), f3 = at(.17, -.15), f4 = at(.5, 2.0), f5 = at(.43, 1.5);
+    c.beginPath(); c.moveTo(f1[0], f1[1]); c.quadraticCurveTo(f2[0], f2[1], f3[0], f3[1]); c.moveTo(f4[0], f4[1]); c.quadraticCurveTo(f5[0], f5[1], at(.38, 1.0)[0], at(.38, 1.0)[1]);
+    c.strokeStyle = kit.shade; c.globalAlpha = .75; c.lineWidth = .42 * k; c.stroke(); c.globalAlpha = 1;
+    const h1 = at(.1, 1.9), h2 = at(.62, 2.45), h3 = at(.9, 2.2);
+    c.strokeStyle = 'rgba(255,255,255,.2)'; c.lineWidth = .45 * k;
+    c.beginPath(); c.moveTo(h1[0], h1[1]); c.quadraticCurveTo(h2[0], h2[1], h3[0], h3[1]); c.stroke();
+    /* V-образный воротник */
+    const v0 = at(1.06, .4), v1 = at(.7, 1.4), v2 = at(.99, 1.5);
+    c.beginPath(); c.moveTo(v0[0], v0[1]); c.lineTo(v1[0], v1[1]); c.lineTo(v2[0], v2[1]); c.closePath();
+    c.fillStyle = p.look.skinD; c.fill(); c.strokeStyle = kit.trim; c.lineWidth = .5 * k; c.beginPath(); c.moveTo(v0[0], v0[1]); c.lineTo(v1[0], v1[1]); c.lineTo(v2[0], v2[1]); c.stroke();
+  }
+  /* полоса на спине и кант по груди */
+  const s1 = at(.08, -.75), s2 = at(.92, -1.15), c1 = at(1.0, 1.35), c2 = at(1.06, -.3), q1 = at(.93, .5);
+  c.strokeStyle = kit.trim; c.lineWidth = .65 * k;
+  c.beginPath(); c.moveTo(s1[0], s1[1]); c.lineTo(s2[0], s2[1]);
+  if (!DET) { c.moveTo(c1[0], c1[1]); c.quadraticCurveTo(q1[0], q1[1], c2[0], c2[1]); }
+  else { const e1 = at(-.02, 2.2), e2 = at(-.02, -2.2); c.moveTo(e1[0], e1[1]); c.lineTo(e2[0], e2[1]); }
+  c.stroke();
   const m = at(.52, .15);
   c.save(); c.translate(m[0], m[1]); c.scale(p.face, -1); c.rotate(p.face * ln);
   c.font = `700 ${4.8 * k}px Oswald, "Arial Narrow", sans-serif`; c.textAlign = 'center'; c.textBaseline = 'middle';
@@ -237,42 +349,85 @@ function drawTorso(c, sk, p) {
   c.fillStyle = kit.num; c.fillText(String(p.num), 0, .2 * k);
   c.restore();
 }
+/* настроение: calm / focus / fierce (удар, подача) / joy / sad */
+function moodOf(p) {
+  if (state === 'point' || state === 'over') return p.preview || !p.team ? 'calm' : p.team === pointWinner ? 'joy' : 'sad';
+  if (p.preview) return p.swing > 0 ? 'fierce' : 'focus';
+  if (state === 'menu' || !p.team) return 'calm';
+  const st = p.swing > 0 ? p.swingType : '';
+  if (st === 'spike' || st === 'serve' || st === 'tip') return 'fierce';
+  if (st || p.recvWin > 0 || p.blocking || !p.ground) return 'focus';
+  return state === 'play' || (state === 'serve' && p === server) ? 'focus' : 'calm';
+}
+function drawFace(c, p, look, mood) {
+  const blink = mood !== 'joy' && ((clock + (p.idx || 0) * 1.7) % 3.9) < .09;
+  const eo = blink ? .1 : mood === 'fierce' ? .62 : mood === 'focus' ? .8 : mood === 'sad' ? .9 : 1, oy = mood === 'sad' ? -.1 : 0;
+  c.lineCap = 'round'; c.lineJoin = 'round';
+  if (mood === 'joy') {
+    c.beginPath(); c.moveTo(1.15, .12); c.quadraticCurveTo(1.62, .92, 2.08, .12); c.strokeStyle = '#1b1517'; c.lineWidth = .3; c.stroke();
+    c.fillStyle = 'rgba(255,95,95,.28)'; c.beginPath(); c.ellipse(.95, -.7, .7, .42, 0, 0, 6.2832); c.fill();
+  } else {
+    c.beginPath(); c.ellipse(1.58, .22, .44, .5 * eo, 0, 0, 6.2832); c.fillStyle = '#f6f2ec'; c.fill(); c.strokeStyle = 'rgba(27,21,23,.55)'; c.lineWidth = .1; c.stroke();
+    c.fillStyle = '#1b1517'; c.beginPath(); c.ellipse(1.76, .18 + oy, .27, .41 * eo, 0, 0, 6.2832); c.fill();
+    if (!blink) { c.fillStyle = '#fff'; c.beginPath(); c.arc(1.85, .3 + oy + (eo - 1) * .1, .1, 0, 6.2832); c.moveTo(1.74, .02 + oy); c.arc(1.7, .02 + oy, .05, 0, 6.2832); c.fill(); }
+    else { c.beginPath(); c.moveTo(1.2, .2); c.lineTo(2.0, .2); c.strokeStyle = '#1b1517'; c.lineWidth = .2; c.stroke(); }
+  }
+  c.strokeStyle = look.hair; c.lineWidth = mood === 'fierce' ? .44 : .34; c.beginPath();
+  switch (mood) {
+    case 'fierce': c.moveTo(1.0, 1.25); c.lineTo(2.15, .62); break;
+    case 'focus': c.moveTo(1.1, 1.05); c.lineTo(2.1, .8); break;
+    case 'joy': c.moveTo(1.15, 1.0); c.quadraticCurveTo(1.65, 1.7, 2.1, 1.15); break;
+    case 'sad': c.moveTo(1.1, .78); c.lineTo(2.1, 1.22); break;
+    default: c.moveTo(1.12, .95); c.quadraticCurveTo(1.6, 1.12, 2.08, 1.0);
+  }
+  c.stroke();
+  c.strokeStyle = '#8a4a40'; c.lineWidth = .24; c.beginPath();
+  if (mood === 'joy') {
+    c.moveTo(1.4, -1.15); c.quadraticCurveTo(1.9, -2.5, 2.35, -1.1); c.closePath(); c.fillStyle = '#7a2630'; c.fill();
+    c.beginPath(); c.moveTo(1.55, -1.3); c.lineTo(2.2, -1.28); c.strokeStyle = '#fff'; c.lineWidth = .2; c.stroke();
+  } else if (mood === 'fierce') {
+    c.rect(1.5, -1.62, .8, .46); c.fillStyle = '#f6f2ec'; c.fill(); c.strokeStyle = '#4a1f26'; c.lineWidth = .16; c.stroke();
+    c.beginPath(); c.moveTo(1.9, -1.62); c.lineTo(1.9, -1.16); c.moveTo(1.5, -1.39); c.lineTo(2.3, -1.39); c.lineWidth = .08; c.stroke();
+  } else if (mood === 'sad') {
+    c.moveTo(1.55, -1.65); c.quadraticCurveTo(1.85, -1.3, 2.1, -1.6); c.stroke();
+    c.fillStyle = 'rgba(160,215,255,.9)'; c.beginPath(); c.moveTo(.55, .75); c.quadraticCurveTo(.15, .1, .55, .12); c.quadraticCurveTo(.95, .1, .55, .75); c.fill();
+  } else if (mood === 'focus') { c.moveTo(1.65, -1.45); c.lineTo(2.08, -1.42); c.stroke(); }
+  else { c.moveTo(1.68, -1.4); c.quadraticCurveTo(1.92, -1.58, 2.15, -1.36); c.stroke(); }
+}
 function drawHead(c, sk, p) {
-  const look = p.look, k = look.tall, H = sk.headC;
+  const look = p.look, k = look.tall, H = sk.headC, style = look.style;
   fcap(c, sk.sh, 1.05 * k, sk.neckTop, .95 * k, look.skinD);
   c.save(); c.translate(H[0], H[1]); c.rotate(-sk.ha); c.scale(k, k);
-  if (INK) {
-    c.beginPath(); c.ellipse(0, .15, 2.5, 2.8, 0, 0, 6.2832); c.ellipse(1.05, -1.05, 1.55, 1.65, -.35, 0, 6.2832);
-    c.moveTo(2.15, .4); c.lineTo(2.85, -.5); c.lineTo(2.2, -.85); c.closePath();
-    c.lineWidth = INK / k * 1.15; c.strokeStyle = INKC; c.lineJoin = 'round'; c.stroke();
-  }
-  c.fillStyle = look.skin;
-  c.beginPath(); c.ellipse(0, .15, 2.5, 2.8, 0, 0, 6.2832); c.fill();
-  c.beginPath(); c.ellipse(1.05, -1.05, 1.55, 1.65, -.35, 0, 6.2832); c.fill();
-  c.beginPath(); c.moveTo(2.15, .4); c.lineTo(2.85, -.5); c.lineTo(2.2, -.85); c.closePath(); c.fill();
+  c.beginPath(); c.ellipse(0, .15, 2.5, 2.8, 0, 0, 6.2832); c.moveTo(2.6, -1.05); c.ellipse(1.05, -1.05, 1.55, 1.65, -.35, 0, 6.2832);
+  c.moveTo(2.15, .4); c.lineTo(2.85, -.5); c.lineTo(2.2, -.85); c.closePath();
+  if (INK) { c.lineWidth = INK / k * 1.15; c.strokeStyle = INKC; c.lineJoin = 'round'; c.stroke(); }
+  c.fillStyle = look.skin; c.fill();
   c.fillStyle = 'rgba(90,45,30,.16)'; c.beginPath(); c.ellipse(-.5, -.6, 1.6, 1.9, 0, 0, 6.2832); c.fill();
   c.fillStyle = look.skinD; c.beginPath(); c.ellipse(-.3, -.15, .55, .8, .2, 0, 6.2832); c.fill();
-  smoothPath(c, HAIR[look.style] || HAIR.short, look.style === 'spiky');
+  smoothPath(c, hairPts(p, style), style === 'spiky');
   if (INK) { c.lineWidth = INK / k; c.strokeStyle = INKC; c.lineJoin = 'round'; c.stroke(); }
   c.fillStyle = look.hair; c.fill();
-  c.strokeStyle = 'rgba(255,255,255,.2)'; c.lineWidth = .32; c.lineCap = 'round';
-  c.beginPath(); c.moveTo(-1.5, 2.55); c.quadraticCurveTo(-.2, 3.2, 1.1, 2.75); c.stroke();
-  c.fillStyle = '#f6f2ec'; c.beginPath(); c.ellipse(1.62, .2, .36, .44, 0, 0, 6.2832); c.fill();
-  c.fillStyle = '#1b1517'; c.beginPath(); c.ellipse(1.78, .18, .21, .32, 0, 0, 6.2832); c.fill();
-  c.fillStyle = '#ffffff'; c.beginPath(); c.arc(1.84, .3, .07, 0, 6.2832); c.fill();
-  c.strokeStyle = look.hair; c.lineWidth = .34; c.lineCap = 'round'; c.beginPath(); c.moveTo(1.1, .9); c.lineTo(2.08, 1.0); c.stroke();
-  const happy = (state === 'point' || state === 'over') && p.team === pointWinner, sad = (state === 'point' || state === 'over') && p.team !== pointWinner && !p.preview;
-  c.strokeStyle = '#8a4a40'; c.lineWidth = .24; c.beginPath();
-  if (happy) { c.moveTo(1.45, -1.25); c.quadraticCurveTo(1.85, -1.85, 2.2, -1.2); }
-  else if (sad) { c.moveTo(1.55, -1.6); c.quadraticCurveTo(1.85, -1.3, 2.1, -1.55); }
-  else { c.moveTo(1.7, -1.42); c.lineTo(2.08, -1.38); }
-  c.stroke();
+  if (DET) {
+    c.lineCap = 'round';
+    const ln = HAIR_LN[style];
+    if (ln && ln.length) { c.beginPath(); for (const s of ln) { c.moveTo(s[0], s[1]); c.quadraticCurveTo(s[2], s[3], s[4], s[5]); } c.strokeStyle = shade(look.hair, .6); c.lineWidth = .16; c.globalAlpha = .8; c.stroke(); c.globalAlpha = 1; }
+    c.beginPath(); for (const s of HAIR_HI[style] || HAIR_HI.short) { c.moveTo(s[0], s[1]); c.quadraticCurveTo(s[2], s[3], s[4], s[5]); }
+    c.strokeStyle = tint(look.hair, .3); c.lineWidth = .36; c.stroke();
+    drawFace(c, p, look, moodOf(p));
+  } else {
+    c.fillStyle = '#1b1517'; c.beginPath(); c.ellipse(1.78, .18, .21, .32, 0, 0, 6.2832); c.fill();
+  }
   c.restore();
 }
 function drawPlayerAt(c, p, x, y, sl, mirror) {
-  const sk = solve(p);
-  INK = mirror ? 0 : .55;
-  c.save(); c.translate(x, y); c.scale(p.face * sl, -sl);
+  const sk = solve(p), k = p.look.tall;
+  INK = mirror ? 0 : .55; DET = mirror ? 0 : 1;
+  const nl = p.pose.nl, fl = p.pose.fl;
+  sk.clasp = Math.hypot(sk.nArm.h[0] - sk.fArm.h[0], sk.nArm.h[1] - sk.fArm.h[1]) < 2.4 * k && nl > .45 && nl < 1.75 && fl > .45 && fl < 1.75;
+  /* сжатие при приземлении и растяжение в прыжке (вокруг стоп) */
+  const lq = p.landT > 0 && p.ground ? Math.min(1, p.landT / .2) : 0, st = p.ground === false ? Math.abs(clamp((p.vh || 0) / JUMP_V, -1, 1)) : 0;
+  const sx = 1 + .09 * lq - .035 * st, sy = 1 - .08 * lq + .05 * st;
+  c.save(); c.translate(x, y); c.scale(p.face * sl * sx, -sl * sy);
   drawArm(c, sk, sk.fArm, true, p);
   drawLeg(c, sk, sk.fLeg, p.pose.ffa, true, p);
   drawLeg(c, sk, sk.nLeg, p.pose.nfa, false, p);
@@ -281,10 +436,10 @@ function drawPlayerAt(c, p, x, y, sl, mirror) {
   drawHead(c, sk, p);
   drawArm(c, sk, sk.nArm, false, p);
   c.restore();
-  INK = 0;
+  INK = 0; DET = 1;
   if (mirror) return;
   if (p.swing > 0 && (p.swingType === 'spike' || p.swingType === 'serve' || p.swingType === 'tip')) {
-    const hp = [x + p.face * sl * sk.nArm.h[0], y - sl * sk.nArm.h[1]];
+    const hp = [x + p.face * sl * sx * sk.nArm.h[0], y - sl * sy * sk.nArm.h[1]];
     (p.handTrail = p.handTrail || []).unshift(hp); if (p.handTrail.length > 7) p.handTrail.length = 7;
   } else if (p.handTrail) p.handTrail.length = 0;
 }
@@ -307,18 +462,21 @@ function drawBall(c) {
     c.fillStyle = gl; c.beginPath(); c.arc(x, y, r * 4, 0, 6.2832); c.fill();
   }
   c.save(); c.translate(x, y);
-  c.beginPath(); c.arc(0, 0, r, 0, 6.2832); c.fillStyle = '#f5cf2e'; c.fill();
-  c.save(); c.clip(); c.rotate(ball.rot);
-  c.fillStyle = '#2356b8';
+  c.beginPath(); c.arc(0, 0, r, 0, 6.2832); c.fillStyle = '#f7d230'; c.fill();
+  c.save(); c.clip();
+  c.save(); c.rotate(ball.rot);
+  c.fillStyle = '#2159bd'; c.strokeStyle = 'rgba(12,26,86,.75)'; c.lineWidth = r * .09; c.lineJoin = 'round';
   for (let i = 0; i < 3; i++) {
     c.rotate(2.0944);
     c.beginPath(); c.moveTo(-r, -r * .1); c.bezierCurveTo(-r * .35, -r * .8, r * .35, -r * .8, r, -r * .1);
-    c.lineTo(r, r * .28); c.bezierCurveTo(r * .35, -r * .38, -r * .35, -r * .38, -r, r * .28); c.closePath(); c.fill();
+    c.lineTo(r, r * .28); c.bezierCurveTo(r * .35, -r * .38, -r * .35, -r * .38, -r, r * .28); c.closePath(); c.fill(); c.stroke();
   }
   c.restore();
-  const g = c.createRadialGradient(-r * .4, -r * .45, r * .1, 0, 0, r * 1.05);
-  g.addColorStop(0, 'rgba(255,255,255,.6)'); g.addColorStop(.45, 'rgba(255,255,255,0)'); g.addColorStop(1, 'rgba(15,25,60,.4)');
-  c.fillStyle = g; c.beginPath(); c.arc(0, 0, r, 0, 6.2832); c.fill();
-  c.lineWidth = .28; c.strokeStyle = 'rgba(20,30,60,.65)'; c.stroke();
+  c.beginPath(); c.arc(0, 0, r * 1.04, 0, 6.2832); c.moveTo(-r * .3 + r * .96, -r * .34); c.arc(-r * .3, -r * .34, r * .96, 0, 6.2832);
+  c.fillStyle = 'rgba(10,20,70,.3)'; c.fill('evenodd');
+  c.beginPath(); c.ellipse(-r * .38, -r * .42, r * .3, r * .16, -.78, 0, 6.2832); c.fillStyle = 'rgba(255,255,255,.85)'; c.fill();
+  c.beginPath(); c.arc(-r * .06, -r * .6, r * .06, 0, 6.2832); c.fillStyle = 'rgba(255,255,255,.7)'; c.fill();
+  c.restore();
+  c.beginPath(); c.arc(0, 0, r, 0, 6.2832); c.lineWidth = .3; c.strokeStyle = 'rgba(16,24,58,.8)'; c.stroke();
   c.restore();
 }

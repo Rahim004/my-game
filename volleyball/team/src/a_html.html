@@ -14,6 +14,8 @@
   --gold: #f2c230;
   --teal: #138f97;
   --line: rgba(245, 242, 235, .14);
+  --blue: #4da3ff;
+  --hot: #ff5436;
   --display: "Oswald", "Arial Narrow", "Roboto Condensed", sans-serif;
   --body: "Rubik", system-ui, -apple-system, "Segoe UI", sans-serif;
   color-scheme: dark;
@@ -36,15 +38,25 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
 .screen { position: relative; border-radius: 12px; overflow: hidden; background: #1b1517; box-shadow: 0 10px 30px rgba(0, 0, 0, .45); }
 .screen canvas { display: block; width: 100%; height: 100%; }
 .pausebtn {
-  position: absolute; top: 8px; right: 8px; width: 40px; height: 40px; border-radius: 10px;
+  position: absolute; top: 6px; right: 6px; width: 56px; height: 56px; border-radius: 12px;
   background: rgba(15, 17, 21, .6); border: 1px solid rgba(255, 255, 255, .22); color: #fff;
-  font-family: var(--display); font-weight: 600; font-size: 14px; letter-spacing: .08em;
+  font-family: var(--display); font-weight: 600; font-size: 15px; letter-spacing: .06em;
   -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
 }
+body.online .pausebtn { font-size: 12px; letter-spacing: 0; }
+[hidden] { display: none !important; }
 
 /* thumb controls */
 .controls { display: none; justify-content: space-between; align-items: center; gap: 12px; padding-bottom: 4px; }
 body.touch .controls { display: flex; }
+body.local2 .controls { display: none !important; }
+.controls2 { display: none; justify-content: space-between; align-items: center; gap: 12px; padding-bottom: 4px; }
+body.touch.local2 .controls2 { display: flex; }
+.ctl.p1 { border-color: var(--blue); border-width: 3px; }
+.ctl.p2 { border-color: var(--hot); border-width: 3px; }
+body.local2 .ctl.act { font-size: 9px; letter-spacing: 0; }
+body.local2 .ctl { width: 58px; height: 58px; }
+body.local2 .ctl.hit { width: 68px; height: 68px; }
 .pad { display: flex; gap: 14px; align-items: center; }
 .ctl {
   width: 70px; height: 70px; border-radius: 50%; touch-action: none;
@@ -65,16 +77,20 @@ body.touch .controls { display: flex; }
 body:not(.touch) .hint { display: block; }
 .turn { display: none; }
 @media (orientation: portrait) { body.touch .turn { display: block; } }
+@media (orientation: portrait) { body.touch.local2 .controls2 { flex-wrap: wrap; justify-content: center; } }
 kbd { font-family: var(--body); font-weight: 500; color: var(--ink); background: var(--panel-2); border: 1px solid var(--line); border-radius: 4px; padding: 0 6px; }
 @media (orientation: landscape) and (max-height: 540px) {
   .app { padding-block: 4px; }
-  .controls {
+  .controls, .controls2 {
     position: absolute; left: 0; right: 0; bottom: 0; pointer-events: none; z-index: 2;
     padding-left: max(28px, env(safe-area-inset-left, 0px));
     padding-right: max(28px, env(safe-area-inset-right, 0px));
     padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
   }
+  .controls2 { padding-left: max(14px, env(safe-area-inset-left, 0px)); padding-right: max(14px, env(safe-area-inset-right, 0px)); padding-bottom: calc(5px + env(safe-area-inset-bottom, 0px)); }
   .ctl { pointer-events: auto; width: 60px; height: 60px; font-size: 10.5px; letter-spacing: .02em; }
+  body.local2 .ctl { width: 58px; height: 58px; }
+  body.local2 .ctl.hit { width: 68px; height: 68px; }
   .pad { gap: 10px; }
   .ctl.hit { width: 76px; height: 76px; }
   .turn, .hint { display: none !important; }
@@ -133,6 +149,67 @@ h1 .x { color: var(--gold); }
   .result .final { font-size: 22px; }
   .result .polaroid { width: 84px; padding: 4px 4px 10px; }
 }
+
+/* menu: modes, two-column layout in landscape */
+.menu-l, .menu-r { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.modes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.mode { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; min-height: 84px; padding: 8px 4px; background: var(--panel); border: 2px solid var(--line); border-radius: 14px; text-align: center; }
+.mode svg { width: 30px; height: 30px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; color: var(--muted); }
+.mode b { font-family: var(--display); font-weight: 600; font-size: 16px; letter-spacing: .06em; }
+.mode small { font-size: 11px; line-height: 1.2; color: var(--muted); }
+.mode[aria-pressed="true"] { border-color: var(--orange); background: linear-gradient(180deg, var(--panel-2), var(--panel)); }
+.mode[aria-pressed="true"] svg { color: var(--orange); }
+.note { margin: 8px 0 0; min-height: 2.6em; font-size: 13px; line-height: 1.3; color: var(--muted); }
+.twocol.one { grid-template-columns: 1fr; }
+.seg button { min-height: 44px; }
+.play { min-height: 56px; }
+.ghost { min-height: 56px; }
+.rules summary { cursor: pointer; font-family: var(--display); font-weight: 500; letter-spacing: .1em; color: var(--ink); min-height: 32px; display: flex; align-items: center; }
+.rules p { margin: 8px 0 0; }
+.menu-r .rules { padding: 6px 14px; }
+@media (orientation: landscape) and (min-width: 640px) {
+  .overlay { padding-block: 10px; }
+  .sheet.menu { max-width: 800px; display: grid; grid-template-columns: 1fr 1fr; gap: 18px; align-items: start; }
+  .menu-l, .menu-r { gap: 10px; }
+  .menu-l .polaroid { width: 62px; padding: 4px 4px 11px; }
+  .menu-l .title { gap: 14px; }
+  .menu-l h1 { font-size: 46px; }
+  .menu-l .sub { margin-top: 4px; font-size: 13px; }
+  .team canvas { aspect-ratio: 4 / 1; }
+  .label { margin-bottom: 5px; }
+}
+
+/* online screen */
+.sheet.onl { max-width: 720px; gap: 12px; }
+.onl-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.onl-head h2 { margin: 2px 0 0; font-family: var(--display); font-weight: 700; font-size: 30px; line-height: 1.05; }
+.onl-head .ghost { flex: none; padding-inline: 20px; }
+.onl-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 560px), (orientation: portrait) { .onl-cols { grid-template-columns: 1fr; } }
+.onl-card { background: linear-gradient(180deg, #232836 0%, #1a1e27 100%); border: 1px solid var(--line); border-radius: 14px; padding: 12px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.onl-card .label { margin: 0; }
+.room { display: flex; flex-direction: column; gap: 8px; }
+.code { font-family: var(--display); font-weight: 700; font-size: 52px; line-height: 1.05; letter-spacing: .22em; text-indent: .22em; text-align: center; color: var(--gold); font-variant-numeric: tabular-nums; }
+.link { margin: 0; padding: 6px 8px; border-radius: 8px; background: var(--bg); border: 1px dashed var(--line); font-size: 11.5px; line-height: 1.35; color: var(--muted); word-break: break-all; -webkit-user-select: text; user-select: text; touch-action: auto; }
+.codein { box-sizing: border-box; width: 100%; min-height: 56px; text-align: center; font-family: var(--display); font-weight: 700; font-size: 32px; letter-spacing: .3em; text-indent: .3em; text-transform: uppercase; color: var(--ink); background: var(--bg); border: 2px solid var(--line); border-radius: 12px; outline: none; padding: 0 8px; -webkit-user-select: text; user-select: text; touch-action: auto; }
+.codein::placeholder { color: var(--muted); opacity: .5; letter-spacing: .2em; }
+.codein:focus { border-color: var(--orange); }
+.status { margin: 0; min-height: 1.4em; text-align: center; font-size: 14px; line-height: 1.4; color: var(--muted); }
+.status.bad { color: var(--gold); }
+.noweb { background: var(--panel); border: 1px solid var(--line); border-left: 3px solid var(--gold); border-radius: 12px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
+.noweb h3 { margin: 0; font-family: var(--display); font-weight: 600; font-size: 20px; letter-spacing: .04em; color: var(--gold); }
+.noweb p { margin: 0; font-size: 14px; line-height: 1.45; color: var(--muted); }
+.sheet.onl.nw .onl-cols, .sheet.onl.nw .status { display: none; }
+.sheet.small { max-width: 360px; }
+.overlay.dim.lite { background: rgba(12, 14, 18, .62); }
+.toast { position: fixed; top: calc(10px + env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%); z-index: 15; max-width: calc(100% - 32px); padding: 10px 16px; border-radius: 10px; background: var(--panel-2); border: 1px solid var(--line); border-left: 3px solid var(--gold); font-size: 14px; line-height: 1.3; text-align: center; box-shadow: 0 8px 24px rgba(0, 0, 0, .5); }
+@media (orientation: landscape) and (max-height: 540px) {
+  .sheet.onl { gap: 8px; }
+  .onl-head h2 { font-size: 26px; }
+  .onl-card { padding: 10px 12px; gap: 6px; }
+  .code { font-size: 46px; }
+  .noweb { padding: 10px 14px; }
+}
 @media (prefers-reduced-motion: reduce) { .ctl, .play { transition: none; } }
 .errbox { position: fixed; left: 12px; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); z-index: 20; padding: 10px 12px; border-radius: 10px; background: #3a1414; border: 1px solid #a33; color: #ffd9d9; font-size: 13px; line-height: 1.4; }
 </style>
@@ -152,57 +229,141 @@ h1 .x { color: var(--gold); }
       <button class="ctl" data-key="right" aria-label="Вправо"><svg viewBox="0 0 24 24"><path d="m8 4 10 8-10 8z"/></svg></button>
     </div>
     <div class="pad">
-      <button class="ctl act" data-key="act" id="actBtn">ПРИЁМ</button>
+      <button class="ctl act" data-key="act">ПРИЁМ</button>
       <button class="ctl" data-key="jump">ПРЫЖОК</button>
       <button class="ctl hit" data-key="hit">УДАР</button>
     </div>
   </div>
-  <p class="hint"><kbd>←</kbd> <kbd>→</kbd> бег · <kbd>↑</kbd> прыжок · <kbd>Пробел</kbd> удар · <kbd>↓</kbd> приём / силовая подача · <kbd>P</kbd> пауза</p>
-
-  <div class="overlay" id="menu">
-    <div class="sheet">
-      <div class="title">
-        <div class="polaroid"><img src="data:image/jpeg;base64,__PHOTO__" alt="№4 и №10 в форме"></div>
-        <div>
-          <p class="kicker">ВОЛЕЙБОЛ 3 НА 3</p>
-          <h1>№4 <span class="x">×</span> №10</h1>
-          <p class="sub">Ты ведёшь атаку. Приём и пас команда делает сама.</p>
-        </div>
-      </div>
-      <div class="team">
-        <canvas id="teamCv"></canvas>
-        <p>Твоя команда: №7, №10 и №4</p>
-      </div>
-      <div>
-        <p class="label">Имена игроков</p>
-        <div class="names">
-          <label class="nm"><span>№4</span><input id="n4" maxlength="12" placeholder="Имя" autocomplete="off"></label>
-          <label class="nm"><span>№10</span><input id="n10" maxlength="12" placeholder="Имя" autocomplete="off"></label>
-          <label class="nm"><span>№7</span><input id="n7" maxlength="12" placeholder="Имя" autocomplete="off"></label>
-        </div>
-      </div>
-      <div class="twocol">
-        <div>
-          <p class="label">Соперники</p>
-          <div class="seg">
-            <button data-diff="easy">ЛЕГКО</button>
-            <button data-diff="normal">СРЕДНЕ</button>
-            <button data-diff="hard">СИЛЬНО</button>
-          </div>
-        </div>
-        <div>
-          <p class="label">Игра до</p>
-          <div class="seg">
-            <button data-target="7">7</button>
-            <button data-target="11">11</button>
-            <button data-target="15">15</button>
-          </div>
-        </div>
-      </div>
-      <p class="rules">Когда партнёр набросит мяч к сетке, жми <strong>УДАР</strong> — игрок выпрыгнет, и ещё раз <strong>УДАР</strong> в воздухе — пробьёт. Стрелка во время удара меняет направление: к сетке — коротко, назад — в глубину. <strong>ПРЫЖОК</strong> у сетки — блок. <strong>ПРИЁМ</strong> в момент подлёта мяча — точный приём, только так достаётся сильная атака. На своей подаче эта кнопка становится <strong>СИЛОВОЙ</strong> — подача в прыжке, быстрая, но может уйти в аут. Управляешь игроком под синей стрелкой.</p>
-      <button class="play" id="playBtn">ИГРАТЬ</button>
+  <div class="controls2" id="controls2">
+    <div class="pad">
+      <button class="ctl p1" data-key="left" aria-label="Игрок 1: влево"><svg viewBox="0 0 24 24"><path d="M16 4 6 12l10 8z"/></svg></button>
+      <button class="ctl p1" data-key="right" aria-label="Игрок 1: вправо"><svg viewBox="0 0 24 24"><path d="m8 4 10 8-10 8z"/></svg></button>
+      <button class="ctl act p1" data-key="act">ПРИЁМ</button>
+      <button class="ctl hit p1" data-key="hit">УДАР</button>
+    </div>
+    <div class="pad">
+      <button class="ctl hit p2" data-key2="hit">УДАР</button>
+      <button class="ctl act p2" data-key2="act">ПРИЁМ</button>
+      <button class="ctl p2" data-key2="left" aria-label="Игрок 2: влево"><svg viewBox="0 0 24 24"><path d="M16 4 6 12l10 8z"/></svg></button>
+      <button class="ctl p2" data-key2="right" aria-label="Игрок 2: вправо"><svg viewBox="0 0 24 24"><path d="m8 4 10 8-10 8z"/></svg></button>
     </div>
   </div>
+  <p class="hint" id="hint"><kbd>←</kbd> <kbd>→</kbd> бег · <kbd>↑</kbd> прыжок · <kbd>Пробел</kbd> удар · <kbd>↓</kbd> приём / силовая подача · <kbd>P</kbd> пауза</p>
+
+  <div class="overlay" id="menu">
+    <div class="sheet menu">
+      <div class="menu-l">
+        <div class="title">
+          <div class="polaroid"><img src="data:image/jpeg;base64,__PHOTO__" alt="№4 и №10 в форме"></div>
+          <div>
+            <p class="kicker">ВОЛЕЙБОЛ 3 НА 3</p>
+            <h1>№4 <span class="x">×</span> №10</h1>
+            <p class="sub">Ты ведёшь атаку. Приём и пас команда делает сама.</p>
+          </div>
+        </div>
+        <div class="team">
+          <canvas id="teamCv"></canvas>
+          <p>Твоя команда: №7, №10 и №4</p>
+        </div>
+        <div>
+          <p class="label">Имена игроков</p>
+          <div class="names">
+            <label class="nm"><span>№4</span><input id="n4" maxlength="12" placeholder="Имя" autocomplete="off"></label>
+            <label class="nm"><span>№10</span><input id="n10" maxlength="12" placeholder="Имя" autocomplete="off"></label>
+            <label class="nm"><span>№7</span><input id="n7" maxlength="12" placeholder="Имя" autocomplete="off"></label>
+          </div>
+        </div>
+      </div>
+      <div class="menu-r">
+        <div>
+          <p class="label">Как играем</p>
+          <div class="modes" role="group" aria-label="Режим игры">
+            <button class="mode" data-mode="solo" aria-pressed="true">
+              <svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="10" r="5"/><path d="M6 27c0-6 4.5-10 10-10s10 4 10 10"/></svg>
+              <b>ОДИН</b><small>против компьютера</small>
+            </button>
+            <button class="mode" data-mode="local2" aria-pressed="false">
+              <svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="10" cy="11" r="4"/><path d="M2.5 26c0-5 3.4-8 7.5-8s7.5 3 7.5 8"/><circle cx="23" cy="11" r="4"/><path d="M17 19.2c1.7-.9 3.3-1.2 6-1.2 4 0 6.5 3 6.5 8"/></svg>
+              <b>ВДВОЁМ</b><small>на одном телефоне</small>
+            </button>
+            <button class="mode" data-mode="online" aria-pressed="false">
+              <svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="11"/><path d="M5 16h22M16 5c-4 3.2-5 6.800-5 11s1 7.800 5 11c4-3.200 5-6.800 5-11s-1-7.800-5-11z"/></svg>
+              <b>ОНЛАЙН</b><small>с другом</small>
+            </button>
+          </div>
+          <p class="note" id="modeNote"></p>
+        </div>
+        <div class="twocol" id="opts">
+          <div id="optDiff">
+            <p class="label">Соперники</p>
+            <div class="seg">
+              <button data-diff="easy">ЛЕГКО</button>
+              <button data-diff="normal">СРЕДНЕ</button>
+              <button data-diff="hard">СИЛЬНО</button>
+            </div>
+          </div>
+          <div>
+            <p class="label">Игра до</p>
+            <div class="seg">
+              <button data-target="7">7</button>
+              <button data-target="11">11</button>
+              <button data-target="15">15</button>
+            </div>
+          </div>
+        </div>
+        <button class="play" id="playBtn">ИГРАТЬ</button>
+        <details class="rules">
+          <summary>Как играть</summary>
+          <p>Когда партнёр набросит мяч к сетке, жми <strong>УДАР</strong> — игрок выпрыгнет, и ещё раз <strong>УДАР</strong> в воздухе — пробьёт. Стрелка во время удара меняет направление: к сетке — коротко, назад — в глубину. <strong>ПРЫЖОК</strong> у сетки — блок. <strong>ПРИЁМ</strong> в момент подлёта мяча — точный приём, только так достаётся сильная атака. На своей подаче эта кнопка становится <strong>СИЛОВОЙ</strong> — подача в прыжке, быстрая, но может уйти в аут. Твой игрок — под синей стрелкой, игрок друга — под красной.</p>
+        </details>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="online" hidden>
+    <div class="sheet onl" id="onlSheet">
+      <div class="onl-head">
+        <div>
+          <p class="kicker">ОНЛАЙН</p>
+          <h2>Играем с другом</h2>
+        </div>
+        <button class="ghost" id="onlBack">НАЗАД</button>
+      </div>
+      <div class="onl-cols" id="onlCols">
+        <section class="onl-card" id="hostCard">
+          <p class="label">Своя комната</p>
+          <button class="play" id="hostBtn">СОЗДАТЬ КОМНАТУ</button>
+          <div class="room" id="roomBox" hidden>
+            <div class="code" id="roomCode" aria-label="Код комнаты"></div>
+            <button class="ghost" id="copyBtn">СКОПИРОВАТЬ ССЫЛКУ</button>
+            <p class="link" id="roomLink"></p>
+          </div>
+        </section>
+        <section class="onl-card" id="joinCard">
+          <p class="label">Комната друга</p>
+          <input class="codein" id="codeIn" maxlength="5" placeholder="КОД" autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false" aria-label="Код комнаты, 5 букв">
+          <button class="play" id="joinBtn">ВОЙТИ</button>
+        </section>
+      </div>
+      <div class="noweb" id="noweb" hidden>
+        <h3>Онлайн здесь недоступен</h3>
+        <p>На этой странице нет выхода в сеть. Онлайн работает в версии игры на GitHub. А пока можно играть вдвоём на одном телефоне.</p>
+        <button class="play" id="nowebLocal">ВДВОЁМ НА ОДНОМ ТЕЛЕФОНЕ</button>
+      </div>
+      <p class="status" id="netStatus" role="status" aria-live="polite"></p>
+    </div>
+  </div>
+
+  <div class="overlay dim lite" id="leave" hidden>
+    <div class="sheet small">
+      <div class="result"><h2>ВЫЙТИ?</h2><p class="sub">Матч с другом закончится.</p></div>
+      <div class="row">
+        <button class="ghost" id="exitBtn">ВЫЙТИ</button>
+        <button class="play" id="stayBtn">ОСТАТЬСЯ</button>
+      </div>
+    </div>
+  </div>
+  <div class="toast" id="toast" role="status" hidden></div>
 
   <div class="overlay dim" id="pause" hidden>
     <div class="sheet">
