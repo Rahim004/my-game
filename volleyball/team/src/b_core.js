@@ -154,7 +154,7 @@ function newMatch() {
 }
 function resetServe() {
   for (const T of [TL, TR]) {
-    T.touches = 0; T.roles = {}; T.receiver = null; T.blocker = null; T.tick = 0; T.recvT = T.setT = 9; T.lastHit = null;
+    T.touches = 0; T.atk = 'open'; T.setH = 74; T.roles = {}; T.receiver = null; T.blocker = null; T.tick = 0; T.recvT = T.setT = 9; T.lastHit = null;
     for (const p of T.players) {
       p.x = mirror(T, HOMES[p.idx]); p.h = 0; p.vx = p.vh = 0; p.ground = true; p.swing = 0; p.goal = p.x;
       p.blocking = false; p.toss = 0; p.landT = 0; p.diveDone = false; p.cd = 0; p.jumpServe = false; p.jsJumped = false; p.recvWin = 0;
@@ -285,7 +285,7 @@ function spike(p, human) {
     let best = -1; xt = NETX + o * 120;
     for (let i = 0; i < 6; i++) {
       const x = NETX + o * (T.atk === 'pipe' ? 90 + Math.random() * 116 : T.atk === 'open' ? 28 + Math.random() * 178 : 65 + Math.random() * 141);
-      const d = Math.min(...O.players.map(q => Math.abs(q.x - x))) + (diff === 'easy' ? Math.random() * 90 : 0);
+      const d = Math.min(...O.players.map(q => Math.abs(q.x - x))) + (T.D.err >= 12 ? Math.random() * 90 : 0);
       if (d > best) { best = d; xt = x; }
     }
   }

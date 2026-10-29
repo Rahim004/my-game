@@ -714,7 +714,7 @@ const TONE = { org: '#f07a22', gold: '#f2c230', teal: '#14a3ab' };
 function hudName(T) {
   if (mode === 'local2') return T === TL ? 'ИГРОК 1' : 'ИГРОК 2';
   if (mode === 'host' || mode === 'guest') return T === myTeam() ? 'ТЫ' : 'ДРУГ';
-  return T === TL ? '№4 · №10' : 'ГОСТИ';
+  return T === TL ? '№4 · №10' : String(T.name || 'ГОСТИ').slice(0, 16);   // в турнире/колизее — название соперника
 }
 function hudSide(T) {   // короткая метка в заставке: НАШИ/ГОСТИ, ИГРОК 1/2 или ТЫ/ДРУГ
   return mode === 'solo' ? (T === TL ? 'НАШИ' : 'ГОСТИ') : hudName(T);
