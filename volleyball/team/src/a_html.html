@@ -156,8 +156,8 @@ h1 .x { color: var(--gold); }
 
 /* menu: modes, two-column layout in landscape */
 .menu-l, .menu-r { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
-.modes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-.mode { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; min-height: 84px; padding: 8px 4px; background: var(--panel); border: 2px solid var(--line); border-radius: 14px; text-align: center; }
+.modes { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; }
+.mode { grid-column: span 2; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; min-height: 84px; padding: 8px 4px; background: var(--panel); border: 2px solid var(--line); border-radius: 14px; text-align: center; }
 .mode svg { width: 30px; height: 30px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; color: var(--muted); }
 .mode b { font-family: var(--display); font-weight: 600; font-size: 16px; letter-spacing: .06em; }
 .mode small { font-size: 11px; line-height: 1.2; color: var(--muted); }
@@ -170,7 +170,7 @@ h1 .x { color: var(--gold); }
 .ghost { min-height: 56px; }
 .rules summary { cursor: pointer; font-family: var(--display); font-weight: 500; letter-spacing: .1em; color: var(--ink); min-height: 32px; display: flex; align-items: center; }
 .rules p { margin: 8px 0 0; }
-.menu-r .rules { padding: 6px 14px; }
+
 @media (orientation: landscape) and (min-width: 640px) {
   .overlay { padding-block: 10px; }
   .sheet.menu { max-width: 800px; display: grid; grid-template-columns: 1fr 1fr; gap: 18px; align-items: start; }
@@ -182,6 +182,49 @@ h1 .x { color: var(--gold); }
   .team canvas { aspect-ratio: 4 / 1; }
   .label { margin-bottom: 5px; }
 }
+
+
+/* menu: second row of modes, arena switch, campaign info */
+.mode.sm { grid-column: span 3; flex-direction: row; min-height: 52px; gap: 9px; padding: 6px 8px; justify-content: flex-start; text-align: left; }
+.mode.sm svg { width: 26px; height: 26px; flex: none; }
+.mode.sm span { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.mode.sm b { font-size: 15px; }
+.mode.sm small { font-size: 10.5px; }
+.seg.two { grid-template-columns: repeat(2, 1fr); }
+.playrow { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: end; }
+.playrow.one { grid-template-columns: 1fr; }
+.playrow .label { margin-bottom: 5px; }
+.campinfo { display: flex; align-items: center; gap: 10px; background: var(--panel); border: 1px solid var(--line); border-left: 3px solid var(--gold); border-radius: 12px; padding: 8px 8px 8px 12px; min-height: 66px; }
+.campinfo > div { flex: 1; min-width: 0; }
+.campinfo .label { margin: 0 0 3px; }
+.campinfo .camptxt { font-family: var(--display); font-weight: 600; font-size: 17px; letter-spacing: .04em; line-height: 1.2; color: var(--ink); }
+.campinfo .ghost { flex: none; min-height: 44px; padding: 6px 12px; font-size: 13px; }
+@media (orientation: landscape) and (min-width: 640px) {
+  .mode { min-height: 66px; }
+  .mode.sm { min-height: 50px; }
+  .mode small { font-size: 10.5px; }
+  .note { margin-top: 6px; }
+}
+.menu-l .rules { padding: 4px 14px; }
+
+/* story scene (visual novel) */
+.overlay.story { flex-direction: column; justify-content: space-between; align-items: stretch; gap: 8px; overflow: hidden; cursor: pointer; touch-action: manipulation; padding-block: 10px;
+  background: linear-gradient(to top, rgba(8, 10, 14, .94) 0, rgba(8, 10, 14, .6) 40%, transparent 66%), linear-gradient(to bottom, rgba(8, 10, 14, .62), transparent 34%); }
+.st-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.st-chip { display: flex; flex-direction: column; gap: 1px; padding: 7px 14px; background: rgba(15, 17, 21, .78); border: 1px solid var(--line); border-left: 3px solid var(--gold); border-radius: 10px; }
+.st-chip small { font-family: var(--display); font-weight: 500; font-size: 12px; letter-spacing: .14em; color: var(--gold); }
+.st-chip b { font-family: var(--display); font-weight: 700; font-size: 22px; letter-spacing: .04em; line-height: 1.1; }
+.st-chip span { font-size: 12px; color: var(--muted); }
+.st-skip { flex: none; min-height: 56px; padding-inline: 18px; background: rgba(15, 17, 21, .78); }
+.st-box { display: flex; align-items: center; gap: 14px; width: 100%; max-width: 740px; margin: 0 auto; min-height: 92px; padding: 12px 18px 12px 14px; background: rgba(24, 28, 36, .95); border: 1px solid var(--line); border-left: 4px solid var(--orange); border-radius: 14px; position: relative; box-shadow: 0 8px 24px rgba(0, 0, 0, .5); }
+.st-av { flex: none; width: 62px; height: 62px; border-radius: 50%; display: grid; place-items: center; border: 3px solid var(--ink); font-family: var(--display); font-weight: 700; font-size: 26px; box-shadow: 0 4px 10px rgba(0, 0, 0, .4); }
+.st-body { flex: 1; min-width: 0; }
+.st-who { display: inline-block; margin-bottom: 4px; padding: 1px 10px; border-radius: 6px; background: var(--orange); color: #1d0f04; font-family: var(--display); font-weight: 600; font-size: 14px; letter-spacing: .08em; }
+.st-txt { margin: 0; font-size: 17px; line-height: 1.35; min-height: 2.7em; }
+.st-next { position: absolute; right: 14px; bottom: 10px; width: 0; height: 0; border-left: 7px solid transparent; border-right: 7px solid transparent; border-top: 9px solid var(--gold); animation: stb .8s ease-in-out infinite alternate; }
+@keyframes stb { to { transform: translateY(4px); } }
+@media (max-height: 520px) { .st-txt { font-size: 15px; } .st-av { width: 54px; height: 54px; font-size: 22px; } .st-box { min-height: 84px; padding-block: 10px; } .st-chip b { font-size: 19px; } }
+@media (prefers-reduced-motion: reduce) { .st-next { animation: none; } }
 
 /* online screen */
 .sheet.onl { max-width: 720px; gap: 12px; }
@@ -278,6 +321,10 @@ h1 .x { color: var(--gold); }
             <label class="nm"><span>№7</span><input id="n7" maxlength="12" placeholder="Имя" autocomplete="off"></label>
           </div>
         </div>
+        <details class="rules">
+          <summary>Как играть</summary>
+          <p>Когда партнёр набросит мяч к сетке, жми <strong>УДАР</strong> — игрок выпрыгнет, и ещё раз <strong>УДАР</strong> в воздухе — пробьёт. Стрелка во время удара меняет направление: к сетке — коротко, назад — в глубину. <strong>ПРЫЖОК</strong> у сетки — блок. <strong>ПРИЁМ</strong> в момент подлёта мяча — точный приём, только так достаётся сильная атака. На своей подаче эта кнопка становится <strong>СИЛОВОЙ</strong> — подача в прыжке, быстрая, но может уйти в аут. Твой игрок — под синей стрелкой, игрок друга — под красной.</p>
+        </details>
       </div>
       <div class="menu-r">
         <div>
@@ -294,6 +341,14 @@ h1 .x { color: var(--gold); }
             <button class="mode" data-mode="online" aria-pressed="false">
               <svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="11"/><path d="M5 16h22M16 5c-4 3.2-5 6.800-5 11s1 7.800 5 11c4-3.200 5-6.800 5-11s-1-7.800-5-11z"/></svg>
               <b>ОНЛАЙН</b><small>с другом</small>
+            </button>
+            <button class="mode sm" data-mode="tour" aria-pressed="false">
+              <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M9 5h14v7a7 7 0 0 1-14 0zM9 8H4c0 4 2 6 5 6.500M23 8h5c0 4-2 6-5 6.500M16 19v5M10 27h12"/></svg>
+              <span><b>ТУРНИР</b><small>история · 4 этапа</small></span>
+            </button>
+            <button class="mode sm" data-mode="colo" aria-pressed="false">
+              <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M3 9h26M3 27h26M5 9v18M27 9v18M11 27V17a5 5 0 0 1 10 0v10M5 9c2-3 4-4 6-4h10c2 0 4 1 6 4"/></svg>
+              <span><b>КОЛИЗЕЙ</b><small>серия побед</small></span>
             </button>
           </div>
           <p class="note" id="modeNote"></p>
@@ -316,11 +371,20 @@ h1 .x { color: var(--gold); }
             </div>
           </div>
         </div>
-        <button class="play" id="playBtn">ИГРАТЬ</button>
-        <details class="rules">
-          <summary>Как играть</summary>
-          <p>Когда партнёр набросит мяч к сетке, жми <strong>УДАР</strong> — игрок выпрыгнет, и ещё раз <strong>УДАР</strong> в воздухе — пробьёт. Стрелка во время удара меняет направление: к сетке — коротко, назад — в глубину. <strong>ПРЫЖОК</strong> у сетки — блок. <strong>ПРИЁМ</strong> в момент подлёта мяча — точный приём, только так достаётся сильная атака. На своей подаче эта кнопка становится <strong>СИЛОВОЙ</strong> — подача в прыжке, быстрая, но может уйти в аут. Твой игрок — под синей стрелкой, игрок друга — под красной.</p>
-        </details>
+        <div class="campinfo" id="campInfo" hidden>
+          <div><p class="label" id="campLbl">Турнир</p><div class="camptxt" id="campTxt"></div></div>
+          <button class="ghost" id="campReset">ЗАНОВО</button>
+        </div>
+        <div class="playrow" id="playRow">
+          <div id="optArena">
+            <p class="label">Площадка</p>
+            <div class="seg two" role="group" aria-label="Площадка">
+              <button data-arena="hall">ЗАЛ</button>
+              <button data-arena="beach">ПЛЯЖ</button>
+            </div>
+          </div>
+          <button class="play" id="playBtn">ИГРАТЬ</button>
+        </div>
       </div>
     </div>
   </div>
@@ -369,6 +433,18 @@ h1 .x { color: var(--gold); }
     </div>
   </div>
   <div class="toast" id="toast" role="status" hidden></div>
+
+  <div class="overlay story" id="story" hidden>
+    <div class="st-top">
+      <div class="st-chip"><small id="stKick"></small><b id="stName"></b><span id="stVs"></span></div>
+      <button class="ghost st-skip" id="stSkip">ПРОПУСТИТЬ</button>
+    </div>
+    <div class="st-box" id="stBox">
+      <div class="st-av" id="stAv"></div>
+      <div class="st-body"><div class="st-who" id="stWho"></div><p class="st-txt" id="stTxt"></p></div>
+      <span class="st-next" aria-hidden="true"></span>
+    </div>
+  </div>
 
   <div class="overlay dim" id="pause" hidden>
     <div class="sheet">

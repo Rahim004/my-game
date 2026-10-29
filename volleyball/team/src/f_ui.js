@@ -33,9 +33,129 @@ function drawPreview(dt) {
   });
 }
 
+/* ================= площадка, турнир, колизей ================= */
+const lsGet = k => { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch (e) { return null; } };
+const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
+let arenaPick = lsGet('vb-arena') === 'beach' ? 'beach' : 'hall';
+let camp = null, campBase = 11, endAct = '', champ = false, champTimer = 0;   // camp: { kind: 'tour', stage } | { kind: 'colo', wins }
+const TOUR = [
+  { name: 'ОТБОРОЧНЫЙ', team: 'ЗЕЛЁНАЯ ШКОЛА', arena: 'hall', target: 7, diff: 'easy', boost: 0, talk: [
+    ['c', 'Так, команда. Первый турнир, и сразу вы. Без паники.'],
+    ['10', 'Я не паникую. Я просто три раза проверил шнурки.'],
+    ['4', 'Четыре раза. Я считал.'],
+    ['c', 'Отборочный — разминка. Играйте как во дворе, только с судьёй.']] },
+  { name: 'ЧЕТВЕРТЬФИНАЛ', team: 'ГОРОДСКИЕ ЛИСЫ', arena: 'hall', target: 7, diff: 'normal', boost: 0, talk: [
+    ['4', 'Мы прошли! Я до сих пор не верю.'],
+    ['10', 'Говорил же: нашу связку не остановить.'],
+    ['c', 'Не расслабляйтесь. Лисы читают чужую игру как книгу.'],
+    ['4', 'Значит, сыграем так, что им будет не до чтения.']] },
+  { name: 'ПОЛУФИНАЛ', team: 'СОЛЁНЫЕ ВОЛНЫ', arena: 'beach', target: 9, diff: 'hard', boost: 0, talk: [
+    ['c', 'Полуфинал на песке. Ноги вязнут, мяч летит по-другому.'],
+    ['10', 'Песок? Я на нём вырос. Ну, был там один раз. В отпуске.'],
+    ['4', 'Главное — не ждать мяч, а идти к нему.'],
+    ['o', 'Волны не спрашивают, готов ли ты. Удачи, ребята.'],
+    ['10', 'Мы без удачи. У нас солнце и №4.']] },
+  { name: 'ФИНАЛ', team: 'СТАЛЬНЫЕ ЯСТРЕБЫ', arena: 'hall', target: 11, diff: 'hard', boost: 2, talk: [
+    ['10', 'Слушай, проиграем — всё равно было классно.'],
+    ['4', 'Проиграем — я сильно обижусь. Давай выиграем.'],
+    ['o', 'Ястребы не отдают мячи. Покажите, на что вы способны.'],
+    ['c', 'Вы пришли сюда не за вторым местом. Идите и играйте!']] },
+];
+function boostD(base, k) {   // плавное усиление соперника: k = 0 — как есть, дальше сильнее, но в разумных пределах
+  const d = Object.assign({}, base);
+  d.speed = Math.min(1.26, d.speed * (1 + .016 * k)); d.react = Math.max(.025, d.react * (1 - .07 * k));
+  d.err = Math.max(1.2, d.err * (1 - .07 * k)); d.block = Math.min(.9, d.block + .03 * k);
+  d.dig = Math.min(.88, d.dig + .025 * k); d.power = Math.min(520, d.power + 10 * k);
+  d.spike = Math.min(1, d.spike + .01 * k); d.pserve = Math.min(.85, d.pserve + .04 * k);
+  return d;
+}
+let tourSave = (() => { const v = lsGet('vb-tour'); return v && Number.isInteger(v.stage) && v.stage >= 0 && v.stage < TOUR.length ? { stage: v.stage, done: !!v.done } : { stage: 0, done: false }; })();
+let coloBest = Math.max(0, Math.floor(+lsGet('vb-colo') || 0));
+function endCamp() { if (camp) { TARGET = campBase; camp = null; syncSeg(); } }
+function campMatch(withStory) {   // новый матч кампании (camp уже выставлен)
+  if (isOnline()) netLeave();
+  let st = null, D, nm, ar, tg;
+  if (camp.kind === 'tour') { st = TOUR[camp.stage]; ar = st.arena; tg = st.target; D = boostD(DIFF[st.diff], st.boost); nm = st.team; }
+  else { ar = camp.wins % 2 ? 'beach' : 'hall'; tg = 5; D = boostD(DIFF.hard, camp.wins); nm = 'РАУНД ' + (camp.wins + 1); }
+  mode = 'solo'; audio(); TARGET = tg; setArena(ar); newMatch(); TR.D = D; TR.name = nm;
+  champ = false; endAct = ''; clearInterval(champTimer); $('end').classList.remove('lite');
+  staticDone = false; updateCamera(0, true); last = performance.now();
+  if (st && withStory) openStory(st); else { show(null); if (!st) banner('РАУНД ' + (camp.wins + 1) + ' · ДО 5', 'gold', 1.8, true); }
+}
+function startTour() {
+  if (tourSave.done) { tourSave = { stage: 0, done: false }; lsSet('vb-tour', tourSave); }
+  if (!camp) campBase = TARGET;
+  camp = { kind: 'tour', stage: tourSave.stage }; campMatch(true);
+}
+function startColo() { if (!camp) campBase = TARGET; camp = { kind: 'colo', wins: 0 }; campMatch(false); }
+function showCampEnd(win) {
+  const sc = TL.score + ' : ' + TR.score, T = $('endTitle'), el = $('end');
+  champ = false; clearInterval(champTimer); el.classList.remove('lite');
+  $('menuBtn').textContent = 'В МЕНЮ';
+  let title, sub, btn;
+  if (camp.kind === 'tour') {
+    const st = TOUR[camp.stage], last = camp.stage === TOUR.length - 1;
+    if (win && last) {
+      tourSave = { stage: 0, done: true }; lsSet('vb-tour', tourSave);
+      title = 'ЧЕМПИОНЫ!'; sub = 'Четыре этапа позади. №4 и №10 — лучшая связка турнира.'; btn = 'ЗАНОВО'; endAct = 'tourAgain';
+      champ = true; el.classList.add('lite'); makeConfetti();
+      let n = 0; champTimer = setInterval(() => { if (el.hidden || ++n > 7) clearInterval(champTimer); else makeConfetti(); }, 1300);
+    } else if (win) {
+      tourSave = { stage: camp.stage + 1, done: false }; lsSet('vb-tour', tourSave);
+      title = 'ЭТАП ПРОЙДЕН'; sub = st.name + ': победа над «' + st.team + '». Дальше — ' + TOUR[camp.stage + 1].name.toLowerCase() + '.'; btn = 'ДАЛЬШЕ'; endAct = 'tourNext';
+    } else { title = 'ПОРАЖЕНИЕ'; sub = 'Этап ' + (camp.stage + 1) + ' из ' + TOUR.length + ': «' + st.team + '» оказались сильнее. Ещё раз?'; btn = 'ЕЩЁ РАЗ'; endAct = 'tourRetry'; }
+  } else {
+    if (win) { camp.wins++; if (camp.wins > coloBest) { coloBest = camp.wins; lsSet('vb-colo', coloBest); } title = 'РАУНД ПРОЙДЕН'; btn = 'ДАЛЬШЕ'; endAct = 'coloNext'; }
+    else { title = 'КОНЕЦ СЕРИИ'; btn = 'НОВАЯ СЕРИЯ'; endAct = 'coloAgain'; }
+    sub = 'Серия: ' + camp.wins + ' ' + pluralWins(camp.wins) + ' · Рекорд: ' + coloBest;
+  }
+  T.textContent = title; T.className = win ? 'win' : '';
+  $('endScore').textContent = sc; $('endSub').textContent = sub; $('againBtn').textContent = btn;
+  show('end');
+}
+const pluralWins = n => n % 10 === 1 && n % 100 !== 11 ? 'победа' : [2, 3, 4].includes(n % 10) && ![12, 13, 14].includes(n % 100) ? 'победы' : 'побед';
+function endAgain() {
+  const a = endAct; endAct = '';
+  if (a === 'tourNext') { camp.stage++; campMatch(true); }
+  else if (a === 'tourRetry') campMatch(false);
+  else if (a === 'tourAgain') { tourSave = { stage: 0, done: false }; lsSet('vb-tour', tourSave); camp = { kind: 'tour', stage: 0 }; campMatch(true); }
+  else if (a === 'coloNext') campMatch(false);
+  else if (a === 'coloAgain') { camp = { kind: 'colo', wins: 0 }; campMatch(false); }
+}
+
+/* сцена истории: реплики поверх арены, тап — дальше */
+let sto = { lines: [], i: 0, full: '', n: 0, tm: 0, on: false };
+const STO_AV = { 4: 'org', 10: 'blk', 7: 'org', o: 'wht' };
+function openStory(st) {
+  sto.lines = st.talk; sto.i = 0; sto.on = true; state = 'story';
+  $('stKick').textContent = 'ЭТАП ' + (camp.stage + 1) + ' ИЗ ' + TOUR.length; $('stName').textContent = st.name;
+  $('stVs').textContent = 'против «' + st.team + '» · ' + (st.arena === 'beach' ? 'пляж' : 'зал') + ' · до ' + st.target;
+  show('story'); storyLine();
+}
+function storyLine() {
+  const [who, text] = sto.lines[sto.i], av = $('stAv'), num = who === 'o' ? 9 : who;
+  const k = KIT[STO_AV[who]];
+  if (who === 'c') { av.style.background = 'var(--teal)'; av.style.color = '#fff'; av.style.borderColor = '#fff'; av.textContent = 'Т'; $('stWho').textContent = 'ТРЕНЕР'; }
+  else { av.style.background = k.jersey; av.style.color = k.num; av.style.borderColor = k.trim === k.jersey ? '#fff' : k.trim; av.textContent = num; $('stWho').textContent = nameOf(num) ? nameOf(num) + ' · №' + num : '№' + num; }
+  clearInterval(sto.tm); sto.full = text; sto.n = 0;
+  const t = $('stTxt');
+  if (REDUCED) { t.textContent = text; sto.n = text.length; return; }
+  t.textContent = '';
+  sto.tm = setInterval(() => { sto.n++; t.textContent = text.slice(0, sto.n); if (sto.n >= text.length) clearInterval(sto.tm); }, 24);
+}
+function storyNext() {
+  if (!sto.on) return;
+  if (sto.n < sto.full.length) { clearInterval(sto.tm); sto.n = sto.full.length; $('stTxt').textContent = sto.full; return; }
+  if (++sto.i >= sto.lines.length) storyDone(); else storyLine();
+}
+function stopStory() { clearInterval(sto.tm); sto.on = false; }
+function storyDone() { if (!sto.on) return; stopStory(); show(null); resetServe(); last = performance.now(); }
+$('story').addEventListener('click', storyNext);
+$('stSkip').addEventListener('click', e => { e.stopPropagation(); storyDone(); });
+
 /* ================= screens ================= */
 let pausedFrom = null;
-function show(id) { ['menu', 'pause', 'end', 'online', 'leave'].forEach(k => $(k).hidden = k !== id); }
+function show(id) { ['menu', 'pause', 'end', 'online', 'leave', 'story'].forEach(k => $(k).hidden = k !== id); }
 const isOnline = () => mode === 'host' || mode === 'guest';
 /* startMatch(m): m = 'solo' | 'local2' (без сети). Без аргумента (или с событием клика) — повтор текущего режима;
    онлайн: хост перезапускает матч для обоих, гость ждёт хоста. Онлайн-режимы запускаются через netHost/netJoin (g_net.js). */
@@ -45,10 +165,13 @@ function startMatch(m) {
   if (m === 'host') { if (netRestart()) return; m = 'solo'; }
   if (m !== 'solo' && m !== 'local2') m = 'solo';
   if (mode === 'host' || mode === 'guest') netLeave();
+  endCamp(); setArena(arenaPick);
   mode = m; audio(); newMatch(); show(null); updateCamera(0, true);
 }
 function showEnd() {
   const me = myTeam(), win = me.score > other(me).score; state = 'over';
+  if (camp && mode === 'solo') { showCampEnd(win); return; }
+  champ = false; endAct = ''; clearInterval(champTimer); $('end').classList.remove('lite'); $('againBtn').textContent = 'ЕЩЁ'; $('menuBtn').textContent = 'В МЕНЮ';
   $('endTitle').textContent = mode === 'local2' ? 'ИГРОК ' + (TL.score > TR.score ? 1 : 2) + ' ПОБЕДИЛ' : win ? 'ПОБЕДА!' : 'ПОРАЖЕНИЕ';
   $('endTitle').className = win || mode === 'local2' ? 'win' : '';
   $('endScore').textContent = me.score + ' : ' + other(me).score;
@@ -57,19 +180,21 @@ function showEnd() {
 }
 function pauseGame() { if (isOnline()) return; if (!['serve', 'play', 'point'].includes(state)) return; pausedFrom = state; state = 'paused'; show('pause'); }
 function resumeGame() { if (state !== 'paused') return; state = pausedFrom; last = performance.now(); show(null); }
-function toMenu() { if (mode === 'host' || mode === 'guest') netLeave(); mode = 'solo'; state = 'menu'; cutin = null; TL = TR = null; active = null; banners = []; confetti = []; show('menu'); updateCamera(0, true); }
+function toMenu() { if (mode === 'host' || mode === 'guest') netLeave(); mode = 'solo'; state = 'menu'; stopStory(); champ = false; clearInterval(champTimer); $('end').classList.remove('lite'); endCamp(); setArena(arenaPick); syncMode(); cutin = null; TL = TR = null; active = null; banners = []; confetti = []; show('menu'); updateCamera(0, true); }
 function syncSeg() {
   document.querySelectorAll('[data-diff]').forEach(x => x.setAttribute('aria-pressed', String(x.dataset.diff === diff)));
   document.querySelectorAll('[data-target]').forEach(x => x.setAttribute('aria-pressed', String(+x.dataset.target === TARGET)));
+  document.querySelectorAll('[data-arena]').forEach(x => x.setAttribute('aria-pressed', String(x.dataset.arena === arenaPick)));
 }
 document.querySelectorAll('[data-diff]').forEach(b => b.addEventListener('click', () => { diff = b.dataset.diff; syncSeg(); }));
 document.querySelectorAll('[data-target]').forEach(b => b.addEventListener('click', () => { TARGET = +b.dataset.target; syncSeg(); }));
+document.querySelectorAll('[data-arena]').forEach(b => b.addEventListener('click', () => { arenaPick = b.dataset.arena; lsSet('vb-arena', arenaPick); syncSeg(); }));
 syncSeg();
 for (const n of [4, 10, 7]) {
   const el = $('n' + n); el.value = names[n] || '';
   el.addEventListener('input', () => { names[n] = el.value.slice(0, 12); try { localStorage.setItem('vb-names', JSON.stringify(names)); } catch (e) {} });
 }
-$('againBtn').addEventListener('click', startMatch);
+$('againBtn').addEventListener('click', () => { if (endAct) endAgain(); else startMatch(); });
 $('menuBtn').addEventListener('click', toMenu);
 $('quitBtn').addEventListener('click', toMenu);
 $('resumeBtn').addEventListener('click', resumeGame);
@@ -82,17 +207,26 @@ document.addEventListener('visibilitychange', () => { if (document.hidden) pause
 
 /* ================= режимы: меню и онлайн-экран ================= */
 let pick = 'solo';   // выбор в меню: 'solo' | 'local2' | 'online'
-const MODE_NOTE = { solo: 'Играешь против компьютера.', local2: 'Игрок 1 слева, игрок 2 справа. У каждого свои кнопки.', online: 'Каждый играет на своём телефоне. Паузы нет.' };
+const MODE_NOTE = { solo: 'Играешь против компьютера.', local2: 'Игрок 1 слева, игрок 2 справа. У каждого свои кнопки.', online: 'Каждый играет на своём телефоне. Паузы нет.', tour: 'История из четырёх матчей: разные соперники и площадки.', colo: 'Матчи до 5 очков. С каждой победой соперник сильнее.' };
 function syncMode() {
   document.querySelectorAll('[data-mode]').forEach(x => x.setAttribute('aria-pressed', String(x.dataset.mode === pick)));
+  const cp = pick === 'tour' || pick === 'colo';
   $('optDiff').hidden = pick !== 'solo';
+  $('opts').hidden = cp; $('campInfo').hidden = !cp; $('optArena').hidden = cp; $('playRow').classList.toggle('one', cp);
   $('opts').classList.toggle('one', pick !== 'solo');
-  $('playBtn').textContent = pick === 'online' ? 'ДАЛЕЕ' : 'ИГРАТЬ';
+  if (pick === 'tour') {
+    const ts = tourSave, fresh = !ts.done && ts.stage === 0;
+    $('campLbl').textContent = 'Турнир'; $('campTxt').textContent = ts.done ? 'Турнир пройден!' : 'Этап ' + (ts.stage + 1) + ' из ' + TOUR.length + ' · ' + TOUR[ts.stage].name;
+    $('campReset').hidden = fresh; $('playBtn').textContent = ts.done ? 'СЫГРАТЬ СНОВА' : fresh ? 'НАЧАТЬ' : 'ПРОДОЛЖИТЬ';
+  } else if (pick === 'colo') {
+    $('campLbl').textContent = 'Колизей'; $('campTxt').textContent = 'Рекорд: ' + coloBest + ' ' + pluralWins(coloBest); $('campReset').hidden = true; $('playBtn').textContent = 'В БОЙ';
+  } else $('playBtn').textContent = pick === 'online' ? 'ДАЛЕЕ' : 'ИГРАТЬ';
   $('modeNote').textContent = MODE_NOTE[pick];
 }
 document.querySelectorAll('[data-mode]').forEach(b => b.addEventListener('click', () => { pick = b.dataset.mode; syncMode(); }));
 syncMode();
-$('playBtn').addEventListener('click', () => { audio(); if (pick === 'online') openOnline(); else startMatch(pick); });
+$('campReset').addEventListener('click', () => { tourSave = { stage: 0, done: false }; lsSet('vb-tour', tourSave); syncMode(); });
+$('playBtn').addEventListener('click', () => { audio(); if (pick === 'online') openOnline(); else if (pick === 'tour') startTour(); else if (pick === 'colo') startColo(); else startMatch(pick); });
 
 const ovOnline = $('online'), netStatusEl = $('netStatus'), codeIn = $('codeIn');
 const netKind = () => { try { const q = location.search; return /[?&]net=bc\b/.test(q) ? 'bc' : /[?&]net=peer\b/.test(q) ? 'peer' : 'auto'; } catch (e) { return 'auto'; } };
@@ -137,7 +271,7 @@ function showRoom(code) {
 }
 async function doHost() {
   if (netBusy) return; audio(); setBusy(true); setNoweb(false);
-  const seq = ++opSeq;
+  const seq = ++opSeq; endCamp(); setArena(arenaPick);
   const code = await netHost(netKind());
   if (seq !== opSeq) return;
   setBusy(false);
@@ -204,12 +338,16 @@ function routeKey(code) {   // → [функция press, действие] ил
   const k = KEYMAP[code]; return k ? [press, k] : null;
 }
 addEventListener('keydown', e => {
+  if (sto.on) {
+    if (e.code === 'Space' || e.code === 'Enter') { e.preventDefault(); if (!e.repeat) storyNext(); } else if (e.code === 'Escape') storyDone();
+    return;
+  }
   if (e.code === 'KeyP' || e.code === 'Escape') {
     if (!ovOnline.hidden) { if (e.code === 'Escape') closeOnline(); return; }
     if (isOnline()) { toggleLeave(); return; }
     state === 'paused' ? resumeGame() : pauseGame(); return;
   }
-  const r = routeKey(e.code); if (!r || state === 'menu' || state === 'over') return;
+  const r = routeKey(e.code); if (!r || state === 'menu' || state === 'over' || state === 'story') return;
   e.preventDefault(); if (!e.repeat) r[0](r[1], true);
 });
 addEventListener('keyup', e => { const r = routeKey(e.code); if (r) r[0](r[1], false); });
@@ -269,7 +407,7 @@ function frame(now) {
     if (am !== actMode) { actMode = am; setActLabel(actBtns1, am === 'serve'); }
     const am2 = state === 'serve' && TR && servingTeam === TR && mode === 'local2' ? 'serve' : 'recv';   // подача второго игрока (только local2: в онлайне вторая кнопка не нужна)
     if (am2 !== actMode2) { actMode2 = am2; setActLabel(actBtns2, am2 === 'serve'); }
-    const overlay = !ovMenu.hidden || !ovPause.hidden || !ovEnd.hidden || !ovOnline.hidden;
+    const overlay = !ovMenu.hidden || !ovPause.hidden || (!ovEnd.hidden && !champ) || !ovOnline.hidden || !$('story').hidden;
     if (!overlay) { render(); staticDone = false; }
     else if (!staticDone && TL) { render(); staticDone = true; }
     if (!ovMenu.hidden) drawPreview(dt);
