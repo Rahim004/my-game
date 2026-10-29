@@ -409,7 +409,8 @@ function netHostFrame(dt) {
   if (net.lastIn && performance.now() - net.lastIn > 400) { input2.left = input2.right = input2.jump = input2.hit = input2.act = false; }   // гость молчит — кнопки считаем отпущенными
   net.acc += dt;
   const period = state === 'over' ? .25 : 1 / NET.hz;
-  if (net.acc < period) return;
+  const changed = net.lastSt !== state; net.lastSt = state;
+  if (net.acc < period && !changed) return;
   net.acc = net.acc - period > period ? 0 : net.acc - period;
   net.tr.send(buildSnap());
 }
@@ -624,5 +625,7 @@ function guestFrameInner(dt) {
     }
   }
   if (last) guestDiscrete(last);
+  const newest = buf[buf.length - 1];   // самовосстановление: конец матча уже пришёл, а экран итога не показан
+  if (newest && newest.st === 'over' && state !== 'over' && rt - newest.ts > 400) { net.evN = newest.n; guestDiscrete(newest); if (state !== 'over') { state = 'over'; showEnd(); } }
   if (i > 2) buf.splice(0, i - 2);
 }
