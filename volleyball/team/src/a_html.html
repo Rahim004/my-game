@@ -44,6 +44,10 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
   -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
 }
 body.online .pausebtn { font-size: 12px; letter-spacing: 0; }
+.netlink { position: absolute; top: 66px; right: 6px; z-index: 3; padding: 3px 7px; border-radius: 8px; background: rgba(15, 17, 21, .6); color: #cfe9d6; font: 600 11px/1.2 system-ui, sans-serif; pointer-events: none; white-space: nowrap; }
+.netlink.mid { color: #ffd66b; }
+.netlink.slow { color: #ff8a7a; }
+.netlink.warn { top: 38%; right: auto; left: 50%; transform: translateX(-50%); padding: 10px 16px; border-radius: 12px; background: rgba(15, 17, 21, .82); border-left: 3px solid #ff8a7a; color: #fff; font-size: 15px; }
 [hidden] { display: none !important; }
 
 /* thumb controls */
@@ -219,6 +223,7 @@ h1 .x { color: var(--gold); }
     <div class="screen" id="screen">
       <canvas id="cv"></canvas>
       <button class="pausebtn" id="pauseBtn" aria-label="Пауза">II</button>
+      <div class="netlink" id="netLink" role="status" hidden></div>
     </div>
   </div>
 
