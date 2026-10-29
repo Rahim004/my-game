@@ -1,0 +1,229 @@
+<title>№4 против №10</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<style>
+/* Layout: full-screen sports broadcast. The arena canvas fills the stage and carries its own scoreboard; pause sits top-right; glass thumb controls float over the court when the phone is sideways. */
+:root {
+  --bg: #0f1115;
+  --panel: #181c24;
+  --panel-2: #232937;
+  --ink: #f5f2eb;
+  --muted: #9ba2b3;
+  --orange: #f07a22;
+  --orange-deep: #b4520f;
+  --gold: #f2c230;
+  --teal: #138f97;
+  --line: rgba(245, 242, 235, .14);
+  --display: "Oswald", "Arial Narrow", "Roboto Condensed", sans-serif;
+  --body: "Rubik", system-ui, -apple-system, "Segoe UI", sans-serif;
+  color-scheme: dark;
+}
+html, body { height: 100%; }
+body {
+  background: var(--bg); color: var(--ink); font-family: var(--body);
+  overflow: hidden; touch-action: none; -webkit-user-select: none; user-select: none;
+  -webkit-tap-highlight-color: transparent; overscroll-behavior: none;
+}
+button { font: inherit; color: inherit; cursor: pointer; }
+button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
+.app {
+  height: 100%; position: relative; display: flex; flex-direction: column; gap: 6px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 6px;
+}
+.stage { flex: 1; min-height: 0; display: grid; place-items: center; }
+.screen { position: relative; border-radius: 12px; overflow: hidden; background: #1b1517; box-shadow: 0 10px 30px rgba(0, 0, 0, .45); }
+.screen canvas { display: block; width: 100%; height: 100%; }
+.pausebtn {
+  position: absolute; top: 8px; right: 8px; width: 40px; height: 40px; border-radius: 10px;
+  background: rgba(15, 17, 21, .6); border: 1px solid rgba(255, 255, 255, .22); color: #fff;
+  font-family: var(--display); font-weight: 600; font-size: 14px; letter-spacing: .08em;
+  -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+}
+
+/* thumb controls */
+.controls { display: none; justify-content: space-between; align-items: center; gap: 12px; padding-bottom: 4px; }
+body.touch .controls { display: flex; }
+.pad { display: flex; gap: 14px; align-items: center; }
+.ctl {
+  width: 70px; height: 70px; border-radius: 50%; touch-action: none;
+  background: rgba(20, 23, 30, .62); border: 2px solid rgba(255, 255, 255, .26); color: #fff;
+  -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+  font-family: var(--display); font-weight: 600; font-size: 13px; letter-spacing: .06em;
+  display: grid; place-items: center; transition: transform .06s, background .06s;
+}
+.ctl svg { width: 24px; height: 24px; fill: currentColor; }
+.ctl.hit { width: 86px; height: 86px; background: rgba(240, 122, 34, .94); border-color: rgba(255, 255, 255, .55); color: #1d0f04; font-size: 17px; }
+.ctl.on { transform: scale(.92); background: rgba(255, 255, 255, .34); }
+.ctl.hit.on { background: #ffa65e; }
+.ctl.act { background: rgba(19, 143, 151, .82); border-color: rgba(255, 255, 255, .45); }
+.ctl.act.serve { background: rgba(242, 194, 48, .95); color: #1d1404; }
+.ctl.act.on { background: #5fd3da; }
+.hint, .turn { margin: 0; text-align: center; color: var(--muted); font-size: 13px; }
+.hint { display: none; }
+body:not(.touch) .hint { display: block; }
+.turn { display: none; }
+@media (orientation: portrait) { body.touch .turn { display: block; } }
+kbd { font-family: var(--body); font-weight: 500; color: var(--ink); background: var(--panel-2); border: 1px solid var(--line); border-radius: 4px; padding: 0 6px; }
+@media (orientation: landscape) and (max-height: 540px) {
+  .app { padding-block: 4px; }
+  .controls {
+    position: absolute; left: 0; right: 0; bottom: 0; pointer-events: none; z-index: 2;
+    padding-left: max(28px, env(safe-area-inset-left, 0px));
+    padding-right: max(28px, env(safe-area-inset-right, 0px));
+    padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+  }
+  .ctl { pointer-events: auto; width: 60px; height: 60px; font-size: 10.5px; letter-spacing: .02em; }
+  .pad { gap: 10px; }
+  .ctl.hit { width: 76px; height: 76px; }
+  .turn, .hint { display: none !important; }
+}
+
+/* overlays */
+.overlay {
+  position: absolute; inset: 0; z-index: 5; overflow-y: auto; touch-action: pan-y;
+  display: flex; justify-content: center;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 18px;
+  background:
+    linear-gradient(115deg, rgba(240, 122, 34, .16) 0 16%, transparent 16% 100%),
+    radial-gradient(120% 90% at 80% 0%, #1e2533 0%, var(--bg) 65%);
+}
+.overlay.dim { background: rgba(12, 14, 18, .86); align-items: center; }
+.sheet { width: 100%; max-width: 480px; display: flex; flex-direction: column; gap: 16px; margin-block: auto; }
+.title { display: flex; gap: 16px; align-items: center; }
+.polaroid { flex: none; width: 100px; background: #f5f2eb; padding: 5px 5px 16px; border-radius: 3px; transform: rotate(-4deg); box-shadow: 0 10px 24px rgba(0, 0, 0, .5); }
+.polaroid img { display: block; width: 100%; aspect-ratio: 3 / 4; object-fit: cover; }
+.kicker { margin: 0; font-family: var(--display); font-weight: 600; font-size: 13px; letter-spacing: .16em; color: var(--orange); }
+h1 { margin: 2px 0 0; font-family: var(--display); font-weight: 700; font-size: clamp(38px, 11vw, 54px); line-height: 1; letter-spacing: .01em; text-wrap: balance; }
+h1 .x { color: var(--gold); }
+.sub { margin: 8px 0 0; color: var(--muted); font-size: 14px; line-height: 1.45; }
+.team { background: linear-gradient(180deg, #232836 0%, #1a1e27 100%); border: 1px solid var(--line); border-radius: 14px; padding: 8px 8px 10px; display: flex; flex-direction: column; gap: 6px; }
+.team canvas { display: block; width: 100%; aspect-ratio: 3 / 1; border-radius: 9px; background: #2b2326; }
+.team p { margin: 0; font-size: 13px; color: var(--muted); text-align: center; }
+.label { margin: 0 0 8px; font-family: var(--display); font-weight: 500; font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.seg { display: grid; grid-template-columns: repeat(3, 1fr); background: var(--panel); border: 1px solid var(--line); border-radius: 11px; padding: 3px; gap: 3px; }
+.seg button { border: 0; background: transparent; border-radius: 8px; padding: 9px 2px; font-family: var(--display); font-weight: 500; font-size: 14px; letter-spacing: .04em; color: var(--muted); }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+.names { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+@media (max-width: 400px) { .names { grid-template-columns: 1fr; } }
+.nm { display: flex; align-items: center; gap: 6px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 0 0 0 10px; min-width: 0; }
+.nm span { font-family: var(--display); font-weight: 600; font-size: 14px; color: var(--orange); flex: none; }
+.nm input { flex: 1; min-width: 0; width: 100%; border: 0; background: transparent; color: var(--ink); font: 500 15px var(--body); padding: 10px 8px 10px 2px; outline: none; -webkit-user-select: text; user-select: text; touch-action: auto; }
+.nm:focus-within { border-color: var(--orange); }
+.twocol { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 400px) { .twocol { grid-template-columns: 1fr; } }
+.rules { margin: 0; padding: 12px 14px; background: var(--panel); border-radius: 12px; border-left: 3px solid var(--orange); color: var(--muted); font-size: 14px; line-height: 1.55; }
+.rules strong { color: var(--ink); font-weight: 500; }
+.play { border: 0; border-radius: 12px; padding: 15px; background: var(--orange); color: #1d0f04; font-family: var(--display); font-weight: 700; font-size: 22px; letter-spacing: .1em; box-shadow: 0 5px 0 var(--orange-deep); }
+.play:active { transform: translateY(3px); box-shadow: 0 2px 0 var(--orange-deep); }
+.ghost { border: 1px solid var(--line); background: var(--panel); border-radius: 12px; padding: 14px; font-family: var(--display); font-weight: 500; font-size: 16px; letter-spacing: .08em; }
+.result { text-align: center; display: flex; flex-direction: column; gap: 10px; align-items: center; }
+.result h2 { margin: 0; font-family: var(--display); font-weight: 700; font-size: 46px; letter-spacing: .03em; }
+.result h2.win { color: var(--gold); }
+.result .final { font-family: var(--display); font-weight: 600; font-size: 30px; font-variant-numeric: tabular-nums; }
+.result .polaroid { width: 140px; transform: rotate(3deg); margin-block: 4px; }
+.row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+@media (max-height: 520px) {
+  .overlay.dim .sheet { gap: 10px; }
+  .result { gap: 6px; }
+  .result h2 { font-size: 32px; }
+  .result .final { font-size: 22px; }
+  .result .polaroid { width: 84px; padding: 4px 4px 10px; }
+}
+@media (prefers-reduced-motion: reduce) { .ctl, .play { transition: none; } }
+.errbox { position: fixed; left: 12px; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); z-index: 20; padding: 10px 12px; border-radius: 10px; background: #3a1414; border: 1px solid #a33; color: #ffd9d9; font-size: 13px; line-height: 1.4; }
+</style>
+
+<div class="app" id="app">
+  <div class="stage" id="stage">
+    <div class="screen" id="screen">
+      <canvas id="cv"></canvas>
+      <button class="pausebtn" id="pauseBtn" aria-label="Пауза">II</button>
+    </div>
+  </div>
+
+  <p class="turn">Поверни телефон горизонтально — арена станет больше</p>
+  <div class="controls">
+    <div class="pad">
+      <button class="ctl" data-key="left" aria-label="Влево"><svg viewBox="0 0 24 24"><path d="M16 4 6 12l10 8z"/></svg></button>
+      <button class="ctl" data-key="right" aria-label="Вправо"><svg viewBox="0 0 24 24"><path d="m8 4 10 8-10 8z"/></svg></button>
+    </div>
+    <div class="pad">
+      <button class="ctl act" data-key="act" id="actBtn">ПРИЁМ</button>
+      <button class="ctl" data-key="jump">ПРЫЖОК</button>
+      <button class="ctl hit" data-key="hit">УДАР</button>
+    </div>
+  </div>
+  <p class="hint"><kbd>←</kbd> <kbd>→</kbd> бег · <kbd>↑</kbd> прыжок · <kbd>Пробел</kbd> удар · <kbd>↓</kbd> приём / силовая подача · <kbd>P</kbd> пауза</p>
+
+  <div class="overlay" id="menu">
+    <div class="sheet">
+      <div class="title">
+        <div class="polaroid"><img src="data:image/jpeg;base64,__PHOTO__" alt="№4 и №10 в форме"></div>
+        <div>
+          <p class="kicker">ВОЛЕЙБОЛ 3 НА 3</p>
+          <h1>№4 <span class="x">×</span> №10</h1>
+          <p class="sub">Ты ведёшь атаку. Приём и пас команда делает сама.</p>
+        </div>
+      </div>
+      <div class="team">
+        <canvas id="teamCv"></canvas>
+        <p>Твоя команда: №7, №10 и №4</p>
+      </div>
+      <div>
+        <p class="label">Имена игроков</p>
+        <div class="names">
+          <label class="nm"><span>№4</span><input id="n4" maxlength="12" placeholder="Имя" autocomplete="off"></label>
+          <label class="nm"><span>№10</span><input id="n10" maxlength="12" placeholder="Имя" autocomplete="off"></label>
+          <label class="nm"><span>№7</span><input id="n7" maxlength="12" placeholder="Имя" autocomplete="off"></label>
+        </div>
+      </div>
+      <div class="twocol">
+        <div>
+          <p class="label">Соперники</p>
+          <div class="seg">
+            <button data-diff="easy">ЛЕГКО</button>
+            <button data-diff="normal">СРЕДНЕ</button>
+            <button data-diff="hard">СИЛЬНО</button>
+          </div>
+        </div>
+        <div>
+          <p class="label">Игра до</p>
+          <div class="seg">
+            <button data-target="7">7</button>
+            <button data-target="11">11</button>
+            <button data-target="15">15</button>
+          </div>
+        </div>
+      </div>
+      <p class="rules">Когда партнёр набросит мяч к сетке, жми <strong>УДАР</strong> — игрок выпрыгнет, и ещё раз <strong>УДАР</strong> в воздухе — пробьёт. Стрелка во время удара меняет направление: к сетке — коротко, назад — в глубину. <strong>ПРЫЖОК</strong> у сетки — блок. <strong>ПРИЁМ</strong> в момент подлёта мяча — точный приём, только так достаётся сильная атака. На своей подаче эта кнопка становится <strong>СИЛОВОЙ</strong> — подача в прыжке, быстрая, но может уйти в аут. Управляешь игроком под синей стрелкой.</p>
+      <button class="play" id="playBtn">ИГРАТЬ</button>
+    </div>
+  </div>
+
+  <div class="overlay dim" id="pause" hidden>
+    <div class="sheet">
+      <div class="result"><h2>ПАУЗА</h2></div>
+      <button class="play" id="resumeBtn">ПРОДОЛЖИТЬ</button>
+      <button class="ghost" id="quitBtn">В МЕНЮ</button>
+    </div>
+  </div>
+
+  <div class="overlay dim" id="end" hidden>
+    <div class="sheet">
+      <div class="result">
+        <h2 id="endTitle">ПОБЕДА!</h2>
+        <div class="final" id="endScore">11 : 7</div>
+        <div class="polaroid"><img src="data:image/jpeg;base64,__PHOTO__" alt="№4 и №10 в форме"></div>
+        <p class="sub" id="endSub"></p>
+      </div>
+      <div class="row">
+        <button class="ghost" id="menuBtn">В МЕНЮ</button>
+        <button class="play" id="againBtn">ЕЩЁ</button>
+      </div>
+    </div>
+  </div>
+</div>
