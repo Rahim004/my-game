@@ -36,12 +36,19 @@ const LOOKS = {
   5:  { skin: '#f0cfae', skinD: '#cca783', hair: '#9b6a3a', style: 'swept', tall: 1.0 },
   9:  { skin: '#9e6a46', skinD: '#7a4d30', hair: '#100c0a', style: 'curly', tall: 1.02 },
 };
+// виды атаки: d — расстояние нападающего от сетки, h/t — высота и время паса, blk — множитель шанса блока, jw — окно прыжка ИИ (сек до высоты паса)
+const ATK = {
+  quick: { d: 34, h: 60, t: .42, blk: .5,  jw: [.02, .14], txt: 'КВИК!' },
+  tempo: { d: 56, h: 66, t: .62, blk: .75, jw: [.08, .22], txt: 'ТЕМП!' },
+  open:  { d: 18, h: 74, t: 1.0, blk: 1,   jw: [.16, .31], txt: '' },
+  pipe:  { d: 135, h: 80, t: .95, blk: .55, jw: [.2, .34], txt: 'ПАЙП!' } };
+const ATK_KEYS = ['open', 'tempo', 'quick', 'pipe'];
 const DIFF = {
-  easy:   { speed: .78, react: .26, err: 16, block: .15, spike: .55, power: 330, dig: .35, pserve: .1 },
-  normal: { speed: .92, react: .13, err: 8,  block: .35, spike: .8,  power: 390, dig: .5, pserve: .3 },
-  hard:   { speed: 1.06, react: .05, err: 3, block: .6,  spike: .95, power: 440, dig: .68, pserve: .5 },
+  easy:   { speed: .78, react: .26, err: 16, block: .15, spike: .55, power: 330, dig: .35, pserve: .1, atkW: [.72, .14, .09, .05] },
+  normal: { speed: .92, react: .13, err: 8,  block: .35, spike: .8,  power: 390, dig: .5, pserve: .3, atkW: [.36, .26, .24, .14] },
+  hard:   { speed: 1.06, react: .05, err: 3, block: .6,  spike: .95, power: 440, dig: .68, pserve: .5, atkW: [.15, .3, .3, .25] },
 };
-const HUMAN_D = { speed: 1.0, react: .07, err: 4, block: .35, spike: 1, power: 470, dig: .45, pserve: 0 };
+const HUMAN_D = { speed: 1.0, react: .07, err: 4, block: .35, spike: 1, power: 470, dig: .45, pserve: 0, atkW: [.36, .26, .24, .14] };
 
 const $ = id => document.getElementById(id);
 const lerp = (a, b, s) => a + (b - a) * s, clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -97,6 +104,7 @@ function buzz(ms) { try { navigator.vibrate && navigator.vibrate(ms); } catch (e
 /* ================= state ================= */
 let TL = null, TR = null, ball = null, server = null, servingTeam = null;
 let state = 'menu', timer = 0, serveT = 0, clock = 0, frameDt = 0;
+let ARENA = 'hall';   // площадка: 'hall' — зал, 'beach' — пляж. Менять только через setArena() (e_scene.js)
 let lastToucher = null, lastTeam = null, blockDone = false, netHitThisRally = false, pointWinner = null;
 let banners = [], parts = [], confetti = [], marks = [], rings = [];
 let freeze = 0, flash = 0, shake = 0, punch = 0, speedLines = null, hype = 0, setHints = 0, netShake = 0, wipe = 0;
@@ -109,7 +117,7 @@ let mode = 'solo';
 const input = { left: false, right: false, jump: false, hit: false, act: false, jumpQ: false, hitQ: false, actQ: false };
 const input2 = { left: false, right: false, jump: false, hit: false, act: false, jumpQ: false, hitQ: false, actQ: false };
 const myTeam = () => mode === 'guest' ? TR : TL;
-let recvHints = 0, serveHints = 0;
+let recvHints = 0, serveHints = 0, atkHints = 0;
 
 const mirror = (T, x) => T.side < 0 ? x : VW - x;
 const other = T => T === TL ? TR : TL;
@@ -120,7 +128,7 @@ const platX = p => p.x + p.face * PLAT * p.look.tall;
 function mkTeam(side, D, name) {
   return { side, D, name, players: [], touches: 0, roles: {}, receiver: null, blocker: null, serveIdx: 0, score: 0, tick: 0,
     blockRoll: 1, blockUsed: false, spikeRoll: 0, digRoll: 0, recvT: 9, setT: 9,
-    human: false, inp: null, act: null, hdir: 0, moving: false, lastMove: -9 };
+    atk: 'open', setH: 74, plan: null, human: false, inp: null, act: null, hdir: 0, moving: false, lastMove: -9 };
 }
 function mkPlayer(team, idx, num, kitName) {
   const p = { team, idx, num, kit: KIT[kitName], look: LOOKS[num], face: team.side < 0 ? 1 : -1,
@@ -146,7 +154,7 @@ function newMatch() {
 }
 function resetServe() {
   for (const T of [TL, TR]) {
-    T.touches = 0; T.roles = {}; T.receiver = null; T.blocker = null; T.tick = 0; T.recvT = T.setT = 9; T.lastHit = null;
+    T.touches = 0; T.atk = 'open'; T.setH = 74; T.roles = {}; T.receiver = null; T.blocker = null; T.tick = 0; T.recvT = T.setT = 9; T.lastHit = null;
     for (const p of T.players) {
       p.x = mirror(T, HOMES[p.idx]); p.h = 0; p.vx = p.vh = 0; p.ground = true; p.swing = 0; p.goal = p.x;
       p.blocking = false; p.toss = 0; p.landT = 0; p.diveDone = false; p.cd = 0; p.jumpServe = false; p.jsJumped = false; p.recvWin = 0;
@@ -214,7 +222,7 @@ function spray(n, cols, sp, life) {
   }
 }
 function dust(x, lane, n) {
-  for (let i = 0; i < n; i++) parts.push({ x: x + (Math.random() - .5) * 4, h: .5, lane, vx: (Math.random() - .5) * 40, vh: 10 + Math.random() * 30, g: 90, t: 0, life: .45 + Math.random() * .3, col: Math.random() < .5 ? 'rgba(235,245,235,.8)' : 'rgba(190,215,190,.8)', size: .5 + Math.random() * .7 });
+  for (let i = 0; i < n; i++) parts.push({ x: x + (Math.random() - .5) * 4, h: .5, lane, vx: (Math.random() - .5) * 40, vh: 10 + Math.random() * 30, g: 90, t: 0, life: .45 + Math.random() * .3, col: Math.random() < .5 ? (ARENA === 'beach' ? 'rgba(230,205,150,.85)' : 'rgba(235,245,235,.8)') : (ARENA === 'beach' ? 'rgba(200,170,110,.8)' : 'rgba(190,215,190,.8)'), size: .5 + Math.random() * .7 });
 }
 
 /* ================= touches ================= */
@@ -230,14 +238,29 @@ function receive(p, perfect) {
   aimLane(setter, 1.15); sfx.pass(); ring('w');
   if (perfect) { p.recvWin = 0; spray(12, ['#f2c230', '#ffffff'], 70, .4); banner('ОТЛИЧНЫЙ ПРИЁМ!', 'gold', 1.0, true); }
 }
+function chooseAtk(T) {
+  const w = T.D.atkW || [1, 0, 0, 0]; let r = Math.random();
+  for (let i = 0; i < 4; i++) { if ((r -= w[i]) < 0) return ATK_KEYS[i]; }
+  return 'open';
+}
+function humanAtk(T, h) {   // тип атаки человека — по положению нападающего: к сетке — квик/темп, назад — пайп, стоит — open
+  if (!(T.moving || clock - T.lastMove < 1.0)) return 'open';
+  const d = Math.abs(h.x - NETX);
+  return d <= 40 ? 'quick' : d <= 68 ? 'tempo' : d >= 100 ? 'pipe' : 'open';
+}
 function setBall(p, low) {
   const T = p.team; snapBall(p, low ? 'receive' : 'set', 14); touch(p, low ? 'receive' : 'set');
   let h = T.roles.hitter; if (!h || h === p) h = closest(T, mirror(T, ATT_X), p);
   T.roles.hitter = h;
-  passTo(mirror(T, ATT_X) + (Math.random() * 2 - 1) * T.D.err * .6, 74, 1.0);
-  aimLane(h, 1.0); sfx.set(); ring('w');
-  T.spikeRoll = Math.random(); other(T).blockRoll = Math.random(); other(T).blockUsed = false;
-  if (T === TL && setHints < 3) { setHints++; banner('УДАР — ПРЫЖОК  ·  УДАР — ПРОБИТЬ', 'gold', 1.3, true, 'L'); }
+  T.atk = T.human ? humanAtk(T, h) : (T.plan || chooseAtk(T));
+  const A = ATK[T.atk]; T.setH = A.h; T.plan = null;
+  passTo(NETX + T.side * A.d + (Math.random() * 2 - 1) * T.D.err * .6, A.h, A.t);
+  aimLane(h, A.t); sfx.set(); ring('w');
+  T.spikeRoll = Math.random(); other(T).blockRoll = Math.random() / A.blk; other(T).blockUsed = false;
+  if (T === TL) {
+    if (A.txt) banner(A.txt, 'gold', .8, true);
+    else if (setHints < 3) { setHints++; banner(setHints === 1 ? 'УДАР — ПРЫЖОК  ·  УДАР — ПРОБИТЬ' : 'К СЕТКЕ — КВИК  ·  НАЗАД — ПАЙП', 'gold', 1.3, true, 'L'); }
+  }
 }
 function freeBall(p) {
   const T = p.team; snapBall(p, 'receive', 14); touch(p, 'receive');
@@ -255,19 +278,20 @@ function spike(p, human) {
   if (human) {
     const inp = T.inp || input;   // экранное нажатие в сторону сетки = короткий удар, от сетки = глубокий (o — знак направления полёта)
     const hd = ((inp.right ? 1 : 0) - (inp.left ? 1 : 0)) * o;
-    const [lo, hi] = hd > 0 ? [26, 82] : hd < 0 ? [150, 206] : [55, 195];
+    const pipe = T.atk === 'pipe';
+    const [lo, hi] = hd > 0 ? (pipe ? [60, 110] : [26, 82]) : hd < 0 ? [150, 206] : pipe ? [90, 200] : [55, 195];
     xt = NETX + o * (lo + Math.random() * (hi - lo));
   } else {
     let best = -1; xt = NETX + o * 120;
     for (let i = 0; i < 6; i++) {
-      const x = NETX + o * (28 + Math.random() * 178);
-      const d = Math.min(...O.players.map(q => Math.abs(q.x - x))) + (diff === 'easy' ? Math.random() * 90 : 0);
+      const x = NETX + o * (T.atk === 'pipe' ? 90 + Math.random() * 116 : T.atk === 'open' ? 28 + Math.random() * 178 : 65 + Math.random() * 141);
+      const d = Math.min(...O.players.map(q => Math.abs(q.x - x))) + (T.D.err >= 12 ? Math.random() * 90 : 0);
       if (d > best) { best = d; xt = x; }
     }
   }
   touch(p, 'spike');
   let ok = false, flight = .5;
-  for (let sp = T.D.power; sp >= 160; sp -= 20) {
+  for (let sp = T.D.power + (T.atk === 'pipe' ? 30 : 0); sp >= 160; sp -= 20) {
     const vx = Math.sign(xt - ball.x) * sp, t = (xt - ball.x) / vx, vh = (0 - ball.h + .5 * G * t * t) / t;
     const tn = (NETX - ball.x) / vx, hn = ball.h + vh * tn - .5 * G * tn * tn;
     if (tn < 0 || hn > NET_H + BR + 2) { ball.vx = vx; ball.vh = vh; ok = true; flight = t; break; }

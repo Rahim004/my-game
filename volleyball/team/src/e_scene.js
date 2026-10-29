@@ -186,11 +186,196 @@ function drawStandsFront(c, signs) {
     c.restore();
   }
 }
+/* ================= beach (ARENA === 'beach'): всё статичное, рисуется в тех же слоях, что и зал ================= */
+const BEACH_SAND0 = '#e6c98f';
+function drawBeachBg(c) {
+  const rn = mulberry(31), W = BGX1 - BGX0, HZ = 128;
+  let g = c.createLinearGradient(0, BGY0, 0, HZ);
+  g.addColorStop(0, '#2a3f86'); g.addColorStop(.38, '#7a58a2'); g.addColorStop(.72, '#f08c6c'); g.addColorStop(1, '#ffd592');
+  c.fillStyle = g; c.fillRect(BGX0, BGY0, W, HZ - BGY0 + 1);
+  // sun and glow
+  g = c.createRadialGradient(340, HZ, 4, 340, HZ, 120); g.addColorStop(0, 'rgba(255,238,190,.9)'); g.addColorStop(.25, 'rgba(255,196,130,.4)'); g.addColorStop(1, 'rgba(255,170,120,0)');
+  c.fillStyle = g; c.fillRect(BGX0, BGY0, W, HZ - BGY0);
+  c.save(); c.beginPath(); c.rect(BGX0, BGY0, W, HZ - BGY0); c.clip();
+  g = c.createRadialGradient(340, HZ - 2, 2, 340, HZ - 2, 15); g.addColorStop(0, '#fffbe8'); g.addColorStop(.8, '#ffe39a'); g.addColorStop(1, '#ffc766');
+  c.fillStyle = g; c.beginPath(); c.arc(340, HZ - 2, 15, 0, 6.283); c.fill(); c.restore();
+  // clouds
+  for (let i = 0; i < 16; i++) {
+    const x = BGX0 + rn() * W, y = 14 + rn() * 92, w = 30 + rn() * 70, h = 1.6 + rn() * 2.6, a = .1 + (y / 100) * .28;
+    c.fillStyle = `rgba(255,${150 + (y | 0)},${150 + ((y / 2) | 0)},${a})`; c.beginPath(); c.ellipse(x, y, w, h, 0, 0, 6.283); c.fill();
+    c.fillStyle = `rgba(255,236,210,${a * .6})`; c.beginPath(); c.ellipse(x + w * .15, y - h * .5, w * .6, h * .5, 0, 0, 6.283); c.fill();
+  }
+  // far headlands, sailboat
+  c.fillStyle = '#6a5688'; c.beginPath(); c.moveTo(BGX0, HZ); c.lineTo(BGX0, 112); c.quadraticCurveTo(20, 104, 44, 114); c.quadraticCurveTo(62, 108, 84, 118); c.lineTo(120, HZ); c.fill();
+  c.fillStyle = '#5a4778'; c.beginPath(); c.moveTo(410, HZ); c.lineTo(430, 117); c.quadraticCurveTo(452, 100, 470, 108); c.quadraticCurveTo(486, 104, BGX1, 112); c.lineTo(BGX1, HZ); c.fill();
+  c.fillStyle = '#3d3159'; c.beginPath(); c.moveTo(BGX0, HZ); c.lineTo(BGX0, 120); c.quadraticCurveTo(30, 114, 70, 124); c.lineTo(96, HZ); c.fill();
+  c.fillStyle = '#fff4e0'; c.beginPath(); c.moveTo(212, 119.6); c.lineTo(216.6, 119.6); c.lineTo(215.6, 112); c.closePath(); c.fill();
+  c.beginPath(); c.moveTo(211.4, 119.6); c.lineTo(214.6, 119.6); c.lineTo(214.6, 113); c.closePath(); c.fillStyle = '#ffd9b4'; c.fill();
+  c.fillStyle = '#4b3a5e'; c.fillRect(210.6, 120, 7.4, 1);
+  // sea
+  g = c.createLinearGradient(0, HZ, 0, 176); g.addColorStop(0, '#f3b27e'); g.addColorStop(.12, '#8fa1bd'); g.addColorStop(.5, '#2f86ac'); g.addColorStop(1, '#1c6e96');
+  c.fillStyle = g; c.fillRect(BGX0, HZ, W, 50);
+  c.fillStyle = 'rgba(255,230,190,.55)'; c.fillRect(BGX0, HZ, W, .7);
+  for (let y = HZ + 2; y < 172; y += 1.7) {   // sun glitter column
+    const t = (y - HZ) / 44, hw = 4 + t * 38;
+    for (let k = 0; k < 5 + t * 5; k++) { const x = 340 + (rn() * 2 - 1) * hw, w = 2 + rn() * (3 + t * 6); c.fillStyle = `rgba(255,${226 + ((rn() * 25) | 0)},170,${.35 + rn() * .5})`; c.fillRect(x - w / 2, y, w, .55); }
+  }
+  for (let i = 0; i < 90; i++) { const y = HZ + 3 + rn() * 44, t = (y - HZ) / 44; c.fillStyle = rn() < .5 ? `rgba(255,255,255,${.06 + t * .1})` : `rgba(10,50,90,${.08 + t * .08})`; c.fillRect(BGX0 + rn() * W, y, 5 + rn() * 14 * (.4 + t), .5 + t * .4); }
+  // shore: foam, wet sand, dry sand
+  g = c.createLinearGradient(0, 168, 0, 200); g.addColorStop(0, '#b99a6a'); g.addColorStop(.35, '#d8bc86'); g.addColorStop(.7, '#e3c88e'); g.addColorStop(1, BEACH_SAND0);
+  c.fillStyle = g; c.beginPath(); c.moveTo(BGX0, 200); c.lineTo(BGX0, 171);
+  for (let x = BGX0; x <= BGX1; x += 8) c.lineTo(x, 171 + Math.sin(x * .05) * 1.4 + Math.sin(x * .13) * .7); c.lineTo(BGX1, 200); c.fill();
+  c.strokeStyle = 'rgba(255,255,255,.85)'; c.lineWidth = 1.5; c.beginPath();
+  for (let x = BGX0; x <= BGX1; x += 4) { const y = 170.2 + Math.sin(x * .05) * 1.4 + Math.sin(x * .13) * .7; x === BGX0 ? c.moveTo(x, y) : c.lineTo(x, y); } c.stroke();
+  c.strokeStyle = 'rgba(255,255,255,.35)'; c.lineWidth = .7; c.beginPath();
+  for (let x = BGX0; x <= BGX1; x += 4) { const y = 175.2 + Math.sin(x * .04 + 1) * 1.6; x === BGX0 ? c.moveTo(x, y) : c.lineTo(x, y); } c.stroke();
+  c.strokeStyle = 'rgba(255,255,255,.4)'; c.lineWidth = .6; c.beginPath();
+  for (let x = BGX0; x <= BGX1; x += 4) { const y = 163 + Math.sin(x * .07 + 2) * 1.2; x === BGX0 ? c.moveTo(x, y) : c.lineTo(x, y); } c.stroke();
+  c.fillStyle = 'rgba(255,236,200,.18)'; c.fillRect(BGX0, 172, W, 3);
+  for (let i = 0; i < 260; i++) { c.fillStyle = rn() < .5 ? 'rgba(120,85,40,.16)' : 'rgba(255,248,225,.18)'; c.fillRect(BGX0 + rn() * W, 178 + rn() * 22, .8 + rn(), .5); }
+  // warm haze over the horizon
+  g = c.createLinearGradient(0, HZ - 12, 0, HZ + 14); g.addColorStop(0, 'rgba(255,200,150,0)'); g.addColorStop(.5, 'rgba(255,200,150,.22)'); g.addColorStop(1, 'rgba(255,200,150,0)');
+  c.fillStyle = g; c.fillRect(BGX0, HZ - 12, W, 26);
+  return [];
+}
+function paintBeachFloor(c) {
+  const rn = mulberry(23);
+  let g = c.createLinearGradient(0, 196, 0, 290); g.addColorStop(0, BEACH_SAND0); g.addColorStop(.3, '#efd7a1'); g.addColorStop(1, '#e2c184');
+  c.fillStyle = g; c.fillRect(-80, 196, 640, 104);
+  for (let i = 0; i < 2200; i++) { const y = 197 + rn() * 102; c.fillStyle = rn() < .5 ? 'rgba(255,250,230,.28)' : 'rgba(130,90,40,.17)'; c.fillRect(-80 + rn() * 640, y, .5 + rn() * .8, .4 + rn() * .3); }
+  c.strokeStyle = 'rgba(150,105,50,.11)'; c.lineWidth = .5;   // wind ripples
+  for (let i = 0; i < 70; i++) { const x = -70 + rn() * 620, y = 200 + rn() * 96, w = 14 + rn() * 34; c.beginPath(); c.moveTo(x, y); c.quadraticCurveTo(x + w / 2, y - 1.4 - rn() * 1.2, x + w, y + .3); c.stroke(); }
+  c.strokeStyle = 'rgba(255,248,225,.14)'; c.lineWidth = .4;
+  for (let i = 0; i < 50; i++) { const x = -70 + rn() * 620, y = 200.8 + rn() * 96, w = 12 + rn() * 28; c.beginPath(); c.moveTo(x, y); c.quadraticCurveTo(x + w / 2, y - 1.6, x + w, y + .2); c.stroke(); }
+  const A = q2(COURT_L, FAR_Y), B = q2(COURT_R, FAR_Y), C = q2(COURT_R, NEAR_Y), D = q2(COURT_L, NEAR_Y);
+  c.save(); poly(c, [A, B, C, D]); c.clip();   // raked court sand
+  g = c.createLinearGradient(0, FAR_Y, 0, NEAR_Y); g.addColorStop(0, 'rgba(255,240,200,.22)'); g.addColorStop(1, 'rgba(255,248,225,.3)'); c.fillStyle = g; c.fillRect(0, FAR_Y, 480, 60);
+  c.strokeStyle = 'rgba(140,95,45,.09)'; c.lineWidth = .35; c.beginPath();
+  for (let y = FAR_Y + 2; y < NEAR_Y + 4; y += 3.1) { c.moveTo(PX(COURT_L, y), y); c.lineTo(PX(COURT_R, y), y + (y % 2 ? .25 : -.25)); } c.stroke();
+  c.fillStyle = 'rgba(120,80,35,.16)';   // footprints
+  for (let i = 0; i < 46; i++) { const y = FAR_Y + 4 + rn() * 44, x = PX(COURT_L + 20 + rn() * 392, y), s = sOf(y); c.beginPath(); c.ellipse(x, y, 1.1 * s, .45 * s, rn() * .5 - .25, 0, 6.283); c.fill(); c.beginPath(); c.ellipse(x + 2.6 * s, y + .6 * s, 1.1 * s, .45 * s, rn() * .5 - .25, 0, 6.283); c.fill(); }
+  c.restore();
+  g = c.createRadialGradient(330, 230, 10, 330, 230, 260); g.addColorStop(0, 'rgba(255,214,150,.2)'); g.addColorStop(1, 'rgba(255,214,150,0)'); c.fillStyle = g; c.fillRect(-80, 196, 640, 104);   // low sun
+  g = c.createLinearGradient(0, 270, 0, 300); g.addColorStop(0, 'rgba(150,100,50,0)'); g.addColorStop(1, 'rgba(150,100,50,.18)'); c.fillStyle = g; c.fillRect(-80, 270, 640, 30);
+  // boundary ribbons: yellow end lines, blue sidelines, stakes at corners
+  c.lineCap = 'butt'; c.strokeStyle = 'rgba(90,55,20,.22)';
+  seg2(c, [A[0], A[1] + .9], [B[0], B[1] + .9], 1.3); seg2(c, [D[0], D[1] + 1], [C[0], C[1] + 1], 1.9); seg2(c, [A[0] + .5, A[1]], [D[0] + .5, D[1]], 1.5); seg2(c, [B[0] + .5, B[1]], [C[0] + .5, C[1]], 1.5);
+  c.strokeStyle = '#f2c230'; seg2(c, A, B, .9); seg2(c, D, C, 1.5);
+  c.strokeStyle = '#2a6fd2'; seg2(c, A, D, 1.2); seg2(c, B, C, 1.2);
+  c.strokeStyle = 'rgba(255,255,255,.35)'; seg2(c, [A[0], A[1] - .2], [B[0], B[1] - .2], .25); seg2(c, [D[0], D[1] - .3], [C[0], C[1] - .3], .4);
+  for (const [P, s] of [[A, sOf(FAR_Y)], [B, sOf(FAR_Y)], [C, sOf(NEAR_Y)], [D, sOf(NEAR_Y)]]) {
+    c.fillStyle = 'rgba(90,55,20,.3)'; c.beginPath(); c.ellipse(P[0], P[1] + .5, 2.4 * s, .7 * s, 0, 0, 6.283); c.fill();
+    c.fillStyle = '#5a3c20'; c.fillRect(P[0] - .7 * s, P[1] - 3.2 * s, 1.4 * s, 3.6 * s); c.fillStyle = '#e0383b'; c.fillRect(P[0] - .7 * s, P[1] - 3.2 * s, 1.4 * s, 1.2 * s);
+  }
+  for (const [X, txt] of [[NETX - 112, LAB[0]], [NETX + 112, LAB[1]]]) {   // names written in the sand
+    c.save(); c.translate(PX(X, LANE0), LANE0 + 1); c.scale(1, .34);
+    c.fillStyle = 'rgba(255,248,225,.22)'; c.font = `700 15px ${FONT}`; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(txt, .5, 1.6);
+    c.fillStyle = 'rgba(110,70,30,.2)'; c.fillText(txt, 0, 1); c.restore();
+  }
+  c.save(); c.translate(240, 276); c.scale(1, .3); c.fillStyle = 'rgba(110,70,30,.17)'; c.font = `700 18px ${FONT}`; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('ВОЛЕЙБОЛ 3 НА 3', 0, 0); c.restore();
+}
+function drawBeachPost(c, y, near) {
+  const s = sOf(y), x = netX(y), top = y - 62 * s, dir = near ? 1 : -1;
+  c.fillStyle = 'rgba(90,55,20,.3)'; c.beginPath(); c.ellipse(x + 2 * s, y + .4 * s, 5.4 * s, 1.2 * s, 0, 0, 6.283); c.fill();
+  c.strokeStyle = 'rgba(70,45,25,.75)'; c.lineWidth = .35; c.beginPath();   // guy lines to pegs
+  c.moveTo(x, top + 3 * s); c.lineTo(x + 1.5 * s, y + dir * 11 * s); c.moveTo(x, top + 3 * s); c.lineTo(x - 11 * s, y + dir * 2 * s); c.moveTo(x, top + 3 * s); c.lineTo(x + 11 * s, y + dir * 2 * s); c.stroke();
+  c.fillStyle = '#5a3c20'; for (const [px, py] of [[1.5, dir * 11], [-11, dir * 2], [11, dir * 2]]) c.fillRect(x + px * s - .5 * s, y + py * s - .6 * s, 1 * s, 1.2 * s);
+  c.fillStyle = '#8a5a30'; c.fillRect(x - 1.5 * s, top, 3 * s, y - top);
+  c.fillStyle = '#b57c46'; c.fillRect(x - 1.5 * s, top, 1 * s, y - top);
+  c.fillStyle = 'rgba(40,22,8,.3)'; c.fillRect(x + .6 * s, top, .9 * s, y - top);
+  c.fillStyle = '#6e4624'; c.fillRect(x - 1.5 * s, y - 38 * s, 3 * s, .5 * s); c.fillRect(x - 1.5 * s, y - 14 * s, 3 * s, .5 * s);
+  c.fillStyle = '#c9a070'; rrect(c, x - 2.1 * s, top - 1 * s, 4.2 * s, 2 * s, .8 * s); c.fill();
+  c.fillStyle = '#e0383b'; c.fillRect(x - 1.5 * s, y - 40 * s, 3 * s, 1.5 * s);
+}
+function beachFan(c, x, y, cheer, rn, sit) {
+  const SK = ['#e3b68f', '#c48c62', '#f0cfae', '#9e6a46', '#ddae86'], sk = SK[(rn() * 5) | 0], side = x < 240 ? 0 : 1;
+  const sw = rn() < .5 ? (side ? TEAM_R : TEAM_L) : ['#e0383b', '#f2c230', '#ffffff', '#3b82d9', '#e86aa0', '#6cc06a'][(rn() * 6) | 0];
+  const hat = rn() < .45, hr = ['#1a1411', '#2b1d14', '#5a3a22', '#b8864a'][(rn() * 4) | 0], up = cheer ? 1 : 0, jump = cheer && !sit ? -1.2 : 0;
+  c.fillStyle = 'rgba(70,40,10,.25)'; c.beginPath(); c.ellipse(x, y, 5.5, 1.1, 0, 0, 6.283); c.fill();
+  let by = y + jump;
+  if (sit) {
+    c.fillStyle = sw === '#ffffff' ? '#e0383b' : '#fff4e0'; c.beginPath(); c.moveTo(x - 7, y - .2); c.lineTo(x + 7, y - .2); c.lineTo(x + 5.6, y - 3.4); c.lineTo(x - 5.6, y - 3.4); c.closePath(); c.fill();
+    c.fillStyle = 'rgba(0,0,0,.12)'; c.fillRect(x - 6.4, y - 2, 12.8, .5);
+    c.fillStyle = sk; c.fillRect(x - 1, y - 3.6, 6, 1.5);   // legs forward
+    c.fillStyle = sw; rrect(c, x - 3.4, y - 11, 5.6, 8.2, 1.6); c.fill(); by = y - 3;
+  } else {
+    c.fillStyle = sk; c.fillRect(x - 1.8, by - 7, 1.4, 7); c.fillRect(x + .4, by - 7, 1.4, 7);
+    c.fillStyle = sw; rrect(c, x - 2.6, by - 15, 5.2, 8.6, 1.5); c.fill(); by = by - 4;
+  }
+  const hx = sit ? x - .6 : x, hy = by - 8.6;
+  c.strokeStyle = sk; c.lineWidth = 1.1; c.lineCap = 'round'; c.beginPath();
+  if (up) { c.moveTo(hx - 2.4, hy + 3.2); c.lineTo(hx - 4.4, hy - 3); c.moveTo(hx + 2.4, hy + 3.2); c.lineTo(hx + 4.4, hy - 3); }
+  else { c.moveTo(hx - 2.4, hy + 3.4); c.lineTo(hx - 3.2, hy + 7); c.moveTo(hx + 2.4, hy + 3.4); c.lineTo(hx + 3.2, hy + 7); }
+  c.stroke();
+  c.fillStyle = sk; c.beginPath(); c.arc(hx, hy, 2.4, 0, 6.283); c.fill();
+  if (hat) { c.fillStyle = '#e8c878'; c.beginPath(); c.ellipse(hx, hy - 1.6, 4, .9, 0, 0, 6.283); c.fill(); c.fillStyle = '#d2a652'; c.beginPath(); c.arc(hx, hy - 1.7, 2.2, Math.PI, 6.283); c.fill(); }
+  else { c.fillStyle = hr; c.beginPath(); c.arc(hx, hy - .4, 2.5, Math.PI * 1.02, Math.PI * 1.98); c.fill(); }
+}
+function palm(c, x, y, h, lean, seed) {
+  const rn = mulberry(seed), tx = x + lean, ty = y - h;
+  c.fillStyle = 'rgba(70,40,10,.25)'; c.beginPath(); c.ellipse(x + 4, y, 10, 1.6, 0, 0, 6.283); c.fill();
+  c.fillStyle = '#7a5530'; c.beginPath(); c.moveTo(x - 2.4, y); c.quadraticCurveTo(x + lean * .2, y - h * .5, tx - 1.1, ty); c.lineTo(tx + 1.1, ty); c.quadraticCurveTo(x + lean * .2 + 2.4, y - h * .5, x + 2.4, y); c.fill();
+  c.strokeStyle = 'rgba(40,22,8,.35)'; c.lineWidth = .4; c.beginPath();
+  for (let i = 1; i < 12; i++) { const t = i / 12, px = x + lean * t * t * 1.0, py = y - h * t, w = 2.2 - 1.2 * t; c.moveTo(px - w, py); c.lineTo(px + w, py + .6); } c.stroke();
+  for (let i = 0; i < 9; i++) {
+    const a = -Math.PI + (i / 8) * Math.PI * 1.0 + (rn() - .5) * .3, L = 17 + rn() * 8, ex = tx + Math.cos(a) * L, ey = ty + Math.sin(a) * L * .55 + L * .42, cx = tx + Math.cos(a) * L * .5, cy = ty + Math.sin(a) * L * .8 - 4;
+    c.fillStyle = i % 2 ? '#2f8a47' : '#3ea055'; c.beginPath(); c.moveTo(tx, ty); c.quadraticCurveTo(cx, cy - 2.2, ex, ey); c.quadraticCurveTo(cx, cy + 3, tx, ty + .8); c.fill();
+    c.strokeStyle = 'rgba(20,70,30,.5)'; c.lineWidth = .35; c.beginPath(); c.moveTo(tx, ty); c.quadraticCurveTo(cx, cy, ex, ey); c.stroke();
+  }
+  c.fillStyle = '#5a3a1e'; c.beginPath(); c.arc(tx - 1.3, ty + 2, 1.3, 0, 6.283); c.arc(tx + 1.3, ty + 2.2, 1.3, 0, 6.283); c.fill();
+}
+function parasol(c, x, y, col1, col2, r, h) {
+  c.fillStyle = 'rgba(70,40,10,.22)'; c.beginPath(); c.ellipse(x + 5, y, r * .8, 1.5, 0, 0, 6.283); c.fill();
+  c.strokeStyle = '#f1e8d8'; c.lineWidth = 1; c.beginPath(); c.moveTo(x - 1, y); c.lineTo(x + 1, y - h); c.stroke();
+  const top = y - h, n = 6;
+  for (let i = 0; i < n; i++) {
+    const a0 = Math.PI + (i / n) * Math.PI, a1 = Math.PI + ((i + 1) / n) * Math.PI;
+    c.fillStyle = i % 2 ? col2 : col1; c.beginPath(); c.moveTo(x + 1, top - r * .55);
+    c.lineTo(x + 1 + Math.cos(a0) * r, top + Math.sin(a0) * r * .1 + 1.6); c.quadraticCurveTo(x + 1 + Math.cos((a0 + a1) / 2) * r, top + 3.2, x + 1 + Math.cos(a1) * r, top + 1.6); c.closePath(); c.fill();
+  }
+  c.fillStyle = 'rgba(255,255,255,.18)'; c.beginPath(); c.moveTo(x + 1, top - r * .55); c.lineTo(x + 1 - r * .6, top + 1); c.lineTo(x + 1 - r * .2, top + 1); c.closePath(); c.fill();
+  c.fillStyle = '#f1e8d8'; c.beginPath(); c.arc(x + 1, top - r * .57, .8, 0, 6.283); c.fill();
+}
+function lounger(c, x, y, col) {
+  c.fillStyle = 'rgba(70,40,10,.22)'; c.beginPath(); c.ellipse(x, y, 11, 1.4, 0, 0, 6.283); c.fill();
+  c.fillStyle = '#f4efe6'; c.fillRect(x - 9, y - 3, 14, 1.4); c.fillStyle = col; c.fillRect(x - 9, y - 3, 14, .7);
+  c.save(); c.translate(x + 5, y - 3); c.rotate(-.9); c.fillStyle = '#f4efe6'; c.fillRect(0, -1.4, 8, 1.6); c.fillStyle = col; c.fillRect(0, -1.4, 8, .7); c.restore();
+  c.fillStyle = '#8a5a30'; c.fillRect(x - 9, y - 1.8, .9, 1.8); c.fillRect(x + 4, y - 1.8, .9, 1.8);
+}
+function lifeguardTower(c, x, y) {
+  c.fillStyle = 'rgba(70,40,10,.25)'; c.beginPath(); c.ellipse(x + 3, y, 15, 1.8, 0, 0, 6.283); c.fill();
+  c.strokeStyle = '#8a5a30'; c.lineWidth = 1.3; c.lineCap = 'round'; c.beginPath(); c.moveTo(x - 9, y); c.lineTo(x - 7, y - 24); c.moveTo(x + 9, y); c.lineTo(x + 7, y - 24); c.moveTo(x - 8.6, y - 3); c.lineTo(x + 7.6, y - 20); c.moveTo(x + 8.6, y - 3); c.lineTo(x - 7.6, y - 20); c.stroke();
+  c.strokeStyle = '#b57c46'; c.lineWidth = .9; c.beginPath(); c.moveTo(x - 13, y); c.lineTo(x - 8.5, y - 22); c.moveTo(x - 8.5, y); c.lineTo(x - 5, y - 22); c.stroke();
+  c.lineWidth = .6; c.beginPath(); for (let i = 1; i < 6; i++) { const yy = y - i * 3.6; c.moveTo(x - 12.4 + i * .75, yy); c.lineTo(x - 8 + i * .75 - .2, yy); } c.stroke();
+  c.fillStyle = '#b57c46'; c.fillRect(x - 10, y - 25, 20, 2);
+  c.fillStyle = '#f4efe6'; c.fillRect(x - 8, y - 39, 16, 14); c.fillStyle = '#e0383b'; c.fillRect(x - 8, y - 34, 16, 3.4);
+  c.fillStyle = '#3b6a8c'; c.fillRect(x - 5.5, y - 38, 11, 3); c.fillStyle = 'rgba(255,255,255,.4)'; c.fillRect(x - 5.5, y - 38, 4, 3);
+  c.fillStyle = '#e0383b'; c.beginPath(); c.moveTo(x - 11, y - 38.6); c.lineTo(x + 11, y - 38.6); c.lineTo(x + 7, y - 44); c.lineTo(x - 7, y - 44); c.closePath(); c.fill();
+  c.fillStyle = 'rgba(255,255,255,.3)'; c.fillRect(x - 6, y - 44, 3, 5.4);
+  c.fillStyle = '#6e4624'; c.fillRect(x + 7.6, y - 52, .7, 9); c.fillStyle = '#f2c230'; c.beginPath(); c.moveTo(x + 8.3, y - 52); c.lineTo(x + 14, y - 50); c.lineTo(x + 8.3, y - 48); c.fill();
+}
+function paintBeachProps(c, cheer) {
+  const rn = mulberry(77);
+  palm(c, 10, 203, 56, 8, 5); palm(c, 477, 203, 60, -9, 8);
+  lifeguardTower(c, 442, 203);
+  parasol(c, 44, 203.5, '#e0383b', '#fff4e0', 15, 24); parasol(c, 168, 203.5, '#f2c230', '#fff4e0', 15, 25); parasol(c, 318, 203.5, '#2a8fd2', '#fff4e0', 15, 25); parasol(c, 416, 203.5, '#e86aa0', '#fff4e0', 14, 22);
+  lounger(c, 190, 203.5, '#e86aa0'); lounger(c, 339, 203.5, '#2a8fd2');
+  paintRefTower(c, cheer);
+  paintBench(c, 98, 202.3, '#e8701c', '#2a2731', cheer, 3, LAB[0]);
+  paintBench(c, 384, 202.3, '#118a92', '#1b3a3e', cheer, 9, LAB[1]);
+  parasol(c, 98, 203, '#e8701c', '#fff4e0', 22, 42); parasol(c, 384, 203, '#118a92', '#fff4e0', 22, 42);
+  const spots = [[26, 1], [60, 0], [128, 0], [150, 1], [214, 0], [232, 0], [280, 1], [298, 0], [330, 1], [352, 0], [412, 0], [428, 1], [464, 0]];
+  for (const [x, sit] of spots) beachFan(c, x + (rn() - .5) * 4, 203 + rn() * 1.6, cheer, rn, !!sit);
+}
 let bgL = null;
+function setArena(a) {   // сменить площадку: перестроить заранее нарисованные слои
+  ARENA = a === 'beach' ? 'beach' : 'hall'; bgL = null;
+}
 function buildBg(res) {
   const w = Math.ceil((BGX1 - BGX0) * res), h = Math.ceil((BGY1 - BGY0) * res);
   const make = cheer => {
     const cv2 = document.createElement('canvas'); cv2.width = w; cv2.height = h; const c = cv2.getContext('2d'); c.scale(res, res); c.translate(-BGX0, -BGY0);
+    if (ARENA === 'beach') { drawBeachBg(c); return cv2; }
     const signs = drawStands(c, cheer); let res2 = cv2;
     try {
       const b = document.createElement('canvas'); b.width = w; b.height = h; const bc = b.getContext('2d');
@@ -203,6 +388,7 @@ function buildBg(res) {
 }
 let ledW = 0;
 function drawLed(c) {
+  if (ARENA === 'beach') return;
   c.save(); c.beginPath(); c.rect(BGX0, 172.7, BGX1 - BGX0, 10.6); c.clip();
   c.font = '600 7px Oswald, "Arial Narrow", sans-serif'; c.textBaseline = 'middle';
   if (led) {
@@ -247,6 +433,7 @@ function drawScreens(c, bounce) {
   });
 }
 function drawArenaDyn(c, bounce) {
+  if (ARENA === 'beach') return;
   drawScreens(c, bounce);
   const hot = hype > .25, pulse = hot ? .1 + .08 * Math.sin(clock * 12) : 0;
   c.textAlign = 'center'; c.textBaseline = 'middle';
@@ -269,6 +456,7 @@ const q2 = (X, y) => [PX(X, y), y];
 function poly(c, pts) { c.beginPath(); c.moveTo(pts[0][0], pts[0][1]); for (let i = 1; i < pts.length; i++) c.lineTo(pts[i][0], pts[i][1]); c.closePath(); }
 function seg2(c, a, b, w) { c.lineWidth = w; c.beginPath(); c.moveTo(a[0], a[1]); c.lineTo(b[0], b[1]); c.stroke(); }
 function paintFloor(c) {
+  if (ARENA === 'beach') return paintBeachFloor(c);
   const rn = mulberry(21);
   let g = c.createLinearGradient(0, 200, 0, 280); g.addColorStop(0, '#2f62ad'); g.addColorStop(1, '#4b8ce0');
   c.fillStyle = g; c.fillRect(-80, 196, 640, 104);
@@ -326,6 +514,7 @@ function drawMarks(c) {
   for (const m of marks) { const a = 1 - m.t / 1.4; c.fillStyle = `rgba(20,45,25,${.25 * a})`; c.beginPath(); c.ellipse(PX(m.x, m.lane), m.lane, 3.6, 1.15, 0, 0, 6.283); c.fill(); }
 }
 function drawPost(c, y, near) {
+  if (ARENA === 'beach') return drawBeachPost(c, y, near);
   const s = sOf(y), x = netX(y), top = y - 62 * s;
   c.fillStyle = 'rgba(8,22,12,.28)'; c.beginPath(); c.ellipse(x, y + .4 * s, 4.2 * s, 1.1 * s, 0, 0, 6.283); c.fill();
   c.fillStyle = '#98a1ae'; c.fillRect(x - .9 * s, top, 1.8 * s, y - top);
@@ -365,7 +554,7 @@ function drawNet(c, wob) {
   }
 }
 /* ---- props behind the far line: referee tower, benches, ad stands ---- */
-const PRX0 = 8, PRX1 = 472, PRY0 = 136, PRY1 = 205;
+const PRX0 = -16, PRX1 = 496, PRY0 = 118, PRY1 = 205;
 function paintRefTower(c, cheer) {
   const x = 256, gy = 202.5, st = 168;
   c.fillStyle = 'rgba(0,0,0,.28)'; c.beginPath(); c.ellipse(x, gy, 13, 1.7, 0, 0, 6.283); c.fill();
@@ -444,6 +633,7 @@ function paintAdStand(c, x, y, kind) {
   }
 }
 function paintProps(c, cheer) {
+  if (ARENA === 'beach') return paintBeachProps(c, cheer);
   paintRefTower(c, cheer);
   paintBench(c, 98, 202.3, '#e8701c', '#2a2731', cheer, 3, LAB[0]);
   paintBench(c, 384, 202.3, '#118a92', '#1b3a3e', cheer, 9, LAB[1]);
@@ -524,7 +714,7 @@ const TONE = { org: '#f07a22', gold: '#f2c230', teal: '#14a3ab' };
 function hudName(T) {
   if (mode === 'local2') return T === TL ? 'ИГРОК 1' : 'ИГРОК 2';
   if (mode === 'host' || mode === 'guest') return T === myTeam() ? 'ТЫ' : 'ДРУГ';
-  return T === TL ? '№4 · №10' : 'ГОСТИ';
+  return T === TL ? '№4 · №10' : String(T.name || 'ГОСТИ').slice(0, 16);   // в турнире/колизее — название соперника
 }
 function hudSide(T) {   // короткая метка в заставке: НАШИ/ГОСТИ, ИГРОК 1/2 или ТЫ/ДРУГ
   return mode === 'solo' ? (T === TL ? 'НАШИ' : 'ГОСТИ') : hudName(T);
@@ -651,7 +841,7 @@ function render() {
   out.setTransform(D * sc, 0, 0, D * sc, D * (cssW / 2 - bgx * sc) + sx, -D * cam.top * sc + sy);
   out.imageSmoothingEnabled = true;
   const cheer = hype > .25, layer = cheer ? bgL.cheer : bgL.calm, r = bgL.res, split = 164;
-  const bounce = cheer && !REDUCED ? -Math.abs(Math.sin(clock * 9)) * 1.3 * hype : 0;
+  const bounce = cheer && !REDUCED && ARENA !== 'beach' ? -Math.abs(Math.sin(clock * 9)) * 1.3 * hype : 0;
   out.drawImage(layer, 0, 0, layer.width, (split + 4 - BGY0) * r, BGX0, BGY0 + bounce, BGX1 - BGX0, split + 4 - BGY0);
   out.drawImage(layer, 0, (split - BGY0) * r, layer.width, (BGY1 - split) * r, BGX0, split, BGX1 - BGX0, BGY1 - split);
   drawLed(out); drawArenaDyn(out, bounce);
@@ -665,7 +855,7 @@ function render() {
     for (const p of all) { const sl = sOf(p.lane); shadow(out, PX(p.x, p.lane), p.lane + .3, 6.5 * sl * Math.max(.45, 1 - p.h / 70), .3); }
     shadow(out, PX(ball.x, ball.lane), ball.lane + .2, 3 * sOf(ball.lane) * Math.max(.3, 1 - ball.h / 150), .28);
     all.sort((a, b) => a.lane - b.lane);
-    if (fancy) {
+    if (fancy && ARENA !== 'beach') {
       out.save(); out.beginPath(); out.rect(-80, FAR_Y, 640, 100); out.clip(); out.globalAlpha = .12;
       for (const p of all) { const sl = sOf(p.lane); out.save(); out.translate(0, 2 * p.lane); out.scale(1, -1); drawPlayerAt(out, p, PX(p.x, p.lane), p.lane - p.h * sl, sl, true); out.restore(); }
       out.restore(); out.globalAlpha = 1;

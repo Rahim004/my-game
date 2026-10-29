@@ -4,6 +4,7 @@ function planTeam(T) {
   const D = T.D, O = other(T);
   for (const p of T.players) p.aiJump = false;
   T.recvT -= frameDt; T.setT -= frameDt;
+  if (T.touches === 0) T.plan = null;
   T.tick -= frameDt;
   if (T.tick <= 0) {
     T.tick = D.react;
@@ -24,9 +25,11 @@ function planTeam(T) {
       if (onOwn && T.touches === 1) {
         const st = T.roles.setter;
         if (st) { const pr = predict(42); st.goal = pr.x + T.side * 2.6; T.setT = pr.t; }
-        const ht = T.roles.hitter; if (ht && ht !== st) ht.goal = mirror(T, ATT_X) + T.side * 22;
+        const ht = T.roles.hitter;
+        if (!T.human && !T.plan) T.plan = chooseAtk(T);
+        if (ht && ht !== st) ht.goal = T.human || T.plan === 'open' ? mirror(T, ATT_X) + T.side * 22 : NETX + T.side * (ATK[T.plan].d + 5);
       }
-      if (onOwn && T.touches === 2 && T.roles.hitter) { const pr = predict(74); T.roles.hitter.goal = pr.x + T.side * 5; }
+      if (onOwn && T.touches === 2 && T.roles.hitter) { const pr = predict(T.setH); T.roles.hitter.goal = pr.x + T.side * 5; }
       if (!onOwn && O.touches >= 1 && O.roles.hitter) {
         let bl = null, d = 1e9;
         for (const p of T.players) { if (p === T.receiver) continue; const k = Math.abs(p.x - NETX); if (k < d) { d = k; bl = p; } }
@@ -38,11 +41,11 @@ function planTeam(T) {
   const onOwn = ownSide(T, ball.x);
   if (!T.human && onOwn && T.touches === 2) {
     const ht = T.roles.hitter;
-    if (ht && ht.ground) { const pr = predict(74); if (pr.t < .31 && pr.t > .16 && Math.abs(pr.x + T.side * 5 - ht.x) < 14) ht.aiJump = true; }
+    if (ht && ht.ground) { const jw = ATK[T.atk].jw, pr = predict(T.setH); if (pr.t < jw[1] && pr.t > jw[0] && Math.abs(pr.x + T.side * 5 - ht.x) < 14) ht.aiJump = true; }
   }
   if (!onOwn && T.blocker && !T.blockUsed) {
     const oh = O.roles.hitter;
-    if (oh && !oh.ground && oh.vh > 0 && Math.abs(oh.x - NETX) < 50 && T.blocker.ground && Math.abs(T.blocker.x - NETX) < 26) {
+    if (oh && !oh.ground && oh.vh > 0 && Math.abs(oh.x - NETX) < (O.atk === 'pipe' ? 150 : 50) && T.blocker.ground && Math.abs(T.blocker.x - NETX) < 26) {
       T.blockUsed = true;
       if (T.blockRoll < D.block) { T.blocker.aiJump = true; T.blocker.blocking = true; }
     }
