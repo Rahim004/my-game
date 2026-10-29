@@ -33,6 +33,7 @@ const STUB = `(() => {
     const host = await ctx.newPage(), guest = await ctx.newPage();
     for (const p of [host, guest]) { p.on('pageerror', e => errs.push(e.message)); await p.goto(`http://localhost:${port}/test.html`); }
     await host.waitForTimeout(500);
+    await host.evaluate(() => window.__vb.setArena('beach'));
     const code = await host.evaluate(() => window.__vb.netHost('auto'));
     ok(typeof code === 'string' && code.length === 5, 'хост создал комнату через ретранслятор', { code });
     const joined = await guest.evaluate(c => window.__vb.netJoin(c, 'auto'), code);
@@ -42,6 +43,8 @@ const STUB = `(() => {
     const gi = await guest.evaluate(() => ({ mode: window.__vb.mode, st: window.__vb.state, urls: window.__mqUrls }));
     ok(hi.mode === 'host' && gi.mode === 'guest', 'роли host/guest', { h: hi.mode, g: gi.mode });
     ok(['serve', 'play', 'point'].includes(gi.st), 'гость получает состояние матча', { host: hi.st, guest: gi.st });
+    const ga = await guest.evaluate(() => window.__vb.arena);
+    ok(ga === 'beach', 'площадку хоста (пляж) получил и гость', { ga });
     ok(hi.urls.length >= 2 && !hi.urls[hi.urls.length - 1].includes('shiftr'), 'недоступный сервер пропущен, взят следующий', hi.urls);
     // ввод гостя доходит до хоста: гость держит «вправо», игрок TR у хоста смещается
     const x0 = await host.evaluate(() => { const a = window.__vb.TR.act || window.__vb.TR.players[2]; return a.x; });

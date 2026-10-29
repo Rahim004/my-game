@@ -7,7 +7,7 @@ let onNetStatus = () => {};
 let onNetEnd = () => {};   // сессия закончилась сама (обрыв, «комната занята», разные версии): UI снимает блокировку кнопок
 function netStatus(text) { try { onNetStatus(text); } catch (e) {} }
 function netEnd() { try { onNetEnd(); } catch (e) {} }
-const PROTO = 1;   // версия сетевого протокола: хост и гость должны совпадать
+const PROTO = 2;   // версия сетевого протокола: хост и гость должны совпадать
 const NET_NOWEB = 'Онлайн-игра работает в версии на GitHub';
 const NET_VER = 'Версии игры разные — обновите страницу у обоих';
 const NET_ERR = { noweb: NET_NOWEB, net: 'Нет связи с сервером комнат. Проверьте интернет', conn: 'Не удалось соединиться. Попробуйте другую сеть или Wi-Fi', room: 'Комната не найдена. Проверьте код', full: 'В комнате уже играют двое' };
@@ -320,7 +320,7 @@ function netClose(sendBye) {   // закрыть транспорт, верну�
   clearInterval(n.hb);
   if (sendBye && n.connected) n.tr.send({ t: 'bye' });
   n.tr.close();
-  if (n.saved) { Object.assign(names, n.saved.names); TARGET = n.saved.target; }
+  if (n.saved) { Object.assign(names, n.saved.names); TARGET = n.saved.target; if (n.saved.arena && n.saved.arena !== ARENA) setArena(n.saved.arena); }
 }
 function netLeave() {   // выйти из комнаты/матча без шума: хост продолжит против ИИ, гость остаётся на экране (UI сам идёт в меню)
   netGen++;   // отменяет незавершённые netHost/netJoin
@@ -369,7 +369,7 @@ async function netHost(kind) {
 }
 function sendInit() {
   net.matchId++;
-  net.tr.send({ t: 'init', v: PROTO, id: net.matchId, target: TARGET, names: Object.assign({}, names), tl: TL.name, tr: TR.name });
+  net.tr.send({ t: 'init', v: PROTO, id: net.matchId, ar: ARENA, target: TARGET, names: Object.assign({}, names), tl: TL.name, tr: TR.name });
 }
 function hostStart() {
   if (!net || net.connected || net.role !== 'host') return;
@@ -475,7 +475,7 @@ async function netJoin(code, kind) {
   if (gen !== netGen) { try { if (r && r.tr) r.tr.close(); } catch (e) {} return false; }   // пока ждали, нажали «Назад»
   if (!r || r.err) { netStatus(NET_ERR[r && r.err] || NET_ERR.conn); return false; }
   net = { role: 'guest', kind, code, tr: r.tr, connected: true, buf: [], off: 1e9, evN: 0, dn: 0, initId: -1, ciKey: '', lastRx: performance.now(),
-    lastSig: '', lastSend: 0, bad: 0, saved: { names: Object.assign({}, names), target: TARGET }, hb: setInterval(netBeat, 1000) };
+    lastSig: '', lastSend: 0, bad: 0, saved: { names: Object.assign({}, names), target: TARGET, arena: ARENA }, hb: setInterval(netBeat, 1000) };
   r.tr.listen(guestOnMsg);
   r.tr.onclose = () => guestLost('Соединение потеряно');
   r.tr.send({ t: 'hello', v: PROTO });
@@ -508,6 +508,7 @@ function guestInit(m) {
   mode = 'guest'; audio();
   if (m.names && typeof m.names === 'object') for (const k of [4, 7, 10]) if (k in m.names) names[k] = cleanName(m.names[k]);
   if ([7, 11, 15].includes(m.target)) TARGET = m.target;
+  const ar = m.ar === 'beach' ? 'beach' : 'hall'; if (ar !== ARENA) setArena(ar);   // площадку выбирает хост
   newMatch();
   if (m.tl != null) TL.name = cleanName(m.tl);
   if (m.tr != null) TR.name = cleanName(m.tr);
