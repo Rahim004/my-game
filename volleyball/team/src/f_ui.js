@@ -207,7 +207,7 @@ document.addEventListener('visibilitychange', () => { if (document.hidden) pause
 
 /* ================= режимы: меню и онлайн-экран ================= */
 let pick = 'solo';   // выбор в меню: 'solo' | 'local2' | 'online'
-const MODE_NOTE = { solo: 'Играешь против компьютера.', local2: 'Игрок 1 слева, игрок 2 справа. У каждого свои кнопки.', online: 'Каждый играет на своём телефоне. Паузы нет.', tour: 'История из четырёх матчей: разные соперники и площадки.', colo: 'Матчи до 5 очков. С каждой победой соперник сильнее.' };
+const MODE_NOTE = { solo: 'Играешь против компьютера.', local2: 'Игрок 1 слева, игрок 2 справа.', online: 'Каждый на своём телефоне. Паузы нет.', tour: 'Четыре матча, история, разные площадки.', colo: 'Соперник сильнее с каждой победой.' };
 function syncMode() {
   document.querySelectorAll('[data-mode]').forEach(x => x.setAttribute('aria-pressed', String(x.dataset.mode === pick)));
   const cp = pick === 'tour' || pick === 'colo';

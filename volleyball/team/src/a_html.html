@@ -194,16 +194,22 @@ h1 .x { color: var(--gold); }
 .playrow { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: end; }
 .playrow.one { grid-template-columns: 1fr; }
 .playrow .label { margin-bottom: 5px; }
-.campinfo { display: flex; align-items: center; gap: 10px; background: var(--panel); border: 1px solid var(--line); border-left: 3px solid var(--gold); border-radius: 12px; padding: 8px 8px 8px 12px; min-height: 66px; }
+.campinfo { display: flex; align-items: center; gap: 10px; background: var(--panel); border: 1px solid var(--line); border-left: 3px solid var(--gold); border-radius: 12px; padding: 6px 8px 6px 12px; min-height: 58px; }
 .campinfo > div { flex: 1; min-width: 0; }
 .campinfo .label { margin: 0 0 3px; }
 .campinfo .camptxt { font-family: var(--display); font-weight: 600; font-size: 17px; letter-spacing: .04em; line-height: 1.2; color: var(--ink); }
 .campinfo .ghost { flex: none; min-height: 44px; padding: 6px 12px; font-size: 13px; }
 @media (orientation: landscape) and (min-width: 640px) {
-  .mode { min-height: 66px; }
-  .mode.sm { min-height: 50px; }
+  .mode { min-height: 62px; }
+  .mode.sm { min-height: 48px; }
   .mode small { font-size: 10.5px; }
-  .note { margin-top: 6px; }
+  .note { margin-top: 5px; min-height: 1.3em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .menu-r { gap: 8px; }
+  .menu-r .seg button { min-height: 40px; padding-block: 6px; }
+  .menu-r .play { min-height: 50px; padding-block: 10px; font-size: 20px; }
+  .menu-r .label { margin-bottom: 4px; }
+  .campinfo { min-height: 52px; }
+  .mode { padding-block: 5px; gap: 1px; }
 }
 .menu-l .rules { padding: 4px 14px; }
 
