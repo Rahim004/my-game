@@ -100,9 +100,15 @@ let state = 'menu', timer = 0, serveT = 0, clock = 0, frameDt = 0;
 let lastToucher = null, lastTeam = null, blockDone = false, netHitThisRally = false, pointWinner = null;
 let banners = [], parts = [], confetti = [], marks = [], rings = [];
 let freeze = 0, flash = 0, shake = 0, punch = 0, speedLines = null, hype = 0, setHints = 0, netShake = 0, wipe = 0;
-let active = null, lastMoveInput = -9, stats = null, led = null, cutin = null;
+let active = null, active2 = null, stats = null, led = null, cutin = null;
 const scorePop = [0, 0];
+/* mode: 'solo' (TL человек, TR ИИ) | 'local2' (двое на одном устройстве) | 'host' (онлайн, симуляция тут) | 'guest' (онлайн, только показ).
+   active — игрок, которым управляет основной ввод (TL; у гостя — свой, из TR); active2 — активный игрок второй человеческой команды
+   (TR у solo-без-ИИ/local2/host; у гостя — активный игрок хоста из TL; в solo = null). */
+let mode = 'solo';
 const input = { left: false, right: false, jump: false, hit: false, act: false, jumpQ: false, hitQ: false, actQ: false };
+const input2 = { left: false, right: false, jump: false, hit: false, act: false, jumpQ: false, hitQ: false, actQ: false };
+const myTeam = () => mode === 'guest' ? TR : TL;
 let recvHints = 0, serveHints = 0;
 
 const mirror = (T, x) => T.side < 0 ? x : VW - x;
@@ -113,7 +119,8 @@ const platX = p => p.x + p.face * PLAT * p.look.tall;
 
 function mkTeam(side, D, name) {
   return { side, D, name, players: [], touches: 0, roles: {}, receiver: null, blocker: null, serveIdx: 0, score: 0, tick: 0,
-    blockRoll: 1, blockUsed: false, spikeRoll: 0, digRoll: 0, recvT: 9, setT: 9 };
+    blockRoll: 1, blockUsed: false, spikeRoll: 0, digRoll: 0, recvT: 9, setT: 9,
+    human: false, inp: null, act: null, hdir: 0, moving: false, lastMove: -9 };
 }
 function mkPlayer(team, idx, num, kitName) {
   const p = { team, idx, num, kit: KIT[kitName], look: LOOKS[num], face: team.side < 0 ? 1 : -1,
@@ -123,7 +130,13 @@ function mkPlayer(team, idx, num, kitName) {
   p.goal = p.x; return p;
 }
 function newMatch() {
-  TL = mkTeam(-1, HUMAN_D, '№4 · №10'); TR = mkTeam(1, DIFF[diff], 'ГОСТИ');
+  const twoHumans = mode !== 'solo';
+  TL = mkTeam(-1, HUMAN_D, mode === 'local2' ? 'ИГРОК 1' : '№4 · №10');
+  TR = mkTeam(1, twoHumans ? HUMAN_D : DIFF[diff], mode === 'local2' ? 'ИГРОК 2' : twoHumans ? 'ДРУГ' : 'ГОСТИ');
+  TL.human = true; TL.inp = input;
+  if (twoHumans) { TR.human = true; TR.inp = input2; }
+  for (const k of Object.keys(input)) input[k] = input2[k] = false;
+  active = active2 = null;
   TL.players = [mkPlayer(TL, 0, 7, 'org'), mkPlayer(TL, 1, 10, 'blk'), mkPlayer(TL, 2, 4, 'org')];
   TR.players = [mkPlayer(TR, 0, 2, 'wht'), mkPlayer(TR, 1, 5, 'wht'), mkPlayer(TR, 2, 9, 'wht')];
   ball = { x: 0, h: 0, vx: 0, vh: 0, rot: 0, spiked: false, lane: LANE0, laneT: 0, laneDur: 1, laneTarget: null, laneTeam: null, trail: [] };
@@ -143,16 +156,18 @@ function resetServe() {
   state = 'serve'; serveT = 0; lastToucher = null; lastTeam = null; blockDone = false; netHitThisRally = false; pointWinner = null;
   ball.spiked = false; ball.trail = []; ball.laneTarget = server; ball.laneTeam = null;
   holdBall();
-  banner(servingTeam === TL ? 'ТВОЯ ПОДАЧА' : 'ПОДАЧА ГОСТЕЙ', servingTeam === TL ? 'org' : 'teal', 1.4);
-  if (servingTeam === TL && serveHints < 2) { serveHints++; banner('УДАР — ОБЫЧНАЯ  ·  СИЛОВАЯ — В ПРЫЖКЕ', 'gold', 2.2, true); }
+  const sTxt = mode === 'local2' ? (servingTeam === TL ? 'ПОДАЧА СЛЕВА' : 'ПОДАЧА СПРАВА')
+    : servingTeam === TL ? 'ТВОЯ ПОДАЧА' : mode === 'solo' ? 'ПОДАЧА ГОСТЕЙ' : 'ПОДАЧА ДРУГА';   // онлайн: текст с точки зрения хоста, гость меняет местами
+  banner(sTxt, servingTeam === TL ? 'org' : 'teal', 1.4);
+  if (servingTeam === TL && serveHints < 2) { serveHints++; banner('УДАР — ОБЫЧНАЯ  ·  СИЛОВАЯ — В ПРЫЖКЕ', 'gold', 2.2, true, 'L'); }
 }
 function holdBall() {
   const k = server.look.tall;
   ball.x = server.x + server.face * 9.5 * k; ball.h = 23.5 * k; ball.vx = ball.vh = 0; ball.lane = server.lane;
 }
-function banner(text, tone = 'org', life = 1.2, small = false) {
+function banner(text, tone = 'org', life = 1.2, small = false, own = '') {   // own 'L' — подсказка только для TL (гостю не отправляется)
   banners = banners.filter(b => b.small !== small);
-  banners.push({ text, tone, t: 0, life, small });
+  banners.push({ text, tone, t: 0, life, small, own });
 }
 
 /* ================= physics helpers ================= */
@@ -222,7 +237,7 @@ function setBall(p, low) {
   passTo(mirror(T, ATT_X) + (Math.random() * 2 - 1) * T.D.err * .6, 74, 1.0);
   aimLane(h, 1.0); sfx.set(); ring('w');
   T.spikeRoll = Math.random(); other(T).blockRoll = Math.random(); other(T).blockUsed = false;
-  if (T === TL && setHints < 3) { setHints++; banner('УДАР — ПРЫЖОК  ·  УДАР — ПРОБИТЬ', 'gold', 1.3, true); }
+  if (T === TL && setHints < 3) { setHints++; banner('УДАР — ПРЫЖОК  ·  УДАР — ПРОБИТЬ', 'gold', 1.3, true, 'L'); }
 }
 function freeBall(p) {
   const T = p.team; snapBall(p, 'receive', 14); touch(p, 'receive');
@@ -238,7 +253,8 @@ function spike(p, human) {
   snapBall(p, 'spike', 18);
   let xt;
   if (human) {
-    const hd = ((input.right ? 1 : 0) - (input.left ? 1 : 0)) * o;
+    const inp = T.inp || input;   // экранное нажатие в сторону сетки = короткий удар, от сетки = глубокий (o — знак направления полёта)
+    const hd = ((inp.right ? 1 : 0) - (inp.left ? 1 : 0)) * o;
     const [lo, hi] = hd > 0 ? [26, 82] : hd < 0 ? [150, 206] : [55, 195];
     xt = NETX + o * (lo + Math.random() * (hi - lo));
   } else {
@@ -268,7 +284,7 @@ function spike(p, human) {
   speedLines = { wx: PX(ball.x, ball.lane), wy: ball.lane - ball.h * sOf(ball.lane), t: 0, seeds: Array.from({ length: 30 }, () => Math.random()) };
   spray(16, ['#ffffff', '#ffe28a', '#f07a22'], 120, .35); ring('w');
   if (human) banner(Math.random() < .5 ? 'АТАКА!' : 'МОЩНО!', 'org', .9);
-  else if (O === TL && recvHints < 3) { recvHints++; banner('ЖМИ «ПРИЁМ»!', 'gold', .9, true); }
+  else if (O === TL && recvHints < 3) { recvHints++; banner('ЖМИ «ПРИЁМ»!', 'gold', .9, true, 'L'); }
 }
 function startToss(p) {
   if (p.toss > 0 || state !== 'serve') return;
@@ -303,7 +319,7 @@ function powerServe(p) {
   speedLines = { wx: PX(ball.x, ball.lane), wy: ball.lane - ball.h * sOf(ball.lane), t: 0, seeds: Array.from({ length: 30 }, () => Math.random()) };
   spray(16, ['#ffffff', '#ffe28a', '#f07a22'], 120, .35); ring('w');
   banner('СИЛОВАЯ ПОДАЧА!', T === TL ? 'org' : 'teal', 1.0, T !== TL);
-  if (O === TL && recvHints < 3) { recvHints++; banner('ЖМИ «ПРИЁМ»!', 'gold', .9, true); }
+  if (O === TL && recvHints < 3) { recvHints++; banner('ЖМИ «ПРИЁМ»!', 'gold', .9, true, 'L'); }
 }
 function serveBall(p) {
   if (p.jumpServe) { powerServe(p); return; }
@@ -320,7 +336,7 @@ function checkContacts() {
       if (p === lastToucher || p.cd > 0) continue;
       const dxp = Math.abs(ball.x - platX(p));
       if (T.touches === 2) {
-        if (T === TR && p === T.roles.hitter && !p.ground && spikeReach(p, 13)) { if (T.spikeRoll < T.D.spike && ball.h > 52) spike(p, false); else tip(p); return; }
+        if (!T.human && p === T.roles.hitter && !p.ground && spikeReach(p, 13)) { if (T.spikeRoll < T.D.spike && ball.h > 52) spike(p, false); else tip(p); return; }
         if (p.ground && ball.vh < 0 && ball.h < 24 && ball.h > 4 && dxp < 9) { freeBall(p); return; }
         continue;
       }
@@ -407,5 +423,8 @@ function pointTo(W, reason) {
   let act = lh ? ({ spike: 'АТАКА', tip: 'ОБМАН', serve: 'ЭЙС', pserve: 'СИЛОВАЯ ПОДАЧА', block: 'БЛОК' }[lh.type] || 'ОЧКО') : 'ОЧКО';
   if (reason && lastTeam && lastTeam !== W) act = 'ОШИБКА СОПЕРНИКА';
   cutin = { p: scorer, team: W, act: act + (over ? ' · МАТЧ' : ''), t: 0, life: 1.95 };
-  if (W === TL) for (let i = 0; i < 70; i++) confetti.push({ x: Math.random(), y: -.05 - Math.random() * .3, vx: (Math.random() - .5) * .08, vy: .12 + Math.random() * .2, rot: Math.random() * 6, vr: (Math.random() - .5) * 12, t: 0, life: 2.6, col: ['#f07a22', '#ffffff', '#25232c', '#f2c230'][i % 4] });
+  if (W === TL || mode === 'local2') makeConfetti();
+}
+function makeConfetti() {
+  for (let i = 0; i < 70; i++) confetti.push({ x: Math.random(), y: -.05 - Math.random() * .3, vx: (Math.random() - .5) * .08, vy: .12 + Math.random() * .2, rot: Math.random() * 6, vr: (Math.random() - .5) * 12, t: 0, life: 2.6, col: ['#f07a22', '#ffffff', '#25232c', '#f2c230'][i % 4] });
 }

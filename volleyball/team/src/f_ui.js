@@ -36,18 +36,27 @@ function drawPreview(dt) {
 /* ================= screens ================= */
 let pausedFrom = null;
 function show(id) { ['menu', 'pause', 'end'].forEach(k => $(k).hidden = k !== id); }
-function startMatch() { audio(); newMatch(); show(null); updateCamera(0, true); }
+/* startMatch(m): m = 'solo' | 'local2' (без сети). Без аргумента (или с событием клика) — повтор текущего режима;
+   онлайн: хост перезапускает матч для обоих, гость ждёт хоста. Онлайн-режимы запускаются через netHost/netJoin (g_net.js). */
+function startMatch(m) {
+  if (typeof m !== 'string') m = mode;
+  if (m === 'guest') { netStatus('Ждём, пока друг начнёт заново'); return; }
+  if (m === 'host') { if (netRestart()) return; m = 'solo'; }
+  if (m !== 'solo' && m !== 'local2') m = 'solo';
+  if (mode === 'host' || mode === 'guest') netLeave();
+  mode = m; audio(); newMatch(); show(null); updateCamera(0, true);
+}
 function showEnd() {
-  const win = TL.score > TR.score; state = 'over';
-  $('endTitle').textContent = win ? 'ПОБЕДА!' : 'ПОРАЖЕНИЕ';
-  $('endTitle').className = win ? 'win' : '';
-  $('endScore').textContent = TL.score + ' : ' + TR.score;
-  $('endSub').textContent = win ? '№4, №10 и №7 забирают матч.' : 'Гости оказались сильнее. Реванш?';
+  const me = myTeam(), win = me.score > other(me).score; state = 'over';
+  $('endTitle').textContent = mode === 'local2' ? 'ИГРОК ' + (TL.score > TR.score ? 1 : 2) + ' ПОБЕДИЛ' : win ? 'ПОБЕДА!' : 'ПОРАЖЕНИЕ';
+  $('endTitle').className = win || mode === 'local2' ? 'win' : '';
+  $('endScore').textContent = me.score + ' : ' + other(me).score;
+  $('endSub').textContent = mode === 'local2' ? 'Реванш?' : mode === 'solo' ? (win ? '№4, №10 и №7 забирают матч.' : 'Гости оказались сильнее. Реванш?') : (win ? 'Победа над другом!' : 'Друг оказался сильнее. Реванш?');
   show('end');
 }
-function pauseGame() { if (!['serve', 'play', 'point'].includes(state)) return; pausedFrom = state; state = 'paused'; show('pause'); }
+function pauseGame() { if (mode === 'host' || mode === 'guest') return; if (!['serve', 'play', 'point'].includes(state)) return; pausedFrom = state; state = 'paused'; show('pause'); }
 function resumeGame() { if (state !== 'paused') return; state = pausedFrom; last = performance.now(); show(null); }
-function toMenu() { state = 'menu'; cutin = null; TL = TR = null; active = null; banners = []; confetti = []; show('menu'); updateCamera(0, true); }
+function toMenu() { if (mode === 'host' || mode === 'guest') netLeave(); mode = 'solo'; state = 'menu'; cutin = null; TL = TR = null; active = null; banners = []; confetti = []; show('menu'); updateCamera(0, true); }
 function syncSeg() {
   document.querySelectorAll('[data-diff]').forEach(x => x.setAttribute('aria-pressed', String(x.dataset.diff === diff)));
   document.querySelectorAll('[data-target]').forEach(x => x.setAttribute('aria-pressed', String(+x.dataset.target === TARGET)));
@@ -68,23 +77,42 @@ $('pauseBtn').addEventListener('click', () => state === 'paused' ? resumeGame() 
 document.addEventListener('visibilitychange', () => { if (document.hidden) pauseGame(); });
 
 /* ================= input ================= */
-function press(k, v) { if (v && !input[k]) { if (k === 'jump') input.jumpQ = true; if (k === 'hit') input.hitQ = true; if (k === 'act') input.actQ = true; } input[k] = v; }
-document.querySelectorAll('[data-key]').forEach(b => {
-  const k = b.dataset.key;
-  const down = e => { e.preventDefault(); audio(); try { b.setPointerCapture(e.pointerId); } catch (_) {} press(k, true); b.classList.add('on'); };
-  const up = () => { press(k, false); b.classList.remove('on'); };
-  b.addEventListener('pointerdown', down);
-  ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(ev => b.addEventListener(ev, up));
-});
+/* Ввод. presses — счётчики нажатий (гость шлёт их хосту: короткие тапы не теряются). */
+const presses = { jump: 0, hit: 0, act: 0 };
+function mkPress(inp, cnt) {
+  return (k, v) => {
+    if (v && !inp[k]) { if (k === 'jump') inp.jumpQ = true; if (k === 'hit') inp.hitQ = true; if (k === 'act') inp.actQ = true; if (cnt && k in cnt) cnt[k]++; }
+    inp[k] = v;
+  };
+}
+const press = mkPress(input, presses);   // игрок 1 / единственный игрок
+const press2 = mkPress(input2, null);    // игрок 2 (local2); на хосте в него же пишется ввод гостя
+function bindButtons(attr, fn) {
+  document.querySelectorAll('[' + attr + ']').forEach(b => {
+    const k = b.getAttribute(attr);
+    const down = e => { e.preventDefault(); audio(); try { b.setPointerCapture(e.pointerId); } catch (_) {} fn(k, true); b.classList.add('on'); };
+    const up = () => { fn(k, false); b.classList.remove('on'); };
+    b.addEventListener('pointerdown', down);
+    ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(ev => b.addEventListener(ev, up));
+  });
+}
+bindButtons('data-key', press);
+bindButtons('data-key2', press2);
 const KEYMAP = { ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right', ArrowUp: 'jump', KeyW: 'jump', ArrowDown: 'act', KeyS: 'act', Space: 'hit', KeyJ: 'hit', KeyK: 'hit' };
+const KEYMAP_P1 = { KeyA: 'left', KeyD: 'right', KeyW: 'jump', KeyF: 'hit', KeyS: 'act' };   // local2, игрок 1 (слева)
+const KEYMAP_P2 = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'jump', KeyL: 'hit', Enter: 'hit', NumpadEnter: 'hit', ArrowDown: 'act' };   // local2, игрок 2 (справа)
+function routeKey(code) {   // → [функция press, действие] или null
+  if (mode === 'local2') { const k1 = KEYMAP_P1[code]; if (k1) return [press, k1]; const k2 = KEYMAP_P2[code]; return k2 ? [press2, k2] : null; }
+  const k = KEYMAP[code]; return k ? [press, k] : null;
+}
 addEventListener('keydown', e => {
   if (e.code === 'KeyP' || e.code === 'Escape') { state === 'paused' ? resumeGame() : pauseGame(); return; }
-  const k = KEYMAP[e.code]; if (!k || state === 'menu' || state === 'over') return;
-  e.preventDefault(); if (!e.repeat) press(k, true);
+  const r = routeKey(e.code); if (!r || state === 'menu' || state === 'over') return;
+  e.preventDefault(); if (!e.repeat) r[0](r[1], true);
 });
-addEventListener('keyup', e => { const k = KEYMAP[e.code]; if (k) press(k, false); });
+addEventListener('keyup', e => { const r = routeKey(e.code); if (r) r[0](r[1], false); });
 addEventListener('contextmenu', e => e.preventDefault());
-addEventListener('blur', () => Object.keys(input).forEach(k => input[k] = false));
+addEventListener('blur', () => { for (const k of Object.keys(input)) input[k] = false; if (mode !== 'host') for (const k of Object.keys(input2)) input2[k] = false; });
 setTimeout(() => { try { ensureLayers(); } catch (e) { showErr(e); } }, 350);
 try { document.fonts && document.fonts.load('700 15px Oswald').then(f => { if (f && f.length) bgL = null; }).catch(() => {}); } catch (e) {}
 const actBtn = $('actBtn'); let actMode = '';
@@ -97,12 +125,14 @@ function frame(now) {
   const raw = Math.max(0, (now - last) / 1000), dt = Math.min(1 / 30, raw); last = now;
   try {
     const live = state === 'serve' || state === 'play' || state === 'point';
-    if (live) { if (freeze > 0) freeze -= dt; else update(dt); }
+    if (mode === 'guest') netGuestFrame(dt);   // гость не считает игру: показывает снимки хоста
+    else if (live) { if (freeze > 0) freeze -= dt; else update(dt); }
     updateFx(dt);
-    if (TL && state !== 'paused') for (const T of [TL, TR]) for (const p of T.players) blendPose(p, dt);
+    if (TL && state !== 'paused' && mode !== 'guest') for (const T of [TL, TR]) for (const p of T.players) blendPose(p, dt);
+    if (mode === 'host') netHostFrame(dt); else if (mode === 'guest') netGuestSend(dt);
     updateCamera(dt, false);
-    const mode = state === 'serve' && servingTeam === TL ? 'serve' : 'recv';
-    if (mode !== actMode) { actMode = mode; actBtn.textContent = mode === 'serve' ? 'СИЛОВАЯ' : 'ПРИЁМ'; actBtn.classList.toggle('serve', mode === 'serve'); }
+    const am = state === 'serve' && servingTeam === myTeam() ? 'serve' : 'recv';
+    if (am !== actMode) { actMode = am; actBtn.textContent = am === 'serve' ? 'СИЛОВАЯ' : 'ПРИЁМ'; actBtn.classList.toggle('serve', am === 'serve'); }
     const overlay = !ovMenu.hidden || !ovPause.hidden || !ovEnd.hidden;
     if (!overlay) { render(); staticDone = false; }
     else if (!staticDone && TL) { render(); staticDone = true; }
