@@ -10,15 +10,27 @@ function netEnd() { try { onNetEnd(); } catch (e) {} }
 const PROTO = 3;   // версия сетевого протокола: хост и гость должны совпадать
 const NET_NOWEB = 'Онлайн-игра работает в версии на GitHub';
 const NET_VER = 'Версии игры разные — обновите страницу у обоих';
-const NET_ERR = { noweb: NET_NOWEB, net: 'Нет связи с сервером комнат. Проверьте интернет', conn: 'Не удалось соединиться. Попробуйте другую сеть или Wi-Fi', room: 'Комната не найдена. Проверьте код', full: 'В комнате уже играют двое' };
+const NET_ERR = { noweb: NET_NOWEB, net: 'Нет связи с сервером комнат. Проверьте интернет', conn: 'Не удалось соединиться. Попробуйте другую сеть или Wi-Fi', room: 'Комната не найдена. Проверьте код', mqscript: 'Не загрузилась библиотека связи. Проверьте интернет или VPN и обновите страницу', mqnet: 'Ни один сервер недоступен — попробуйте выключить/включить VPN', full: 'В комнате уже играют двое' };
 let netGen = 0;   // растёт в netLeave: отменяет незавершённые netHost/netJoin
-const NET = { hz: 25, delay: 90, timeout: 12000 };
-function setNetTiming(kind) { if (kind === 'mq') { NET.hz = 15; NET.delay = 170; NET.timeout = 25000; } else { NET.hz = 25; NET.delay = 90; NET.timeout = 12000; } }   // ретранслятор: реже, с запасом на задержку и на переподключение к серверу
+const NET = { hz: 25, delay: 90, dmin: 90, timeout: 12000 };   // delay — задержка показа у гостя; подстраивается под джиттер (guestPush), в пределах dmin..600
+function setNetTiming(kind) { if (kind === 'mq') { NET.hz = 15; NET.delay = NET.dmin = 170; NET.timeout = 25000; } else { NET.hz = 25; NET.delay = NET.dmin = 90; NET.timeout = 12000; } }   // ретранслятор: реже, с запасом на задержку и на переподключение к серверу
 const CODE_ABC = 'ABCDEFGHJKLMNPQRSTUVWXYZ';   // без O и I; цифр нет совсем
 const newRoomCode = () => Array.from({ length: 5 }, () => CODE_ABC[Math.random() * CODE_ABC.length | 0]).join('');
 const normCode = c => String(c || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 5);
 function roomFromHash() { try { const m = /^#room-([A-Za-z]{5})$/.exec(location.hash); return m ? m[1].toUpperCase() : null; } catch (e) { return null; } }
 function roomLink(code) { try { return location.href.split('#')[0] + '#room-' + code; } catch (e) { return '#room-' + code; } }
+
+const farAway = () => { try { return !/^https?:$/.test(location.protocol) || window.top !== window; } catch (e) { return true; } };   // файл или встроенный просмотрщик: сети может не быть вовсе
+function netErrText(err) {
+  if (err === 'room' && mqLast.up) return 'Комната не найдена на доступных серверах (на связи ' + mqLast.up + ' из ' + mqLast.n + '). Проверьте код';
+  return NET_ERR[err] || NET_ERR.conn;
+}
+function mqFail(mqErr, p) {   // ретранслятор не вышел, запасной канал тоже: называем причину
+  if (p === 'room') return 'room';
+  if (p === 'noweb' && farAway()) return 'noweb';
+  return mqErr === 'mqnet' || mqErr === 'mqscript' ? mqErr : p;
+}
+const srvText = tr => tr.kind === 'mq' ? 'сервер ' + (tr.srvIdx || 1) + ' из ' + (tr.srvN || MQ_BROKERS.length) : tr.kind === 'peer' ? 'прямое соединение' : '';
 
 let net = null;   // активная сессия: { role, kind, code, tr, connected, ... }
 function netLink() {   // для плашки связи в игре: { ms, warn } или null
@@ -26,12 +38,12 @@ function netLink() {   // для плашки связи в игре: { ms, warn
   const now = performance.now(), down = net.tr && net.tr.link === false;
   if (mode === 'guest') {
     const age = net.lastSnap ? now - net.lastSnap : 0;
-    return { ms: net.rtt || 0, warn: down ? 'Переподключаемся к серверу…' : age > 1500 ? 'Связь с другом прерывается…' : '' };
+    return { ms: net.rtt || 0, srv: net.srv, warn: down ? 'Переподключаемся к серверу…' : age > 1500 ? 'Связь с другом прерывается…' : '' };
   }
   const age = net.lastIn ? now - net.lastIn : 0;
-  return { ms: net.rtt || 0, warn: down ? 'Переподключаемся к серверу…' : age > 1500 ? 'Друг не отвечает…' : '' };
+  return { ms: net.rtt || 0, srv: net.srv, warn: down ? 'Переподключаемся к серверу…' : age > 1500 ? 'Друг не отвечает…' : '' };
 }
-const netInfo = () => net ? { role: net.role, kind: net.kind, code: net.code, connected: !!net.connected } : null;
+const netInfo = () => net ? { role: net.role, kind: net.kind, code: net.code, connected: !!net.connected, srv: net.srv } : null;
 
 /* ---------- события (звуки и эффекты), которые хост пересылает гостю ---------- */
 const netEv = [];
@@ -110,25 +122,33 @@ function bcJoin(code) {   // → Promise<{tr}|{err}>
   });
 }
 
+function loadLib(urls, ready, perMs) {   // → Promise<bool>: пробует зеркала по очереди, у каждого свой таймаут; не бросает исключений
+  return new Promise(res => {
+    let i = 0;
+    const next = () => {
+      if (ready()) { res(true); return; }
+      if (i >= urls.length) { res(false); return; }
+      let sc = null, fin = false;
+      const done = ok => { if (fin) return; fin = true; clearTimeout(to); if (!ok) { try { sc && sc.remove(); } catch (e) {} } if (ok && ready()) res(true); else next(); };
+      const to = setTimeout(() => done(false), perMs);
+      try {
+        sc = document.createElement('script'); sc.src = urls[i++]; sc.async = true; sc.crossOrigin = 'anonymous';
+        sc.onload = () => done(true); sc.onerror = () => done(false);
+        document.head.appendChild(sc);
+      } catch (e) { done(false); }
+    };
+    next();
+  });
+}
+// у каждой библиотеки — несколько зеркал: любое из них может быть недоступно в стране игрока
+const PEER_URLS = ['https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js', 'https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js', 'https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.4/peerjs.min.js'];
 let peerLoading = null;
 function loadPeerJS() {   // → Promise<'ok'|'noscript'|'nortc'>; не бросает исключений
   try {
     if (window.Peer) return Promise.resolve('ok');
     if (typeof RTCPeerConnection === 'undefined') return Promise.resolve('nortc');
     if (peerLoading) return peerLoading;
-    peerLoading = new Promise(res => {
-      let sc = null, fin = false;
-      const done = ok => { if (fin) return; fin = true; clearTimeout(to); if (!ok) { peerLoading = null; try { sc && sc.remove(); } catch (e) {} } res(ok && window.Peer ? 'ok' : 'noscript'); };
-      const to = setTimeout(() => done(false), 10000);
-      try {
-        sc = document.createElement('script'); sc.src = 'https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js'; sc.async = true;
-        sc.crossOrigin = 'anonymous';
-        // TODO: добавить sc.integrity = 'sha384-<хеш>'. Хеш считать так (на машине с интернетом):
-        //   curl -s https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js | openssl dgst -sha384 -binary | openssl base64 -A
-        sc.onload = () => done(true); sc.onerror = () => done(false);
-        document.head.appendChild(sc);
-      } catch (e) { done(false); }
-    });
+    peerLoading = loadLib(PEER_URLS, () => !!window.Peer, 7000).then(ok => { if (!ok) peerLoading = null; return ok ? 'ok' : 'noscript'; });
     return peerLoading;
   } catch (e) { return Promise.resolve('noscript'); }
 }
@@ -197,25 +217,27 @@ async function peerJoin(code) {   // → { tr } | { err }
   });
 }
 
-/* ---------- транспорт 'mq': ретранслятор через публичный MQTT-брокер (WebSocket) ----------
-   Работает в любой сети, где открываются обычные сайты: не нужен прямой P2P-канал между телефонами. */
-// первым — брокер на обычном порту 443 (его не режут роутеры и операторы), остальные — запасные
-const MQ_BROKERS = [['wss://public.cloud.shiftr.io', { username: 'public', password: 'public' }], ['wss://broker.emqx.io:8084/mqtt'], ['wss://broker.hivemq.com:8884/mqtt'], ['wss://test.mosquitto.org:8081/mqtt']];
-let mqLoading = null;
-function loadMQTT() {   // → Promise<'ok'|'noscript'>; не бросает исключений
+/* ---------- транспорт 'mq': ретранслятор через публичные MQTT-брокеры (WebSocket) ----------
+   Работает в любой сети, где открываются обычные сайты: не нужен прямой P2P-канал между телефонами.
+   Хост слушает комнату на ВСЕХ доступных брокерах сразу, гость стучится на всех сразу: первый брокер, где они встретились, фиксируется,
+   остальные закрываются. Так друзья находят друг друга, даже если каждому из них доступна только часть брокеров.
+   Библиотека mqtt.js встроена в сборку (tools/build.py); CDN — только запасной путь. */
+// первыми — брокеры на порту 443/обычных портах; недоступный брокер просто отваливается по таймауту и ничего не ломает
+const MQ_BROKERS = [
+  ['wss://public.cloud.shiftr.io', { username: 'public', password: 'public' }],
+  ['wss://broker.emqx.io:8084/mqtt'],
+  ['wss://broker.hivemq.com:8884/mqtt'],
+  ['wss://test.mosquitto.org:8081/mqtt'],
+  ['wss://mqtt.eclipseprojects.io:443/mqtt'],
+];
+const MQ_URLS = ['https://unpkg.com/mqtt@4.3.7/dist/mqtt.min.js', 'https://cdn.jsdelivr.net/npm/mqtt@4.3.7/dist/mqtt.min.js', 'https://cdnjs.cloudflare.com/ajax/libs/mqtt/4.3.7/mqtt.min.js'];
+let mqLoading = null, mqLast = { up: 0, n: MQ_BROKERS.length };   // mqLast — сколько брокеров ответило в последней попытке (для сообщения об ошибке)
+function loadMQTT() {   // → Promise<'ok'|'noscript'>; встроенная копия уже в window.mqtt, иначе грузим с зеркал
   try {
-    if (window.mqtt && window.mqtt.connect) return Promise.resolve('ok');
+    const ok = () => !!(window.mqtt && window.mqtt.connect);
+    if (ok()) return Promise.resolve('ok');
     if (mqLoading) return mqLoading;
-    mqLoading = new Promise(res => {
-      let sc = null, fin = false;
-      const done = ok => { if (fin) return; fin = true; clearTimeout(to); if (!ok) { mqLoading = null; try { sc && sc.remove(); } catch (e) {} } res(ok && window.mqtt && window.mqtt.connect ? 'ok' : 'noscript'); };
-      const to = setTimeout(() => done(false), 10000);
-      try {
-        sc = document.createElement('script'); sc.src = 'https://unpkg.com/mqtt@4.3.7/dist/mqtt.min.js'; sc.async = true; sc.crossOrigin = 'anonymous';
-        sc.onload = () => done(true); sc.onerror = () => done(false);
-        document.head.appendChild(sc);
-      } catch (e) { done(false); }
-    });
+    mqLoading = loadLib(MQ_URLS, ok, 7000).then(r => { if (!r) mqLoading = null; return r ? 'ok' : 'noscript'; });
     return mqLoading;
   } catch (e) { return Promise.resolve('noscript'); }
 }
@@ -230,78 +252,97 @@ function mqConnect(br) {   // br = [url, opts?] → Promise<client|null>
     c.on('error', () => { if (!fin) done(null); });
   });
 }
-function mqWire(c, code, me, inTopic, outTopic, t, onCtl) {   // общая обвязка клиента: JSON-сообщения, свои отфильтровать
+function mqWire(c, code, me, inTopic, outTopic, t, onCtl) {   // обвязка одного клиента-брокера → s; s.on = true, когда брокер выбран для игры
   const base = 'vb4x10/' + code + '/';
   const pub = o => { o.from = me; try { c.publish(base + outTopic, JSON.stringify(o), { qos: 0 }); } catch (e) {} };
-  t.link = true; t.rxAt = performance.now(); let kickAt = 0;
-  c.on('connect', () => { t.link = true; t.rxAt = performance.now(); try { c.subscribe(base + inTopic, { qos: 0 }); } catch (e) {} });   // после переподключения подписка заново
-  c.on('offline', () => { t.link = false; });
-  c.on('close', () => { t.link = false; });
+  const s = { c, pub, on: false, link: true, rxAt: performance.now(), dead: false, idx: 0 }; let kickAt = 0;
+  const setLink = v => { s.link = v; if (s.on) t.link = v; };
+  c.on('connect', () => { setLink(true); s.rxAt = performance.now(); try { c.subscribe(base + inTopic, { qos: 0 }); } catch (e) {} });   // после переподключения подписка заново
+  c.on('offline', () => setLink(false));
+  c.on('close', () => setLink(false));
   const wd = setInterval(() => {   // «полумёртвый» сокет: соединение вроде есть, а сообщений нет — рвём и подключаемся заново сами
-    if (t.closed) { clearInterval(wd); return; }
+    if (t.closed || s.dead) { clearInterval(wd); return; }
     const now = performance.now();
-    if (!t.open || now - t.rxAt < 4000 || now - kickAt < 8000) return;
-    kickAt = now; t.link = false;
-    try { c.end(true, () => { try { if (!t.closed) c.reconnect(); } catch (e) {} }); } catch (e) {}
+    if (!s.on || !t.open || now - s.rxAt < 4000 || now - kickAt < 8000) return;
+    kickAt = now; setLink(false);
+    try { c.end(true, () => { try { if (!t.closed && !s.dead) c.reconnect(); } catch (e) {} }); } catch (e) {}
   }, 1000);
   c.on('message', (topic, buf) => {
-    if (topic !== base + inTopic) return;
-    t.rxAt = performance.now();
+    if (s.dead || topic !== base + inTopic) return;
+    s.rxAt = performance.now();
     let m; try { m = JSON.parse(typeof buf === 'string' ? buf : new TextDecoder().decode(buf)); } catch (e) { return; }
     if (!m || typeof m !== 'object' || m.from === me) return;
-    onCtl(m, pub);
+    onCtl(m, pub, s);
   });
-  c.subscribe(base + inTopic, { qos: 0 });
-  t.closeRaw = () => { setTimeout(() => { try { c.end(true); } catch (e) {} }, 200); };
-  return pub;
+  try { c.subscribe(base + inTopic, { qos: 0 }); } catch (e) {}
+  s.stop = () => { s.dead = true; clearInterval(wd); try { c.end(true); } catch (e) {} };
+  s.activate = () => { s.on = true; t.link = s.link; s.rxAt = performance.now(); };
+  return s;
 }
 async function mqHost() {   // → { tr, code } | { err }
   if (await loadMQTT() !== 'ok') return { err: 'mqscript' };
-  for (let b = 0; b < MQ_BROKERS.length; b++) {
-    if (b) netStatus('Сервер не ответил, пробуем другой…');
-    const c = await mqConnect(MQ_BROKERS[b]);
-    if (!c) continue;
-    const code = newRoomCode(), me = rid(), t = mkTr(); let peer = null; t.kind = 'mq';
-    const pub = mqWire(c, code, me, 'h', 'g', t, (m, pub) => {
+  const N = MQ_BROKERS.length, code = newRoomCode(), me = rid(), t = mkTr(); t.kind = 'mq'; t.srvN = N;
+  let peer = null, lock = null, up = 0, settled = 0; const ws = [];
+  t.srvUp = () => ws.length;
+  const attach = (c, idx) => {
+    if (t.closed || lock) { try { c.end(true); } catch (e) {} return; }   // опоздавший брокер: комната уже выбрала сервер
+    const s = mqWire(c, code, me, 'h', 'g', t, (m, pub, s) => {
+      if (lock && lock !== s) return;
       if (m.k === 'join' && typeof m.from === 'string') {
-        if (!peer || peer === m.from) { peer = m.from; pub({ k: 'welcome', to: m.from }); t._open(); }
-        else pub({ k: 'full', to: m.from });
-      } else if (m.from === peer) { if (m.k === 'd') t._msg(m.d); else if (m.k === 'bye') t._close(); }
+        if (!peer || peer === m.from) {
+          if (!lock) { lock = s; s.activate(); t.srvIdx = s.idx + 1; for (const o of ws) if (o !== s) o.stop(); ws.length = 0; ws.push(s); }   // первый join решает: остальные брокеры закрываем
+          peer = m.from; pub({ k: 'welcome', to: m.from }); t._open();
+        } else pub({ k: 'full', to: m.from });
+      } else if (lock === s && m.from === peer) { if (m.k === 'd') t._msg(m.d); else if (m.k === 'bye') t._close(); }
     });
-    t.sendRaw = d => { if (peer) pub({ k: 'd', to: peer, d }); };
-    const end = t.closeRaw;
-    t.closeRaw = () => { if (peer) pub({ k: 'bye', to: peer }); end(); };
-    return { tr: t, code };
-  }
-  return { err: 'mqnet' };
+    s.idx = idx; ws.push(s);
+  };
+  t.sendRaw = d => { if (peer && lock) lock.pub({ k: 'd', to: peer, d }); };
+  t.closeRaw = () => { if (peer && lock) lock.pub({ k: 'bye', to: peer }); setTimeout(() => ws.forEach(s => s.stop()), 200); };
+  await new Promise(res => {   // подключаемся ко всем сразу; ждём первого + короткий запас, чтобы подхватить и остальные
+    let g = 0;
+    MQ_BROKERS.forEach((br, i) => mqConnect(br).then(c => {
+      settled++; if (c) { up++; attach(c, i); }
+      if (c && !g) g = setTimeout(res, 800);
+      if (settled === N) { clearTimeout(g); res(); }
+    }));
+  });
+  mqLast = { up: ws.length, n: N };
+  if (!ws.length) { t.closed = true; return { err: 'mqnet' }; }
+  return { tr: t, code };
 }
-async function mqJoin(code, gen) {   // → { tr } | { err }
+async function mqJoin(code, gen) {   // → { tr } | { err, up, n }
   if (await loadMQTT() !== 'ok') return { err: 'mqscript' };
-  let anyBroker = false;
-  for (let b = 0; b < MQ_BROKERS.length; b++) {
-    if (gen !== netGen) return { err: 'conn' };
-    const c = await mqConnect(MQ_BROKERS[b]);
-    if (!c) continue;
-    anyBroker = true;
-    const r = await new Promise(res => {
-      const me = rid(), t = mkTr(); let host = null, fin = false; t.kind = 'mq';
-      const done = v => { if (fin) return; fin = true; clearInterval(iv); clearTimeout(to); if (v.err) { try { c.end(true); } catch (e) {} } res(v); };
-      const pub = mqWire(c, code, me, 'g', 'h', t, m => {
-        if (m.to !== me) return;
-        if (m.k === 'welcome' && !host) { host = m.from; t._open(); done({ tr: t }); }
-        else if (m.k === 'full' && !host) done({ err: 'full' });
-        else if (m.from === host) { if (m.k === 'd') t._msg(m.d); else if (m.k === 'bye') t._close(); }
+  return new Promise(res => {
+    const N = MQ_BROKERS.length, me = rid(), t = mkTr(); t.kind = 'mq'; t.srvN = N;
+    let host = null, won = null, fin = false, settled = 0, up = 0, roomTo = 0; const ws = [];
+    const finish = v => {
+      if (fin) return; fin = true; clearInterval(iv); clearTimeout(roomTo); clearTimeout(gto);
+      for (const s of ws) if (s !== won) s.stop();
+      mqLast = { up, n: N };
+      res(v);
+    };
+    const joinAll = () => { if (gen !== netGen) { finish({ err: 'conn' }); return; } ws.forEach(s => s.pub({ k: 'join' })); };
+    const iv = setInterval(joinAll, 500), gto = setTimeout(() => finish({ err: up ? 'room' : 'mqnet' }), 11000);
+    t.sendRaw = d => { if (host && won) won.pub({ k: 'd', to: host, d }); };
+    t.closeRaw = () => { if (host && won) won.pub({ k: 'bye', to: host }); setTimeout(() => ws.forEach(s => s.stop()), 200); };
+    const attach = (c, idx) => {
+      if (fin) { try { c.end(true); } catch (e) {} return; }
+      const s = mqWire(c, code, me, 'g', 'h', t, (m, pub, s) => {
+        if (m.to !== me || (won && won !== s)) return;
+        if (m.k === 'welcome' && !won) { won = s; host = m.from; s.activate(); t.srvIdx = s.idx + 1; t._open(); finish({ tr: t }); }
+        else if (m.k === 'full' && !won) finish({ err: 'full' });
+        else if (won === s && m.from === host) { if (m.k === 'd') t._msg(m.d); else if (m.k === 'bye') t._close(); }
       });
-      t.sendRaw = d => { if (host) pub({ k: 'd', to: host, d }); };
-      const end = t.closeRaw;
-      t.closeRaw = () => { if (host) pub({ k: 'bye', to: host }); end(); };
-      const join = () => pub({ k: 'join' });
-      const iv = setInterval(join, 500), to = setTimeout(() => done({ err: 'room' }), 4000);
-      setTimeout(join, 150);
-    });
-    if (r.tr || r.err === 'full') return r;
-  }
-  return { err: anyBroker ? 'room' : 'mqnet' };
+      s.idx = idx; ws.push(s); setTimeout(() => { if (!fin) s.pub({ k: 'join' }); }, 150);
+    };
+    MQ_BROKERS.forEach((br, i) => mqConnect(br).then(c => {
+      settled++; if (c) { up++; attach(c, i); }
+      if (fin || settled < N) return;
+      if (!up) finish({ err: 'mqnet' });
+      else if (!roomTo) roomTo = setTimeout(() => finish({ err: 'room' }), 4000);   // все ответили, комнаты нигде нет
+    }));
+  });
 }
 
 /* ---------- сессия: общее ---------- */
@@ -310,9 +351,10 @@ function netBeat() {
   net.tr.send({ t: 'p' });
   if (net.role === 'host' && net.connected) {   // темп снимков под канал: очередь растёт — шлём реже, свободно — чаще
     const now = performance.now(), stuck = now - net.akAt > 2000;
-    if (stuck || net.rtt > 900) net.hzCur = Math.max(4, Math.round(net.hzCur * .6));
+    if (stuck || net.rtt > 900) net.hzCur = Math.max(6, Math.round(net.hzCur * .6));   // очень долгий канал: реже, но игра идёт
     else if (net.rtt < 500 && net.hzCur < NET.hz) net.hzCur++;
   }
+  if (net.connected && net.rtt > 0 && !net.pinged) { net.pinged = 1; netStatus('Подключено · ' + net.srv + ' · пинг ' + Math.round(net.rtt) + ' мс'); }
   if ((net.role === 'guest' || net.connected) && performance.now() - net.lastRx > NET.timeout) net.role === 'host' ? hostPeerLost() : guestLost('Соединение потеряно');
 }
 function netClose(sendBye) {   // закрыть транспорт, вернуть имена/цель матча
@@ -349,17 +391,22 @@ async function netHost(kind) {
       netStatus('Создаём комнату…');
       if (kind === 'auto') r = await mqHost();
       if (gen !== netGen) { if (r && r.tr) r.tr.close(); return null; }
-      if (!r || r.err) { if (kind === 'auto') netStatus('Сервер недоступен, пробуем прямое соединение…'); r = await peerHost(); }
+      if (!r || r.err) {
+        const mqErr = r && r.err;
+        if (kind === 'auto') netStatus(mqErr === 'mqscript' ? 'Библиотека связи не загрузилась, пробуем прямое соединение…' : 'Серверы недоступны, пробуем прямое соединение…');
+        r = await peerHost();
+        if (r.err && mqErr) r = { err: mqFail(mqErr, r.err) };
+      }
     }
     if (r && r.tr) { kind = r.tr.kind; setNetTiming(kind); }
     if (gen !== netGen) { if (r && r.tr) r.tr.close(); return null; }   // пока ждали, нажали «Назад»
-    if (r.err) { netStatus(NET_ERR[r.err] || NET_ERR.conn); return null; }
+    if (r.err) { netStatus(netErrText(r.err)); return null; }
     net = { role: 'host', kind, code: r.code, tr: r.tr, connected: false, seq: 0, acc: 0, gn: null, lastRx: performance.now(), lastIn: 0, matchId: 0, hb: setInterval(netBeat, 1000),
-      sent: [], ak: 0, akAt: 0, rtt: 0, hzCur: NET.hz };
+      sent: [], ak: 0, akAt: 0, rtt: 0, hzCur: NET.hz, srv: srvText(r.tr) };
     r.tr.listen(hostOnMsg);
     r.tr.onopen = hostStart;
     r.tr.onclose = hostPeerLost;
-    netStatus('Ждём друга…');
+    netStatus('Ждём друга…' + (kind === 'mq' && r.tr.srvUp ? ' (серверов на связи: ' + r.tr.srvUp() + ' из ' + r.tr.srvN + ')' : ''));
     return r.code;
   } catch (e) {
     try { if (r && r.tr) r.tr.close(); } catch (e2) {}
@@ -373,9 +420,9 @@ function sendInit() {
 }
 function hostStart() {
   if (!net || net.connected || net.role !== 'host') return;
-  net.connected = true; net.lastRx = performance.now(); net.gn = null; net.acc = 0; net.akAt = performance.now(); net.hzCur = NET.hz;
+  net.connected = true; net.srv = srvText(net.tr); net.lastRx = performance.now(); net.gn = null; net.acc = 0; net.akAt = performance.now(); net.hzCur = NET.hz;
   mode = 'host'; audio(); newMatch(); show(null); updateCamera(0, true);
-  sendInit(); netStatus('Друг подключился');
+  sendInit(); netStatus('Друг подключился' + (net.srv ? ' (' + net.srv + ')' : ''));
 }
 function netRestart() {   // реванш для хоста: новая игра у обоих; false — онлайна нет
   if (mode !== 'host' || !net || !net.connected) return false;
@@ -440,7 +487,7 @@ function buildSnap() {
 }
 function netHostFrame(dt) {
   if (!net || !net.connected || !TL) return;
-  if (net.lastIn && performance.now() - net.lastIn > 400) { input2.left = input2.right = input2.jump = input2.hit = input2.act = false; }   // гость молчит — кнопки считаем отпущенными
+  if (net.lastIn && performance.now() - net.lastIn > 400 + Math.min(600, (net.rtt || 0) / 2)) { input2.left = input2.right = input2.jump = input2.hit = input2.act = false; }   // гость молчит — кнопки считаем отпущенными
   net.acc += dt;
   const period = state === 'over' ? .25 : 1 / Math.min(NET.hz, net.hzCur || NET.hz);
   const changed = net.lastSt !== state; net.lastSt = state;
@@ -466,20 +513,21 @@ async function netJoin(code, kind) {
       if (kind === 'auto') r = await mqJoin(code, gen);
       if (gen === netGen && (!r || (r.err && r.err !== 'full'))) {
         const first = r && r.err;
+        if (first === 'room') netStatus('Комната не найдена на серверах, пробуем прямое соединение…');
         const p = await peerJoin(code);
-        r = p.tr ? p : (first === 'room' || p.err === 'room' ? { err: 'room' } : p);
+        r = p.tr ? p : first === 'room' ? { err: 'room' } : first ? { err: mqFail(first, p.err) } : p;
       }
     }
     if (r && r.tr) { kind = r.tr.kind; setNetTiming(kind); }
   } catch (e) { r = { err: 'conn' }; }
   if (gen !== netGen) { try { if (r && r.tr) r.tr.close(); } catch (e) {} return false; }   // пока ждали, нажали «Назад»
-  if (!r || r.err) { netStatus(NET_ERR[r && r.err] || NET_ERR.conn); return false; }
+  if (!r || r.err) { netStatus(netErrText(r && r.err)); return false; }
   net = { role: 'guest', kind, code, tr: r.tr, connected: true, buf: [], off: 1e9, evN: 0, dn: 0, initId: -1, ciKey: '', lastRx: performance.now(),
-    lastSig: '', lastSend: 0, bad: 0, saved: { names: Object.assign({}, names), target: TARGET, arena: ARENA }, hb: setInterval(netBeat, 1000) };
+    lastSig: '', lastSend: 0, bad: 0, srv: srvText(r.tr), dTarget: NET.delay, dBump: 0, jit: [], ivl: 0, jc: 0, under: 0, saved: { names: Object.assign({}, names), target: TARGET, arena: ARENA }, hb: setInterval(netBeat, 1000) };
   r.tr.listen(guestOnMsg);
   r.tr.onclose = () => guestLost('Соединение потеряно');
   r.tr.send({ t: 'hello', v: PROTO });
-  netStatus('Подключено, ждём начала матча…');
+  netStatus('Подключено' + (net.srv ? ' через ' + net.srv : '') + ', ждём начала матча…');
   return true;
 }
 function guestLost(text) {
@@ -574,6 +622,12 @@ function guestPush(m) {
   if (lastS && (m.n <= lastS.n || m.ts < lastS.ts)) return;   // порядок снимков должен расти
   const at = performance.now(), lat = at - m.ts;
   net.off = Math.min(lat, net.off + .25);   // оценка смещения часов + минимальной задержки; медленно «отпускается» вверх
+  const J = net.jit; J.push(Math.max(0, lat - net.off)); if (J.length > 120) J.shift();   // разброс прихода (сверх минимума) за последние ~8 с
+  if (lastS) net.ivl = net.ivl ? net.ivl * .9 + (m.ts - lastS.ts) * .1 : m.ts - lastS.ts;   // средний интервал между снимками
+  if (++net.jc % 5 === 0 && J.length >= 20) {   // задержка показа = p90 разброса + запас: картинка идёт плавно, пусть и с небольшим опозданием
+    const so = J.slice().sort((x, y) => x - y), p90 = so[Math.floor((so.length - 1) * .9)];
+    net.dTarget = clamp(p90 + 60 + Math.max(0, net.ivl - 70) + net.dBump, NET.dmin, 600);
+  }
   net.lastSnap = at; net.lastN = m.n; net.rtt = m.rt;
   buf.push(m);
   if (buf.length > 24) buf.splice(0, buf.length - 24);
@@ -650,7 +704,11 @@ function netGuestFrame(dt) {   // свой try/catch: плохой снимок 
 }
 function guestFrameInner(dt) {
   if (!net || net.role !== 'guest' || !TL || !net.buf.length) return;
-  const buf = net.buf, rt = performance.now() - net.off - NET.delay;
+  const nowT = performance.now();
+  if (net.dTarget) NET.delay += clamp(net.dTarget - NET.delay, -30 * dt, 150 * dt);   // плавно: растёт быстрее, чем падает
+  net.dBump = Math.max(0, net.dBump - 8 * dt);
+  const buf = net.buf, rt = nowT - net.off - NET.delay;
+  if (rt > buf[buf.length - 1].ts + 40 && nowT - net.under > 400) { net.under = nowT; net.dBump = Math.min(200, net.dBump + 30); net.dTarget = clamp((net.dTarget || NET.delay) + 30, NET.dmin, 600); }   // кадр «обогнал» снимки — запас мал, увеличиваем
   let i = 0;
   while (i + 1 < buf.length && buf[i + 1].ts <= rt) i++;
   const a = buf[i], b = buf[i + 1] || a;
