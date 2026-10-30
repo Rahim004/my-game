@@ -26,15 +26,16 @@ const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const KIT = {
   org: { jersey: '#f07a22', shade: '#c25b13', trim: '#1b1a20', shorts: '#1b1a20', shortsTrim: '#f07a22', num: '#ffffff', numEdge: '#1b1a20', sock: '#f4f4f2', sockBand: '#1b1a20', pad: '#1f1e25', shoe: '#f4f4f2', sole: '#f07a22' },
   blk: { jersey: '#25232c', shade: '#141318', trim: '#f07a22', shorts: '#1b1a20', shortsTrim: '#f07a22', num: '#ffffff', numEdge: '#f07a22', sock: '#f4f4f2', sockBand: '#f07a22', pad: '#1f1e25', shoe: '#f4f4f2', sole: '#1b1a20' },
+  lib: { jersey: '#f2c230', shade: '#c99a12', trim: '#1b1a20', shorts: '#1b1a20', shortsTrim: '#f2c230', num: '#1b1a20', numEdge: '#fff3c4', sock: '#f4f4f2', sockBand: '#f2c230', pad: '#1f1e25', shoe: '#f4f4f2', sole: '#f2c230' },   // либеро — другой цвет формы
   wht: { jersey: '#f1f4f6', shade: '#bfcad2', trim: '#138f97', shorts: '#138f97', shortsTrim: '#f1f4f6', num: '#0f6a71', numEdge: '#f1f4f6', sock: '#138f97', sockBand: '#f1f4f6', pad: '#e9eef1', shoe: '#23262d', sole: '#f1f4f6' },
 };
 const LOOKS = {
   4:  { skin: '#e3b68f', skinD: '#c08f6b', hair: '#1a1411', style: 'short', tall: 1.0 },
   10: { skin: '#ddae86', skinD: '#b98962', hair: '#16110e', style: 'swept', tall: 1.03 },
-  7:  { skin: '#ebc39d', skinD: '#c89c75', hair: '#3b2416', style: 'spiky', tall: .97 },
+  9:  { skin: '#ebc39d', skinD: '#c89c75', hair: '#3b2416', style: 'spiky', tall: .97 },   // Арис Мори, связующий
   2:  { skin: '#c48c62', skinD: '#9f6a44', hair: '#14100d', style: 'buzz', tall: 1.04 },
   5:  { skin: '#f0cfae', skinD: '#cca783', hair: '#9b6a3a', style: 'swept', tall: 1.0 },
-  9:  { skin: '#9e6a46', skinD: '#7a4d30', hair: '#100c0a', style: 'curly', tall: 1.02 },
+  8:  { skin: '#9e6a46', skinD: '#7a4d30', hair: '#100c0a', style: 'curly', tall: 1.02 },
 };
 // виды атаки: d — расстояние нападающего от сетки, h/t — высота и время паса, blk — множитель шанса блока, jw — окно прыжка ИИ (сек до высоты паса)
 const ATK = {
@@ -58,11 +59,16 @@ if (matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window) documen
 const boot = window.claude?.hot?.data ?? {};
 let diff = DIFF[boot.diff] ? boot.diff : 'normal';
 let TARGET = [7, 11, 15].includes(boot.target) ? boot.target : 11;
-const OPP_NAMES = { 2: 'АРТЁМ', 5: 'ВЛАД', 9: 'ТИМУР' };
-let names = { 4: '', 10: '', 7: '' };
-try { const sv = JSON.parse(localStorage.getItem('vb-names') || 'null'); if (sv) Object.assign(names, sv); } catch (e) {}
+const OPP_NAMES = { 2: 'АРТЁМ', 5: 'ВЛАД', 8: 'ТИМУР' };
+const HERO = {   // свои герои команды (оригинальные): имя по умолчанию, прозвище, роль
+  10: { name: 'РЭЙ', full: 'Рэй «Гром» Кадзама', role: 'нападающий' },
+  9: { name: 'АРИС', full: 'Арис «Дирижёр» Мори', role: 'связующий' },
+  4: { name: 'ДАН', full: 'Дан «Якорь» Ивасэ', role: 'либеро' },
+};
+let names = { 4: '', 10: '', 9: '' };
+try { const sv = JSON.parse(localStorage.getItem('vb-names') || 'null'); if (sv) { if (sv[7] && !sv[9]) sv[9] = sv[7]; delete sv[7]; Object.assign(names, sv); } } catch (e) {}
 if (boot.names) Object.assign(names, boot.names);
-const nameOf = n => OPP_NAMES[n] || String(names[n] || '').trim().toUpperCase();
+const nameOf = n => OPP_NAMES[n] || String(names[n] || '').trim().toUpperCase() || (HERO[n] ? HERO[n].name : '');
 const labelOf = n => nameOf(n) ? `${nameOf(n)} · ${n}` : `№${n}`;
 window.claude?.hot?.snapshot?.(() => ({ diff, target: TARGET, names }));
 
@@ -145,8 +151,8 @@ function newMatch() {
   if (twoHumans) { TR.human = true; TR.inp = input2; }
   for (const k of Object.keys(input)) input[k] = input2[k] = false;
   active = active2 = null;
-  TL.players = [mkPlayer(TL, 0, 7, 'org'), mkPlayer(TL, 1, 10, 'blk'), mkPlayer(TL, 2, 4, 'org')];
-  TR.players = [mkPlayer(TR, 0, 2, 'wht'), mkPlayer(TR, 1, 5, 'wht'), mkPlayer(TR, 2, 9, 'wht')];
+  TL.players = [mkPlayer(TL, 0, 9, 'org'), mkPlayer(TL, 1, 10, 'blk'), mkPlayer(TL, 2, 4, 'lib')];
+  TR.players = [mkPlayer(TR, 0, 2, 'wht'), mkPlayer(TR, 1, 5, 'wht'), mkPlayer(TR, 2, 8, 'wht')];
   ball = { x: 0, h: 0, vx: 0, vh: 0, rot: 0, spiked: false, lane: LANE0, laneT: 0, laneDur: 1, laneTarget: null, laneTeam: null, trail: [] };
   servingTeam = TL; TL.serveIdx = 2; server = TL.players[2];
   setHints = 0; cutin = null; parts = []; confetti = []; marks = []; rings = []; banners = []; stats = null; led = null;

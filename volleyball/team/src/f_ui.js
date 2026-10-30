@@ -125,7 +125,7 @@ function endAgain() {
 
 /* сцена истории: реплики поверх арены, тап — дальше */
 let sto = { lines: [], i: 0, full: '', n: 0, tm: 0, on: false };
-const STO_AV = { 4: 'org', 10: 'blk', 7: 'org', o: 'wht' };
+const STO_AV = { 4: 'lib', 10: 'blk', 9: 'org', o: 'wht' };
 function openStory(st) {
   sto.lines = st.talk; sto.i = 0; sto.on = true; state = 'story';
   $('stKick').textContent = 'ЭТАП ' + (camp.stage + 1) + ' ИЗ ' + TOUR.length; $('stName').textContent = st.name;
@@ -175,7 +175,7 @@ function showEnd() {
   $('endTitle').textContent = mode === 'local2' ? 'ИГРОК ' + (TL.score > TR.score ? 1 : 2) + ' ПОБЕДИЛ' : win ? 'ПОБЕДА!' : 'ПОРАЖЕНИЕ';
   $('endTitle').className = win || mode === 'local2' ? 'win' : '';
   $('endScore').textContent = me.score + ' : ' + other(me).score;
-  $('endSub').textContent = mode === 'local2' ? 'Реванш?' : mode === 'solo' ? (win ? '№4, №10 и №7 забирают матч.' : 'Гости оказались сильнее. Реванш?') : (win ? 'Победа над другом!' : 'Друг оказался сильнее. Реванш?');
+  $('endSub').textContent = mode === 'local2' ? 'Реванш?' : mode === 'solo' ? (win ? 'Рэй, Арис и Дан забирают матч.' : 'Гости оказались сильнее. Реванш?') : (win ? 'Победа над другом!' : 'Друг оказался сильнее. Реванш?');
   show('end');
 }
 function pauseGame() { if (isOnline()) return; if (!['serve', 'play', 'point'].includes(state)) return; pausedFrom = state; state = 'paused'; show('pause'); }
@@ -190,8 +190,8 @@ document.querySelectorAll('[data-diff]').forEach(b => b.addEventListener('click'
 document.querySelectorAll('[data-target]').forEach(b => b.addEventListener('click', () => { TARGET = +b.dataset.target; syncSeg(); }));
 document.querySelectorAll('[data-arena]').forEach(b => b.addEventListener('click', () => { arenaPick = b.dataset.arena; lsSet('vb-arena', arenaPick); syncSeg(); }));
 syncSeg();
-for (const n of [4, 10, 7]) {
-  const el = $('n' + n); el.value = names[n] || '';
+for (const n of [4, 10, 9]) {
+  const el = $('n' + n); el.value = names[n] || ''; if (HERO[n]) el.placeholder = HERO[n].name[0] + HERO[n].name.slice(1).toLowerCase();
   el.addEventListener('input', () => { names[n] = el.value.slice(0, 12); try { localStorage.setItem('vb-names', JSON.stringify(names)); } catch (e) {} });
 }
 $('againBtn').addEventListener('click', () => { if (endAct) endAgain(); else startMatch(); });

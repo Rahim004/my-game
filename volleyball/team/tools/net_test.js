@@ -178,10 +178,10 @@ async function pair(ctx, base, kind, errs, routeFn) {
     const gs = await q.gp.evaluate(() => ({ mode: window.__vb.mode, ok: Number.isFinite(window.__vb.ball.x) && Number.isFinite(window.__vb.TR.players[0].x) && window.__vb.TR.players.every(p => p.pose && Object.values(p.pose).every(Number.isFinite)), err: document.querySelectorAll('.errbox').length, maxBn: window.__maxBn, conn: !!window.__vb.net }));
     check(gs.mode === 'guest' && gs.ok && gs.err === 0 && gs.conn, 'мусорные снимки (NaN/обрезанные/чужие поля) отброшены: ' + JSON.stringify(gs));
     check(gs.maxBn <= 40, 'длинный баннер обрезан до 40 символов (макс ' + gs.maxBn + ')');
-    await q.hp.evaluate(() => window.__vb.netRaw({ t: 'init', v: 2, id: 777, names: { 4: 'N'.repeat(100), evil: 1 }, target: 'abc', tl: {}, tr: 5 }));
+    await q.hp.evaluate(() => window.__vb.netRaw({ t: 'init', v: 3, id: 777, names: { 4: 'N'.repeat(100), evil: 1 }, target: 'abc', tl: {}, tr: 5 }));
     await sleep(400);
     const nm = await q.gp.evaluate(() => ({ n4: String(window.__vb.names[4]).length, keys: Object.keys(window.__vb.names).join(), mode: window.__vb.mode }));
-    check(nm.n4 <= 12 && nm.keys === '4,7,10' && nm.mode === 'guest', 'init: имена обрезаны, чужие ключи не принимаются: ' + JSON.stringify(nm));
+    check(nm.n4 <= 12 && nm.keys === '4,9,10' && nm.mode === 'guest', 'init: имена обрезаны, чужие ключи не принимаются: ' + JSON.stringify(nm));
     // ввод гостя устаревает: гость один раз шлёт «вправо» и замолкает
     await q.gp.evaluate(() => { window.requestAnimationFrame = () => 0; });
     await sleep(300);
