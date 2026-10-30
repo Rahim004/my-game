@@ -157,7 +157,7 @@ async function pair(ctx, base, kind, errs, routeFn) {
     // ---------- фаза 5: нет скрипта PeerJS ----------
     ctx = await b.newContext({ viewport: { width: 844, height: 390 } });
     const p5 = await ctx.newPage(); p5.on('pageerror', e => errs.push('p5: ' + e.message));
-    await p5.route('**/unpkg.com/**', rt => rt.abort());
+    await p5.route(/unpkg\.com|cdn\.jsdelivr\.net|cdnjs\.cloudflare\.com/, rt => rt.abort());   // все зеркала PeerJS недоступны
     await p5.goto(base + '/test.html'); await sleep(400);
     const c5 = await p5.evaluate(async () => { const c = await window.__vb.netHost('peer'); const j = await window.__vb.netJoin('ABCDE', 'peer'); return { c, j, st: window.__vb.statuses }; });
     check(c5.c === null && c5.j === false && c5.st.some(t => t.includes('версии на GitHub')), 'без PeerJS: статусы ' + JSON.stringify(c5.st));
