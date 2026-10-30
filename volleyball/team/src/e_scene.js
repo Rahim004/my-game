@@ -759,6 +759,8 @@ function drawScoreboard(c) {
   [[TL, -1, 0], [TR, 1, 1]].forEach(([T, sd, i]) => {
     const bx = sd < 0 ? cx - hw / 2 - 6 * u - sw : cx + hw / 2 + 6 * u;
     c.fillStyle = '#f4f2ec'; skew(c, bx, sy, sw, shh, 5 * u); c.fill();
+    c.fillStyle = i ? TONE.teal : TONE.org; c.fillRect(sd < 0 ? bx + sw - 3 * u - 2 * u : bx + 5 * u, sy + shh - 2.4 * u, 3 * u, 2.4 * u);
+    if (scorePop[i] > .05) { c.fillStyle = `rgba(255,214,90,${Math.min(1, scorePop[i]) * .75})`; skew(c, bx, sy, sw, shh, 5 * u); c.fill(); }
     const pop = 1 + scorePop[i] * .45;
     c.save(); c.translate(bx + sw / 2, sy + shh / 2 + .5); c.scale(pop, pop);
     c.font = `700 ${15 * u}px Oswald, "Arial Narrow", sans-serif`; c.textAlign = 'center'; c.fillStyle = '#16181d'; c.fillText(String(T.score), 0, 0);
@@ -767,6 +769,8 @@ function drawScoreboard(c) {
       const dx = sd < 0 ? bx - 8 * u : bx + sw + 8 * u;
       c.fillStyle = '#f5cf2e'; c.beginPath(); c.arc(dx, sy + shh / 2, 3.6 * u, 0, 6.283); c.fill();
       c.strokeStyle = '#2356b8'; c.lineWidth = 1.2 * u; c.beginPath(); c.arc(dx, sy + shh / 2, 3.6 * u, .3, 1.9); c.stroke();
+      c.font = `600 ${6.5 * u}px Oswald, "Arial Narrow", sans-serif`; c.textAlign = 'center'; c.fillStyle = 'rgba(255,255,255,.85)';
+      c.fillText('ПОДАЧА', sd < 0 ? bx + sw / 2 : bx + sw / 2, sy + shh + 7 * u);
     }
   });
   const hy = y + bh * .62, hh = 30 * u;
@@ -965,11 +969,15 @@ function render() {
       else out.arc(x, rg.lane - rg.h * sl, 2 + rg.t * 22, 0, 6.283);
       out.stroke();
     }
-    out.font = '600 3.9px Oswald, "Arial Narrow", sans-serif'; out.textAlign = 'center'; out.textBaseline = 'middle';
-    for (const p of all) {
-      const x = PX(p.x, p.lane), y = p.lane + 5.4, lb = labelOf(p.num);
-      out.fillStyle = 'rgba(0,0,0,.55)'; out.fillText(lb, x + .3, y + .3);
-      out.fillStyle = p.team === TL ? '#ffffff' : '#e3f6f7'; out.fillText(lb, x, y);
+    out.font = '700 3.7px Oswald, "Arial Narrow", sans-serif'; out.textAlign = 'left'; out.textBaseline = 'middle'; out.lineJoin = 'round';
+    for (const p of all) {   // подпись: имя героя + номер-плашка (+ «Л» у либеро); без имени — просто №
+      const x = PX(p.x, p.lane), y = p.lane + 5.6, nm = nameOf(p.num), ns = String(p.num), ours = p.team === TL;
+      const nw = nm ? out.measureText(nm).width : 0, bw = out.measureText(ns).width + 2.2, lw = p.lib ? 4.2 : 0;
+      const tot = nw + (nm ? 1.2 : 0) + bw + (lw ? .9 + lw : 0); let cx = x - tot / 2;
+      if (nm) { out.lineWidth = 1.1; out.strokeStyle = 'rgba(0,0,0,.6)'; out.strokeText(nm, cx, y); out.fillStyle = ours ? '#ffffff' : '#e3f6f7'; out.fillText(nm, cx, y); cx += nw + 1.2; }
+      out.fillStyle = ours ? '#e8701c' : '#118a92'; rrect(out, cx, y - 2.1, bw, 4.2, 1.2); out.fill();
+      out.fillStyle = '#ffffff'; out.fillText(ns, cx + 1.1, y + .1); cx += bw + .9;
+      if (lw) { out.fillStyle = '#f2c230'; rrect(out, cx, y - 2.1, lw, 4.2, 1.2); out.fill(); out.fillStyle = '#16181d'; out.fillText('Л', cx + 1, y + .1); }
     }
     if (state === 'play' || state === 'serve') {   // маркер активного игрока: синий — этот игрок (или игрок 1), красно-оранжевый — второй человек
       for (const [p, col] of [[active, '#4da3ff'], [active2, '#ff5436']]) {
