@@ -31,12 +31,12 @@ const KIT = {
 };
 const LOOKS = {
   // style — что умеет d_chars.js сейчас; styleNew — целевой стиль из docs/characters.md (пока рисуется как style); acc — аксессуар
-  4:  { skin: '#e3b68f', skinD: '#c08f6b', hair: '#2a1a12', style: 'short', styleNew: 'band',  acc: 'headband', accC: '#fff6d8', tall: .98 },  // Дан Ивасэ, либеро
-  10: { skin: '#ddae86', skinD: '#b98962', hair: '#1b1530', style: 'spiky', styleNew: 'wolf',  acc: 'wristband', accC: '#ff7a1a', tall: 1.05 }, // Рэй Кадзама, нападающий
-  9:  { skin: '#ebc39d', skinD: '#c89c75', hair: '#6b4a2f', style: 'swept', styleNew: 'part',  acc: 'fingertape', accC: '#f4efe6', tall: .99 }, // Арис Мори, связующий
-  2:  { skin: '#c48c62', skinD: '#9f6a44', hair: '#14100d', style: 'buzz',  styleNew: 'buzzScar', acc: 'browScar', accC: '#e9b99a', tall: 1.06 }, // Артём
-  5:  { skin: '#f0cfae', skinD: '#cca783', hair: '#c9a24a', style: 'swept', styleNew: 'tail',  acc: 'wristband', accC: '#0fb5a8', tall: .96 }, // Влад
-  8:  { skin: '#9e6a46', skinD: '#7a4d30', hair: '#100c0a', style: 'curly', styleNew: 'puff',  acc: 'headband', accC: '#0fb5a8', tall: 1.02 }, // Тимур
+  4:  { skin: '#e3b68f', skinD: '#c08f6b', hair: '#2a1a12', style: 'band',  acc: 'headband', accC: '#fff6d8', tall: .98 },  // Дан Ивасэ, либеро
+  10: { skin: '#ddae86', skinD: '#b98962', hair: '#1b1530', style: 'wolf',  acc: 'wristband', accC: '#ff7a1a', tall: 1.05 }, // Рэй Кадзама, нападающий
+  9:  { skin: '#ebc39d', skinD: '#c89c75', hair: '#6b4a2f', style: 'part',  acc: 'fingertape', accC: '#f4efe6', tall: .99 }, // Арис Мори, связующий
+  2:  { skin: '#c48c62', skinD: '#9f6a44', hair: '#14100d', style: 'buzzScar', acc: 'browScar', accC: '#e9b99a', tall: 1.06 }, // Артём
+  5:  { skin: '#f0cfae', skinD: '#cca783', hair: '#c9a24a', style: 'tail',  acc: 'wristband', accC: '#0fb5a8', tall: .96 }, // Влад
+  8:  { skin: '#9e6a46', skinD: '#7a4d30', hair: '#100c0a', style: 'puff',  acc: 'headband', accC: '#0fb5a8', tall: 1.02 }, // Тимур
 };
 // виды атаки: d — расстояние нападающего от сетки, h/t — высота и время паса, blk — множитель шанса блока, jw — окно прыжка ИИ (сек до высоты паса)
 const ATK = {

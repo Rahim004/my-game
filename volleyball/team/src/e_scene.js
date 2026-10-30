@@ -482,6 +482,13 @@ function paintFloor(c) {
     const gg = c.createLinearGradient(k - w, 0, k + w, 0); gg.addColorStop(0, 'rgba(255,255,255,0)'); gg.addColorStop(.5, 'rgba(255,255,255,.12)'); gg.addColorStop(1, 'rgba(255,255,255,0)');
     c.fillStyle = gg; c.beginPath(); c.moveTo(k - w + 20, FAR_Y); c.lineTo(k + w + 20, FAR_Y); c.lineTo(k + w - 38, NEAR_Y); c.lineTo(k - w - 38, NEAR_Y); c.closePath(); c.fill();
   }
+  // glossy reflections of the lamps: bright streaks on the varnish + wet-looking sheen toward the near edge
+  for (const lx of LAMPS) {
+    const x1 = lx + (lx - 240) * .22, w = 7;
+    const gg = c.createLinearGradient(x1 - w, 0, x1 + w, 0); gg.addColorStop(0, 'rgba(255,250,235,0)'); gg.addColorStop(.5, 'rgba(255,250,235,.2)'); gg.addColorStop(1, 'rgba(255,250,235,0)');
+    c.fillStyle = gg; c.beginPath(); c.moveTo(lx - 3, FAR_Y); c.lineTo(lx + 3, FAR_Y); c.lineTo(x1 + w + 6, NEAR_Y); c.lineTo(x1 - w - 6, NEAR_Y); c.closePath(); c.fill();
+  }
+  g = c.createLinearGradient(0, FAR_Y, 0, NEAR_Y); g.addColorStop(0, 'rgba(255,255,255,.1)'); g.addColorStop(.5, 'rgba(255,255,255,0)'); g.addColorStop(1, 'rgba(255,255,255,.07)'); c.fillStyle = g; c.fillRect(COURT_L, FAR_Y, COURT_R - COURT_L, NEAR_Y - FAR_Y);
   c.restore();
   // light pools from the spotlights
   for (const lx of LAMPS) {
@@ -645,7 +652,8 @@ function drawProps(c) {
 }
 let LAB = ['№4 · №10', 'ГОСТИ'];   // подписи команд на полу и скамейках — по режиму; слои пересобираются при смене
 const FLX0 = -80, FLX1 = 560, FLY0 = 196, FLY1 = 300, NLX0 = 226, NLX1 = 254, NLY0 = 126, NLY1 = 242;
-let floorL = null, netL = null, vigL = null, propsL = null;
+let floorL = null, netL = null, vigL = null, propsL = null, lightL = null, glowL = null, glintL = null, vigArena = '';
+const GLINTS = (() => { const rn = mulberry(77), a = []; for (let i = 0; i < 16; i++) a.push([30 + rn() * 420, 202 + rn() * 54, rn() * 6.28, 1.3 + rn() * 1.4, 3 + rn() * 3]); return a; })();
 function layer(x0, x1, y0, y1, res, paint) {
   const cv2 = document.createElement('canvas'); cv2.width = Math.max(1, Math.ceil((x1 - x0) * res)); cv2.height = Math.max(1, Math.ceil((y1 - y0) * res));
   const c = cv2.getContext('2d'); c.scale(res, res); c.translate(-x0, -y0); paint(c); return cv2;
@@ -661,10 +669,25 @@ function ensureLayers() {
     floorL = layer(FLX0, FLX1, FLY0, FLY1, layRes, paintFloor);
     propsL = { calm: layer(PRX0, PRX1, PRY0, PRY1, layRes, c => paintProps(c, false)), cheer: layer(PRX0, PRX1, PRY0, PRY1, layRes, c => paintProps(c, true)) };
   }
-  if (!vigL) {
+  if (!vigL || vigArena !== ARENA) {   // виньетка + свет: пререндер один раз на площадку
+    vigArena = ARENA; const beach = ARENA === 'beach';
     vigL = document.createElement('canvas'); vigL.width = 320; vigL.height = 160;
     const c = vigL.getContext('2d'), vg = c.createRadialGradient(160, 88, 70, 160, 88, 250);
-    vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,.3)'); c.fillStyle = vg; c.fillRect(0, 0, 320, 160);
+    vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, beach ? 'rgba(60,30,0,.2)' : 'rgba(0,0,0,.34)'); c.fillStyle = vg; c.fillRect(0, 0, 320, 160);
+    if (beach) { const sg = c.createRadialGradient(290, -10, 4, 290, -10, 190); sg.addColorStop(0, 'rgba(255,236,170,.34)'); sg.addColorStop(1, 'rgba(255,236,170,0)'); c.fillStyle = sg; c.fillRect(0, 0, 320, 160); }
+    // свет прожекторов: широкие тёплые лучи (в координатах фона), мягкое свечение у сетки, блики на песке
+    lightL = document.createElement('canvas'); lightL.width = 256; lightL.height = 120;
+    const lc = lightL.getContext('2d'); lc.scale(256 / (BGX1 - BGX0), 120 / (BGY1 - BGY0)); lc.translate(-BGX0, -BGY0);
+    if (!beach) for (const lx of LAMPS) {
+      const g = lc.createLinearGradient(0, -30, 0, 200); g.addColorStop(0, 'rgba(255,226,160,.2)'); g.addColorStop(1, 'rgba(255,226,160,0)');
+      lc.fillStyle = g; lc.beginPath(); lc.moveTo(lx - 4, -30); lc.lineTo(lx + 4, -30); lc.lineTo(lx + (lx - 240) * .25 + 62, 200); lc.lineTo(lx + (lx - 240) * .25 - 62, 200); lc.closePath(); lc.fill();
+    }
+    glowL = document.createElement('canvas'); glowL.width = 96; glowL.height = 48;
+    const gc = glowL.getContext('2d'); gc.scale(1, .5); const gg = gc.createRadialGradient(48, 48, 2, 48, 48, 48);
+    gg.addColorStop(0, beach ? 'rgba(255,240,200,.3)' : 'rgba(255,236,190,.34)'); gg.addColorStop(1, 'rgba(255,236,190,0)'); gc.fillStyle = gg; gc.fillRect(0, 0, 96, 96);
+    glintL = document.createElement('canvas'); glintL.width = glintL.height = 16;
+    const nc = glintL.getContext('2d'), ng = nc.createRadialGradient(8, 8, .3, 8, 8, 8); ng.addColorStop(0, 'rgba(255,255,245,1)'); ng.addColorStop(.25, 'rgba(255,250,220,.5)'); ng.addColorStop(1, 'rgba(255,250,220,0)');
+    nc.fillStyle = ng; nc.fillRect(0, 0, 16, 16); nc.fillStyle = 'rgba(255,255,240,.8)'; nc.fillRect(1, 7.6, 14, .8); nc.fillRect(7.6, 1, .8, 14);
   }
 }
 const shadowSpr = (() => {
@@ -677,15 +700,18 @@ function shadow(c, x, lane, rx, a) { c.globalAlpha = Math.min(1, a / .3); c.draw
 /* ================= camera & display ================= */
 const cv = $('cv'), out = cv.getContext('2d'), stage = $('stage'), screenEl = $('screen');
 let cssW = 800, cssH = 400, dpr = 1, qScale = 1;
-const cam = { x: 240, top: 90, scale: 2 };
+const cam = { x: 240, top: 90, scale: 2, z: 0 };
 function updateCamera(dt, snap) {
   const aspect = cssW / cssH, zb = aspect < 1.7 ? 1.0 : aspect < 1.95 ? 1.15 : 1.3;
-  const visW = VW / (zb + punch), sc = cssW / visW, visH = cssH / sc;
+  // мягкий наезд: сильная атака/блок (punch) и подача — цель зума; быстро входим, плавно возвращаемся; амплитуда ограничена
+  const zt = REDUCED ? 0 : Math.min(.1, punch * 1.2) + (TL && state === 'serve' ? .05 : 0);
+  cam.z = snap ? zt : cam.z + (zt - cam.z) * (1 - Math.exp(-dt * (zt > cam.z ? 14 : 2.6)));
+  const visW = VW / (zb + cam.z), sc = cssW / visW, visH = cssH / sc;
   cam.scale = sc;
   let tx = 240;
   if (TL && ball) {
     if (state === 'serve') tx = lerp(240, PX(server.x, server.lane), .55);
-    else if (state === 'play' || state === 'point') tx = lerp(240, PX(ball.x, ball.lane), .78);
+    else if (state === 'play' || state === 'point') tx = lerp(240, PX(ball.x, ball.lane), REDUCED ? .6 : .78);
   }
   const half = visW / 2; tx = clamp(tx, half - 10, VW - half + 10);
   const base = (mode === 'local2' ? 288 : 274) - visH; let tt = base;   // local2: низ кадра ниже, чтобы подписи у ног не закрывались кнопками
@@ -780,48 +806,100 @@ function drawBanners(c) {
 /* ================= scorer cut-in ================= */
 const PORTRAIT = {}, PFOCUS = { 4: [.52, .26, 1.25], 10: [.74, .4, 1.35] };
 for (const [n, src] of [[4, '__P4__'], [10, '__P10__']]) { const im = new Image(); im.src = 'data:image/jpeg;base64,' + src; PORTRAIT[n] = im; }
+const CUT = {   // титул удара, цвет и роль в заставке (docs/characters.md)
+  10: { title: 'ГРОМ!', nick: 'Гром', role: 'нападающий', col: '#ff7a1a', fx: 'bolt' },
+  9: { title: 'ДИРИЖЁР!', nick: 'Дирижёр', role: 'связующий', col: '#f2c230', fx: 'arc' },
+  4: { title: 'ЯКОРЬ!', nick: 'Якорь', role: 'либеро', col: '#ffd84a', fx: 'burst' },
+  2: { title: 'СТЕНА!', nick: '', role: 'блокирующий', col: '#2fd0d8', fx: 'burst' },
+  5: { title: 'БЫСТРО!', nick: '', role: 'нападающий', col: '#2fd0d8', fx: 'bolt' },
+  8: { title: 'ТИМУР!', nick: '', role: 'универсал', col: '#2fd0d8', fx: 'arc' } };
+const CFONT = 'Oswald, "Arial Narrow", sans-serif';
+function cutFx(c, k, cx, cy, H, col, t, u) {   // фон за портретом: молнии / дуга паса / лучи
+  c.strokeStyle = col; c.fillStyle = col;
+  if (k === 'bolt') {
+    c.lineJoin = 'miter'; c.lineWidth = 3 * u;
+    for (let i = 0; i < 3; i++) {
+      const sx = cx - H * .5 + i * H * .45, f = (t * 6 + i * .37) % 1, a = f < .5 ? 1 : .35;
+      c.globalAlpha = .75 * a; c.beginPath(); c.moveTo(sx, cy - H * .6);
+      c.lineTo(sx - H * .14, cy - H * .25); c.lineTo(sx + H * .06, cy - H * .2); c.lineTo(sx - H * .18, cy + H * .2); c.lineTo(sx, cy + H * .15); c.lineTo(sx - H * .22, cy + H * .62); c.stroke();
+    }
+  } else if (k === 'arc') {
+    c.lineWidth = 2.2 * u; c.globalAlpha = .7;
+    for (let i = 0; i < 5; i++) { c.beginPath(); c.moveTo(cx - H * 1.1, cy + H * .5 - i * H * .05 + 6 * u); c.quadraticCurveTo(cx - H * .1, cy - H * (.9 + i * .06), cx + H * 1.0, cy + H * .5 - i * H * .05 + 6 * u); c.stroke(); }
+    c.globalAlpha = .9; const f = (t * 1.6) % 1, bx = lerp(cx - H * 1.1, cx + H, f), by = cy + H * .5 + 6 * u - Math.sin(f * 3.1416) * H * 1.2 * .8;
+    c.beginPath(); c.arc(bx, by, 4 * u, 0, 6.283); c.fill();
+  } else {
+    c.globalAlpha = .45; const n = 14, r0 = H * .25, r1 = H * 1.3, rot = t * .5;
+    for (let i = 0; i < n; i++) { const an = rot + i / n * 6.283, w = .09; c.beginPath(); c.moveTo(cx + Math.cos(an - w) * r1, cy + Math.sin(an - w) * r1); c.lineTo(cx + Math.cos(an) * r0, cy + Math.sin(an) * r0); c.lineTo(cx + Math.cos(an + w) * r1, cy + Math.sin(an + w) * r1); c.closePath(); if (i % 2) c.fill(); }
+  }
+  c.globalAlpha = 1;
+}
 function drawCutin(c) {
   if (!cutin) return;
-  const { p, team, act, t, life } = cutin, u = clamp(cssW / 820, .7, 1.3);
-  const ein = easeOut(clamp(t / .24, 0, 1)), eout = clamp((life - t) / .25, 0, 1);
-  const H = Math.min(cssH * .46, 160 * u), y = cssH * .53 - H / 2;
-  const W = Math.min(cssW * .84, 580 * u), sk = H * .3;
-  const x = (cssW - W) / 2 - (1 - ein) * cssW * .8 + (1 - eout) * cssW * .6;
-  const ours = team === TL, col = ours ? (p.kit === KIT.blk ? '#2a2731' : '#e8701c') : '#118a92', acc = ours ? '#f07a22' : '#14a3ab';
-  c.save(); c.globalAlpha = Math.min(1, eout * 1.3);
+  const { p, team, act, t, life } = cutin, u = clamp(cssW / 820, .7, 1.3), cd = CUT[p.num] || { title: 'ОЧКО!', nick: '', role: '', col: '#2fd0d8', fx: 'burst' };
+  const ein = easeOut(clamp(t / .26, 0, 1)), eout = clamp((life - t) / .26, 0, 1), eo = easeOut(eout);
+  const H = Math.min(cssH * .44, 150 * u), y = cssH * .53 - H / 2;
+  const W = Math.min(cssW * .9, 640 * u), sk = H * .32;
+  const x = (cssW - W) / 2 - (1 - ein) * cssW * .95 + (1 - eo) * cssW * .7;
+  const ours = team === TL, col = ours ? (p.kit === KIT.blk ? '#2a2731' : '#e8701c') : '#118a92', acc = cd.col;
+  c.save(); c.globalAlpha = Math.min(1, eout * 1.5);
+  // задняя полоса-тень и цветная полоса со смещением
+  c.fillStyle = 'rgba(0,0,0,.35)'; skew(c, x + 6 * u, y + 8 * u, W, H, sk); c.fill();
+  c.fillStyle = acc; skew(c, x - 14 * u + (1 - ein) * 40 * u, y - 7 * u, W * .55, H + 14 * u, sk * 1.1); c.fill();
   c.save(); skew(c, x, y, W, H, sk); c.clip();
-  const g = c.createLinearGradient(x, 0, x + W, 0); g.addColorStop(0, col); g.addColorStop(.5, '#16181e'); g.addColorStop(1, '#0d0f14');
-  c.fillStyle = g; c.fillRect(x, y, W, H);
-  c.fillStyle = 'rgba(255,255,255,.06)';
-  const step = 26 * u, off = (t * 240 * u) % step;
-  for (let sx = x - H + off; sx < x + W; sx += step) { c.beginPath(); c.moveTo(sx, y + H); c.lineTo(sx + 10 * u, y + H); c.lineTo(sx + 10 * u + H * .6, y); c.lineTo(sx + H * .6, y); c.closePath(); c.fill(); }
-  c.font = `700 ${H * 1.1}px Oswald, "Arial Narrow", sans-serif`; c.fillStyle = 'rgba(255,255,255,.07)'; c.textAlign = 'right'; c.textBaseline = 'middle';
-  c.fillText(String(p.num), x + W - sk * .3, y + H * .56);
-  const fw = H * .92, fx = x + sk * .6;
+  const g = c.createLinearGradient(x, 0, x + W, 0); g.addColorStop(0, col); g.addColorStop(.42, '#1a1c24'); g.addColorStop(1, '#0b0d12');
+  c.fillStyle = g; c.fillRect(x - sk, y, W + sk * 2, H);
+  // полосы скорости: длинные диагональные штрихи, разной длины, летят вправо
+  c.fillStyle = 'rgba(255,255,255,.10)';
+  for (let i = 0; i < 14; i++) {
+    const r = (Math.sin(i * 12.9898) * 43758.5453) % 1, ry = Math.abs(r), ly = y + ry * H, len = (.25 + Math.abs((r * 7) % 1) * .5) * W, sp = 380 + i * 55;
+    const lx = x - len + ((t * sp * u + i * 97) % (W + len * 1.5));
+    c.fillRect(lx, ly, len, (1 + (i % 3)) * u);
+  }
+  c.font = `700 ${H * 1.15}px ${CFONT}`; c.fillStyle = 'rgba(255,255,255,.06)'; c.textAlign = 'right'; c.textBaseline = 'middle';
+  c.fillText(String(p.num), x + W - sk * .2, y + H * .56);
+  const fw = H * .95, fx = x + sk * .55, pcx = fx + fw * .5 + sk * .15, pcy = y + H * .5;
   c.save(); skew(c, fx, y, fw, H, sk * .9); c.clip();
-  const bgG = c.createRadialGradient(fx + fw * .5, y + H * .4, 4, fx + fw * .5, y + H * .4, H); bgG.addColorStop(0, '#ffe6b0'); bgG.addColorStop(1, acc);
+  const bgG = c.createRadialGradient(pcx, pcy, 4, pcx, pcy, H * .9); bgG.addColorStop(0, '#fff1c8'); bgG.addColorStop(.55, acc); bgG.addColorStop(1, col);
   c.fillStyle = bgG; c.fillRect(fx - sk, y, fw + sk * 2, H);
+  cutFx(c, cd.fx, pcx, pcy, H, 'rgba(255,255,255,.55)', t, u);
+  c.restore();
+  // портрет: фото (только в приватной сборке) или рисованный герой с выходом головы над плашкой
   const im = ours ? PORTRAIT[p.num] : null;
+  c.save();
   if (im && im.complete && im.naturalWidth) {
+    skew(c, fx, y, fw, H, sk * .9); c.clip();
     const fc = PFOCUS[p.num], s = Math.max((fw + sk) / im.naturalWidth, H / im.naturalHeight) * fc[2], iw = im.naturalWidth * s, ih = im.naturalHeight * s;
     const ix = clamp(fx + fw * .5 + sk * .35 - iw * fc[0], fx + fw + sk - iw, fx - sk * .2), iy = clamp(y + H * .42 - ih * fc[1], y + H - ih, y);
     c.drawImage(im, ix, iy, iw, ih);
   } else {
-    const keep = p.handTrail; drawPlayerAt(c, p, fx + fw * .5 + sk * .2, y + H * 1.62, H / 27); p.handTrail = keep;
+    c.beginPath(); c.moveTo(fx + sk * .9 - sk * .45, y - H * .2); c.lineTo(fx + fw + sk * .9, y - H * .2); c.lineTo(fx + fw, y + H); c.lineTo(fx, y + H); c.closePath(); c.clip();
+    const keep = p.handTrail, k = H / 21 * (1 + (1 - ein) * .25); drawPlayerAt(c, p, pcx + (1 - ein) * 30 * u, y + H * 1.34 + (1 - ein) * 12 * u, k); p.handTrail = keep;
   }
   c.restore();
-  c.strokeStyle = '#f2c230'; c.lineWidth = 3 * u; skew(c, fx, y, fw, H, sk * .9); c.stroke();
   c.restore();
-  c.fillStyle = '#f2c230'; c.fillRect(x + sk, y - 2 * u, W - sk, 2 * u); c.fillRect(x, y + H, W - sk, 2 * u);
-  const tx = fx + fw + 12 * u, room = x + W - sk - tx - 8 * u;
-  c.textAlign = 'left'; c.textBaseline = 'alphabetic';
-  c.fillStyle = '#f2c230'; c.font = `600 ${15 * u}px Oswald, "Arial Narrow", sans-serif`; c.fillText(act, tx, y + H * .34);
-  const nm = nameOf(p.num) || ('№' + p.num);
-  let fs = Math.min(46 * u, H * .36); c.font = `700 ${fs}px Oswald, "Arial Narrow", sans-serif`;
-  const w0 = c.measureText(nm).width; if (w0 > room) { fs *= room / w0; c.font = `700 ${fs}px Oswald, "Arial Narrow", sans-serif`; }
-  c.fillStyle = '#ffffff'; c.fillText(nm, tx, y + H * .7);
-  c.fillStyle = 'rgba(255,255,255,.7)'; c.font = `500 ${12 * u}px Oswald, "Arial Narrow", sans-serif`;
-  c.fillText(`№${p.num}  ·  ${hudSide(team)}`, tx, y + H * .88);
+  c.save(); skew(c, fx, y, fw, H, sk * .9); c.strokeStyle = '#f2c230'; c.lineWidth = 2.5 * u; c.stroke(); c.restore();
+  c.fillStyle = '#f2c230'; c.fillRect(x + sk, y - 2 * u, W - sk, 2.4 * u); c.fillRect(x, y + H, W - sk, 2.4 * u);
+  // текст
+  const tx = fx + fw + sk * .55 + 10 * u, tr = x + W - sk - 10 * u, room = tr - tx;
+  c.textBaseline = 'alphabetic'; c.textAlign = 'left';
+  c.fillStyle = '#f2c230'; c.font = `600 ${Math.min(15 * u, H * .11)}px ${CFONT}`; c.fillText(act, tx, y + H * .27);
+  // титул удара: крупно справа, с «ударом» масштаба на входе
+  const tpop = 1 + clamp(1 - (t - .12) / .2, 0, 1) * .7;
+  let ts = Math.min(H * .46, 54 * u); c.font = `700 italic ${ts}px ${CFONT}`; const tw0 = c.measureText(cd.title).width, tmax = room * .62;
+  if (tw0 > tmax) { ts *= tmax / tw0; c.font = `700 italic ${ts}px ${CFONT}`; }
+  const tw = c.measureText(cd.title).width;
+  c.save(); c.translate(tr - tw / 2, y + H * .68); c.rotate(-.05); c.scale(tpop, tpop); c.textAlign = 'center';
+  c.lineJoin = 'round'; c.lineWidth = ts * .14; c.strokeStyle = '#0b0d12'; c.strokeText(cd.title, 0, 0);
+  c.fillStyle = acc; c.fillText(cd.title, 0, 0); c.restore();
+  // имя
+  const nm = nameOf(p.num) || ('№' + p.num), nroom = Math.max(60 * u, room - tw - 14 * u);
+  let fs = Math.min(46 * u, H * .36); c.font = `700 ${fs}px ${CFONT}`;
+  const w0 = c.measureText(nm).width; if (w0 > nroom) { fs *= nroom / w0; c.font = `700 ${fs}px ${CFONT}`; }
+  c.textAlign = 'left'; c.fillStyle = '#ffffff'; c.fillText(nm, tx, y + H * .66);
+  c.fillStyle = 'rgba(255,255,255,.75)'; c.font = `500 ${Math.min(12.5 * u, H * .09)}px ${CFONT}`;
+  const sub = [cd.nick ? '«' + cd.nick + '»' : '', cd.role, '№' + p.num, hudSide(team)].filter(Boolean).join('  ·  ');
+  c.fillText(sub, tx, y + H * .88, room);
   c.restore();
 }
 
@@ -845,9 +923,15 @@ function render() {
   out.drawImage(layer, 0, 0, layer.width, (split + 4 - BGY0) * r, BGX0, BGY0 + bounce, BGX1 - BGX0, split + 4 - BGY0);
   out.drawImage(layer, 0, (split - BGY0) * r, layer.width, (BGY1 - split) * r, BGX0, split, BGX1 - BGX0, BGY1 - split);
   drawLed(out); drawArenaDyn(out, bounce);
+  if (fancy && ARENA !== 'beach') { out.globalAlpha = (.75 + .25 * Math.sin(clock * .8)) * (cheer ? 1.25 : 1); out.drawImage(lightL, BGX0, BGY0, BGX1 - BGX0, BGY1 - BGY0); out.globalAlpha = 1; }
 
   out.setTransform(D * sc, 0, 0, D * sc, D * (cssW / 2 - cam.x * sc) + sx, -D * cam.top * sc + sy);
   out.drawImage(floorL, FLX0, FLY0, FLX1 - FLX0, FLY1 - FLY0); drawProps(out);
+  if (fancy) {
+    out.globalAlpha = Math.min(1, .8 + (cheer ? .2 : 0) + netShake * .3); out.drawImage(glowL, NETX - 90, 196, 180, 62); out.globalAlpha = 1;
+    if (ARENA === 'beach' && !REDUCED) for (const g of GLINTS) { const a = Math.sin(clock * g[3] + g[2]); if (a < .55) continue; out.globalAlpha = (a - .55) * 2.2; out.drawImage(glintL, g[0] - g[4] / 2, g[1] - g[4] / 4, g[4], g[4] * .5); }
+    out.globalAlpha = 1;
+  }
   drawMarks(out);
   drawPost(out, FAR_Y - 5, false);
   if (TL) {
