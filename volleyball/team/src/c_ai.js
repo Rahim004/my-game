@@ -8,7 +8,7 @@ function planTeam(T) {
   T.tick -= frameDt;
   if (T.tick <= 0) {
     T.tick = D.react;
-    for (const p of T.players) p.goal = mirror(T, HOMES[p.idx]);
+    for (const p of T.players) p.goal = homeOf(p);
     if (state === 'serve') { if (servingTeam === T) server.goal = server.x; T.receiver = null; T.blocker = null; }
     else if (state === 'point' || state === 'over') { for (const p of T.players) p.goal = p.x; }
     else if (state === 'play') {
@@ -17,7 +17,7 @@ function planTeam(T) {
         const land = predict(16);
         if (onOwn || ownSide(T, land.x)) {
           let r = null, d = 1e9;
-          for (const p of T.players) { if (p === lastToucher) continue; const k = Math.abs(platX(p) - land.x); if (k < d) { d = k; r = p; } }
+          for (const p of T.players) { if (p === lastToucher) continue; const k = Math.abs(platX(p) - land.x) * (p.lib ? .6 : 1); if (k < d) { d = k; r = p; } }
           T.receiver = r; T.recvT = land.t;
           r.goal = land.x + T.side * PLAT * r.look.tall + (Math.random() * 2 - 1) * D.err * .2;
         }

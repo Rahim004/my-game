@@ -19,22 +19,24 @@ const LANE0 = 228, FAR_Y = 204, NEAR_Y = 252;
 const sOf = y => 1 + (y - LANE0) * 0.004;
 const PX = (X, y) => NETX + (X - NETX) * sOf(y);
 const netX = y => NETX + (y - LANE0) * 0.22;
-const SET_X = 206, ATT_X = 222, HOMES = [70, 205, 150], LANES = [238, 212, 225];
+const SET_X = 206, ATT_X = 222, HOMES = [70, 205, 150], HOMES_TL = [178, 220, 78], LANES = [238, 212, 225];
 const PLAT = 12.5;
 const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 const KIT = {
   org: { jersey: '#f07a22', shade: '#c25b13', trim: '#1b1a20', shorts: '#1b1a20', shortsTrim: '#f07a22', num: '#ffffff', numEdge: '#1b1a20', sock: '#f4f4f2', sockBand: '#1b1a20', pad: '#1f1e25', shoe: '#f4f4f2', sole: '#f07a22' },
   blk: { jersey: '#25232c', shade: '#141318', trim: '#f07a22', shorts: '#1b1a20', shortsTrim: '#f07a22', num: '#ffffff', numEdge: '#f07a22', sock: '#f4f4f2', sockBand: '#f07a22', pad: '#1f1e25', shoe: '#f4f4f2', sole: '#1b1a20' },
+  lib: { jersey: '#f2c230', shade: '#c99a12', trim: '#1b1a20', shorts: '#1b1a20', shortsTrim: '#f2c230', num: '#1b1a20', numEdge: '#fff3c4', sock: '#f4f4f2', sockBand: '#f2c230', pad: '#1f1e25', shoe: '#f4f4f2', sole: '#f2c230' },   // либеро — другой цвет формы
   wht: { jersey: '#f1f4f6', shade: '#bfcad2', trim: '#138f97', shorts: '#138f97', shortsTrim: '#f1f4f6', num: '#0f6a71', numEdge: '#f1f4f6', sock: '#138f97', sockBand: '#f1f4f6', pad: '#e9eef1', shoe: '#23262d', sole: '#f1f4f6' },
 };
 const LOOKS = {
-  4:  { skin: '#e3b68f', skinD: '#c08f6b', hair: '#1a1411', style: 'short', tall: 1.0 },
-  10: { skin: '#ddae86', skinD: '#b98962', hair: '#16110e', style: 'swept', tall: 1.03 },
-  7:  { skin: '#ebc39d', skinD: '#c89c75', hair: '#3b2416', style: 'spiky', tall: .97 },
-  2:  { skin: '#c48c62', skinD: '#9f6a44', hair: '#14100d', style: 'buzz', tall: 1.04 },
-  5:  { skin: '#f0cfae', skinD: '#cca783', hair: '#9b6a3a', style: 'swept', tall: 1.0 },
-  9:  { skin: '#9e6a46', skinD: '#7a4d30', hair: '#100c0a', style: 'curly', tall: 1.02 },
+  // style — что умеет d_chars.js сейчас; styleNew — целевой стиль из docs/characters.md (пока рисуется как style); acc — аксессуар
+  4:  { skin: '#e3b68f', skinD: '#c08f6b', hair: '#2a1a12', style: 'band',  acc: 'headband', accC: '#fff6d8', tall: .98 },  // Дан Ивасэ, либеро
+  10: { skin: '#ddae86', skinD: '#b98962', hair: '#1b1530', style: 'wolf',  acc: 'wristband', accC: '#ff7a1a', tall: 1.05 }, // Рэй Кадзама, нападающий
+  9:  { skin: '#ebc39d', skinD: '#c89c75', hair: '#6b4a2f', style: 'part',  acc: 'fingertape', accC: '#f4efe6', tall: .99 }, // Арис Мори, связующий
+  2:  { skin: '#c48c62', skinD: '#9f6a44', hair: '#14100d', style: 'buzzScar', acc: 'browScar', accC: '#e9b99a', tall: 1.06 }, // Артём
+  5:  { skin: '#f0cfae', skinD: '#cca783', hair: '#c9a24a', style: 'tail',  acc: 'wristband', accC: '#0fb5a8', tall: .96 }, // Влад
+  8:  { skin: '#9e6a46', skinD: '#7a4d30', hair: '#100c0a', style: 'puff',  acc: 'headband', accC: '#0fb5a8', tall: 1.02 }, // Тимур
 };
 // виды атаки: d — расстояние нападающего от сетки, h/t — высота и время паса, blk — множитель шанса блока, jw — окно прыжка ИИ (сек до высоты паса)
 const ATK = {
@@ -58,11 +60,16 @@ if (matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window) documen
 const boot = window.claude?.hot?.data ?? {};
 let diff = DIFF[boot.diff] ? boot.diff : 'normal';
 let TARGET = [7, 11, 15].includes(boot.target) ? boot.target : 11;
-const OPP_NAMES = { 2: 'АРТЁМ', 5: 'ВЛАД', 9: 'ТИМУР' };
-let names = { 4: '', 10: '', 7: '' };
-try { const sv = JSON.parse(localStorage.getItem('vb-names') || 'null'); if (sv) Object.assign(names, sv); } catch (e) {}
+const OPP_NAMES = { 2: 'АРТЁМ', 5: 'ВЛАД', 8: 'ТИМУР' };
+const HERO = {   // свои герои команды (оригинальные): имя по умолчанию, прозвище, роль
+  10: { name: 'РЭЙ', full: 'Рэй «Гром» Кадзама', role: 'нападающий' },
+  9: { name: 'АРИС', full: 'Арис «Дирижёр» Мори', role: 'связующий' },
+  4: { name: 'ДАН', full: 'Дан «Якорь» Ивасэ', role: 'либеро' },
+};
+let names = { 4: '', 10: '', 9: '' };
+try { const sv = JSON.parse(localStorage.getItem('vb-names') || 'null'); if (sv) { if (sv[7] && !sv[9]) sv[9] = sv[7]; delete sv[7]; Object.assign(names, sv); } } catch (e) {}
 if (boot.names) Object.assign(names, boot.names);
-const nameOf = n => OPP_NAMES[n] || String(names[n] || '').trim().toUpperCase();
+const nameOf = n => OPP_NAMES[n] || String(names[n] || '').trim().toUpperCase() || (HERO[n] ? HERO[n].name : '');
 const labelOf = n => nameOf(n) ? `${nameOf(n)} · ${n}` : `№${n}`;
 window.claude?.hot?.snapshot?.(() => ({ diff, target: TARGET, names }));
 
@@ -123,6 +130,7 @@ const mirror = (T, x) => T.side < 0 ? x : VW - x;
 const other = T => T === TL ? TR : TL;
 const ownSide = (T, x) => T.side < 0 ? x < NETX : x > NETX;
 const ownLoose = (T, x) => (x - NETX) * T.side >= -3;
+const homeOf = p => mirror(p.team, p.team === TL ? HOMES_TL[p.idx] : HOMES[p.idx]);   // у TL: Арис у сетки справа от центра, Рэй на атаке, либеро сзади
 const platX = p => p.x + p.face * PLAT * p.look.tall;
 
 function mkTeam(side, D, name) {
@@ -132,10 +140,10 @@ function mkTeam(side, D, name) {
 }
 function mkPlayer(team, idx, num, kitName) {
   const p = { team, idx, num, kit: KIT[kitName], look: LOOKS[num], face: team.side < 0 ? 1 : -1,
-    x: mirror(team, HOMES[idx]), lane: LANES[idx], h: 0, vx: 0, vh: 0, ground: true, goal: 0,
+    job: team.side < 0 ? { org: 'set', blk: 'hit', lib: 'lib' }[kitName] : undefined, lib: kitName === 'lib', x: 0, lane: LANES[idx], h: 0, vx: 0, vh: 0, ground: true, goal: 0,
     swing: 0, swingType: '', cd: 0, run: 0, aiJump: false, forceJump: false, blocking: false,
     landT: 0, toss: 0, diveDone: false, pose: null };
-  p.goal = p.x; return p;
+  p.x = homeOf(p); p.goal = p.x; return p;
 }
 function newMatch() {
   const twoHumans = mode !== 'solo';
@@ -145,10 +153,10 @@ function newMatch() {
   if (twoHumans) { TR.human = true; TR.inp = input2; }
   for (const k of Object.keys(input)) input[k] = input2[k] = false;
   active = active2 = null;
-  TL.players = [mkPlayer(TL, 0, 7, 'org'), mkPlayer(TL, 1, 10, 'blk'), mkPlayer(TL, 2, 4, 'org')];
-  TR.players = [mkPlayer(TR, 0, 2, 'wht'), mkPlayer(TR, 1, 5, 'wht'), mkPlayer(TR, 2, 9, 'wht')];
+  TL.players = [mkPlayer(TL, 0, 9, 'org'), mkPlayer(TL, 1, 10, 'blk'), mkPlayer(TL, 2, 4, 'lib')];
+  TR.players = [mkPlayer(TR, 0, 2, 'wht'), mkPlayer(TR, 1, 5, 'wht'), mkPlayer(TR, 2, 8, 'wht')];
   ball = { x: 0, h: 0, vx: 0, vh: 0, rot: 0, spiked: false, lane: LANE0, laneT: 0, laneDur: 1, laneTarget: null, laneTeam: null, trail: [] };
-  servingTeam = TL; TL.serveIdx = 2; server = TL.players[2];
+  servingTeam = TL; TL.serveIdx = 1; server = TL.players[1];
   setHints = 0; cutin = null; parts = []; confetti = []; marks = []; rings = []; banners = []; stats = null; led = null;
   resetServe();
 }
@@ -156,7 +164,7 @@ function resetServe() {
   for (const T of [TL, TR]) {
     T.touches = 0; T.atk = 'open'; T.setH = 74; T.roles = {}; T.receiver = null; T.blocker = null; T.tick = 0; T.recvT = T.setT = 9; T.lastHit = null;
     for (const p of T.players) {
-      p.x = mirror(T, HOMES[p.idx]); p.h = 0; p.vx = p.vh = 0; p.ground = true; p.swing = 0; p.goal = p.x;
+      p.x = homeOf(p); p.h = 0; p.vx = p.vh = 0; p.ground = true; p.swing = 0; p.goal = p.x;
       p.blocking = false; p.toss = 0; p.landT = 0; p.diveDone = false; p.cd = 0; p.jumpServe = false; p.jsJumped = false; p.recvWin = 0;
     }
   }
@@ -230,10 +238,22 @@ function touch(p, type) {
   const T = p.team; T.touches++; lastToucher = p; lastTeam = T; ball.spiked = false; T.lastHit = { p, type };
   p.swing = SW; p.swingType = type; p.cd = .22;
 }
+const byJob = (T, j) => T.players.find(q => q.job === j);
+function pickSetter(T, p) {   // у TL: пасует Арис; если принял он сам — Рэй; либеро не нападает, но может принять и пасовать
+  const st = byJob(T, 'set'), hi = byJob(T, 'hit');
+  if (!st || !hi) return closest(T, mirror(T, SET_X), p);
+  return p === st ? hi : st;
+}
+function pickHitter(T, p) {   // p — исключаемый (пасующий / только что коснувшийся); атакует Рэй, если недоступен — Арис, затем Дан
+  const hi = byJob(T, 'hit'), st = byJob(T, 'set');
+  if (!hi || !st) return closest(T, mirror(T, ATT_X), p);
+  if (p !== hi) return hi;
+  return p !== st ? st : byJob(T, 'lib');   // Рэй недоступен — Арис, затем Дан
+}
 function receive(p, perfect) {
   const T = p.team; snapBall(p, 'receive', perfect ? 22 : 16); touch(p, 'receive');
-  const setter = closest(T, mirror(T, SET_X), p);
-  T.roles = { setter, hitter: closest(T, mirror(T, ATT_X), setter) };
+  const setter = pickSetter(T, p);
+  T.roles = { setter, hitter: pickHitter(T, setter) };
   passTo(mirror(T, SET_X) + (Math.random() * 2 - 1) * (perfect ? 1 : T.D.err), 42, 1.15);
   aimLane(setter, 1.15); sfx.pass(); ring('w');
   if (perfect) { p.recvWin = 0; spray(12, ['#f2c230', '#ffffff'], 70, .4); banner('ОТЛИЧНЫЙ ПРИЁМ!', 'gold', 1.0, true); }
@@ -250,7 +270,7 @@ function humanAtk(T, h) {   // тип атаки человека — по по�
 }
 function setBall(p, low) {
   const T = p.team; snapBall(p, low ? 'receive' : 'set', 14); touch(p, low ? 'receive' : 'set');
-  let h = T.roles.hitter; if (!h || h === p) h = closest(T, mirror(T, ATT_X), p);
+  let h = T.roles.hitter; if (!h || h === p) h = pickHitter(T, p);
   T.roles.hitter = h;
   T.atk = T.human ? humanAtk(T, h) : (T.plan || chooseAtk(T));
   const A = ATK[T.atk]; T.setH = A.h; T.plan = null;
@@ -356,7 +376,7 @@ function serveBall(p) {
 function checkContacts() {
   for (const T of [TL, TR]) {
     if (!ownLoose(T, ball.x) || T.touches >= 3) continue;
-    for (const p of T.players) {
+    for (const p of T.receiver && T.touches === 0 ? [T.receiver, ...T.players.filter(q => q !== T.receiver)] : T.players) {
       if (p === lastToucher || p.cd > 0) continue;
       const dxp = Math.abs(ball.x - platX(p));
       if (T.touches === 2) {
@@ -438,7 +458,7 @@ function land() {
 function pointTo(W, reason) {
   state = 'point'; timer = 2.2; pointWinner = W; W.score++;
   scorePop[W === TL ? 0 : 1] = 1;
-  if (W !== servingTeam) { W.serveIdx = (W.serveIdx + 1) % 3; servingTeam = W; }
+  if (W !== servingTeam) { do W.serveIdx = (W.serveIdx + 1) % 3; while (W.players[W.serveIdx].lib); servingTeam = W; }
   server = W.players[W.serveIdx];
   hype = 1; sfx.whistle(); setTimeout(() => sfx.crowd(W === TL ? .22 : .12), 150);
   const over = W.score >= TARGET;

@@ -17,19 +17,19 @@ function poseRun(p) {
     ffx: fx, ffy: fy, nfx: nx, nfy: ny, ffa: fy > .6 ? -.45 : 0, nfa: ny > .6 ? -.45 : 0,
     nu: sw, nl: sw + 1.35, fu: -sw, fl: -sw + 1.35 });
 }
-const poseRecvPrep = () => P_({ hipX: -.6, hipH: 13.8, lean: .62, head: -.6, ffx: -4.6, nfx: 4.2, fu: .72, fl: .72, nu: .76, nl: .76 });
+const poseRecvPrep = () => P_({ hipX: -.6, hipH: 13.2, lean: .68, head: -.6, ffx: -4.6, nfx: 4.2, fu: .72, fl: .72, nu: .76, nl: .76 });
 const poseRecvHit = s => P_({ hipX: -.4, hipH: lerp(14, 16.4, s), lean: lerp(.6, .42, s), head: -.62, ffx: -4.4, nfx: 4.0, fu: lerp(.75, 1.2, s), fl: lerp(.75, 1.2, s), nu: lerp(.8, 1.25, s), nl: lerp(.8, 1.25, s) });
 const poseSetPrep = () => P_({ hipH: 18.6, lean: -.02, head: -.7, ffx: -2.4, nfx: 2.6, fu: 2.4, fl: 3.5, nu: 2.48, nl: 3.55 });
 const poseSetHit = s => P_({ hipH: lerp(18.8, 20.2, s), lean: -.08, head: -.75, ffx: -2.3, nfx: 2.5, fu: lerp(2.5, 2.95, s), fl: lerp(3.5, 3.0, s), nu: lerp(2.55, 3.0, s), nl: lerp(3.55, 3.05, s) });
 const poseBlockReady = () => P_({ hipH: 18, lean: .1, head: -.25, ffx: -2.1, nfx: 2.1, fu: 2.0, fl: 2.9, nu: 2.08, nl: 2.95 });
 const poseBlockAir = () => P_({ hipH: 20.4, lean: .03, head: -.25, ffx: -.9, ffy: 1.6, nfx: .9, nfy: 1.0, ffa: -.95, nfa: -.95, fu: 2.92, fl: 2.95, nu: 2.82, nl: 2.86 });
-const poseSpikeCock = () => P_({ hipH: 20.5, lean: -.36, head: -.55, ffx: -4.7, ffy: 5.5, nfx: -2.7, nfy: 3.7, ffa: -1.05, nfa: -.95, fu: 2.7, fl: 2.9, nu: 4.08, nl: 5.5 });
+const poseSpikeCock = () => P_({ hipH: 20.5, lean: -.5, head: -.6, ffx: -4.9, ffy: 6.0, nfx: -2.9, nfy: 4.2, ffa: -1.05, nfa: -.95, fu: 2.7, fl: 2.9, nu: 4.08, nl: 5.5 });
 function poseSpikeHit(s) {
   const e = easeOut(s), e2 = ease(clamp((s - .08) / .92, 0, 1));
-  return P_({ hipH: 20.5, lean: lerp(-.36, .5, e), head: lerp(-.55, .1, e), ffx: lerp(-4.7, -1.2, e), ffy: lerp(5.5, 2.4, e), nfx: lerp(-2.7, 1.8, e), nfy: lerp(3.7, 1.3, e), ffa: -.9, nfa: -.8,
+  return P_({ hipH: 20.5, lean: lerp(-.5, .62, e), head: lerp(-.6, .12, e), ffx: lerp(-4.7, -1.2, e), ffy: lerp(5.5, 2.4, e), nfx: lerp(-2.7, 1.8, e), nfy: lerp(3.7, 1.3, e), ffa: -.9, nfa: -.8,
     fu: lerp(2.7, .35, e), fl: lerp(2.9, .8, e), nu: lerp(4.08, 1.2, e), nl: lerp(5.5, 1.45, e2) });
 }
-const poseAir = () => P_({ hipH: 20.3, lean: .05, head: -.2, ffx: -1.4, ffy: 2.4, nfx: 1.2, nfy: 1.1, ffa: -.8, nfa: -.8, fu: 2.3, fl: 2.6, nu: 2.1, nl: 2.45 });
+const poseAir = () => P_({ hipH: 20.3, lean: .08, head: -.2, ffx: -1.2, ffy: 3.6, nfx: 1.6, nfy: 2.2, ffa: -.9, nfa: -.9, fu: 2.3, fl: 2.6, nu: 2.1, nl: 2.45 });
 const poseServeHold = () => P_({ hipH: 19.8, lean: .12, head: -.12, ffx: -2.6, nfx: 2.3, fu: .3, fl: 1.0, nu: .34, nl: 1.05 });
 const poseServeToss = () => P_({ hipH: 19.6, lean: -.22, head: -.62, ffx: -3.0, nfx: 2.7, fu: 2.9, fl: 3.0, nu: 4.05, nl: 5.4 });
 function poseServeHit(s) {
@@ -183,6 +183,17 @@ const HAIR = {
   spiky: [[2.5, 1.25], [3.35, 2.05], [2.1, 2.55], [2.55, 3.75], [1.0, 3.25], [.7, 4.45], [-.3, 3.4], [-1.05, 4.2], [-1.6, 3.1], [-2.85, 3.5], [-2.65, 2.1], [-3.45, 1.2], [-2.65, .35], [-2.35, -.85], [-1.6, -.95], [-1.25, .3], [-.25, .82], [.9, 1.4], [1.8, 1.32]],
   buzz: [[2.15, 1.4], [1.7, 2.8], [.2, 3.15], [-1.45, 2.9], [-2.5, 1.85], [-2.68, .5], [-2.35, -.75], [-1.75, -.9], [-1.45, .3], [-.4, .9], [.8, 1.65], [1.8, 1.65]],
 };
+HAIR.wolf = [[2.7, .7], [2.35, 1.75], [1.9, 2.75], [.7, 3.45], [-.9, 3.4], [-2.3, 2.9], [-4.3, 1.8], [-3.1, 1.3], [-4.45, .1], [-3.0, -.15], [-3.95, -1.65], [-2.4, -.95], [-1.7, -1.05], [-1.3, .3], [-.4, .85], [.7, 1.55], [1.7, 1.15]];
+HAIR.part = [[2.65, .45], [2.95, 1.45], [2.35, 2.7], [.8, 3.5], [-1.0, 3.5], [-2.5, 2.6], [-2.95, .9], [-2.65, -.5], [-1.9, -1.15], [-1.2, -.7], [-.7, -.8], [-.4, .5], [.5, 1.0], [1.5, 1.0], [2.15, .3]];
+HAIR.band = [[2.3, 1.25], [2.6, 2.3], [1.9, 2.95], [1.5, 3.95], [.8, 3.2], [.1, 4.05], [-.45, 3.2], [-1.45, 3.75], [-1.75, 2.95], [-2.65, 2.1], [-2.9, .55], [-2.5, -.75], [-1.75, -1.15], [-1.35, .25], [-.45, .75], [.75, 1.55], [1.75, 1.45]];
+HAIR.buzzScar = HAIR.buzz;
+HAIR.tail = [[2.9, .3], [2.85, 1.5], [2.2, 2.8], [.6, 3.6], [-1.25, 3.5], [-2.7, 2.4], [-3.05, .8], [-2.7, -.55], [-1.9, -1.15], [-1.3, .2], [-.3, .8], [.9, 1.15], [1.9, .95], [2.5, .1]];
+HAIR.puff = (() => {
+  const out = [];
+  for (let i = 0; i <= 28; i++) { const th = .1 * Math.PI + i / 28 * 1.28 * Math.PI, r = 3.5 + .3 * Math.sin(i * 2.3); out.push([Math.cos(th) * r - .1, Math.sin(th) * r + .5]); }
+  out.push([-1.6, .1], [-.5, .85], [.8, 1.6], [1.9, 1.6]);
+  return out;
+})();
 HAIR.curly = (() => {
   const out = [];
   for (let i = 0; i <= 24; i++) { const th = .12 * Math.PI + i / 24 * 1.18 * Math.PI, r = 3.2 + .32 * Math.sin(i * 1.9); out.push([Math.cos(th) * r, Math.sin(th) * r + .25]); }
@@ -196,6 +207,12 @@ const HAIR_HI = {
   spiky: [[-2.2, 2.6, -1.5, 3.4, -.5, 3.1], [.2, 3.0, .6, 3.9, .75, 3.35], [1.6, 2.4, 2.0, 2.8, 2.45, 2.55]],
   buzz: [[-1.7, 1.8, -.5, 2.95, .9, 2.7]],
   curly: [[-2.4, 1.7, -1.3, 3.0, .2, 3.2], [.7, 3.1, 1.6, 2.8, 2.2, 2.0]],
+  wolf: [[-1.8, 2.8, -.4, 3.35, 1.0, 2.7], [1.0, 1.9, 1.8, 1.7, 2.3, 1.0], [-3.4, 1.6, -3.9, 1.7, -4.0, 1.75]],
+  part: [[-2.2, 2.0, -.8, 3.4, 1.2, 3.1], [1.2, 1.5, 2.0, 1.4, 2.6, .8]],
+  band: [[-2.0, 2.5, -1.2, 3.4, -.3, 3.1], [.6, 3.0, 1.0, 3.7, 1.3, 3.4]],
+  buzzScar: [[-1.7, 1.8, -.5, 2.95, .9, 2.7]],
+  tail: [[-2.2, 2.0, -.8, 3.3, 1.2, 3.0], [1.4, 2.0, 2.3, 1.7, 2.7, .7]],
+  puff: [[-2.6, 2.0, -1.5, 3.7, .5, 3.9], [1.2, 3.7, 2.3, 3.1, 3.0, 1.9]],
 };
 const HAIR_LN = {
   short: [[-.3, 3.2, .9, 2.9, 1.6, 1.75], [-1.5, 2.6, -.5, 2.3, .1, 1.5]],
@@ -203,6 +220,12 @@ const HAIR_LN = {
   spiky: [[-.3, 3.4, .1, 2.5, .6, 1.5], [-1.6, 3.1, -1.2, 2.3, -.8, 1.0]],
   buzz: [],
   curly: [[-1.8, 2.4, -1.0, 2.0, -.7, 1.0]],
+  wolf: [[-2.6, 2.0, -3.4, 1.7, -3.9, 1.6], [-2.6, .7, -3.3, .3, -4.0, .1], [-2.3, -.3, -2.9, -.8, -3.5, -1.4], [-.2, 3.2, .4, 2.6, .8, 1.9]],
+  part: [[-.4, 3.5, -.2, 2.9, .0, 2.3], [.4, 3.3, 1.6, 2.8, 2.6, .9], [-1.8, 2.6, -1.3, 1.5, -1.1, .2]],
+  band: [[-1.2, 3.3, -1.1, 2.6, -1.0, 2.0], [.2, 3.5, .3, 2.7, .5, 2.0]],
+  buzzScar: [],
+  tail: [[-.4, 3.4, 1.2, 3.0, 2.3, 1.0], [-1.6, 2.9, -.6, 2.4, .5, 1.2]],
+  puff: [[-2.2, 1.5, -2.0, .6, -1.6, 0], [-1.0, 3.2, -.6, 2.4, -.5, 1.6], [1.0, 3.0, 1.3, 2.4, 1.2, 1.7]],
 };
 function hairPts(p, style) {
   const base = HAIR[style] || HAIR.short;
@@ -278,6 +301,8 @@ function drawArm(c, sk, arm, far, p) {
   fcap(c, arm.e, .98 * k, arm.h, .78 * k, skin);
   if (DET && !far) scap(c, arm.e, .98 * k, arm.h, .78 * k, 'rgba(90,45,30,.2)');
   drawHand(c, arm, k, skin, look.skinD, far, sk.clasp && !far);
+  if (DET && !far && look.acc === 'wristband') { const a = L2(arm.e, arm.h, .68), b = L2(arm.e, arm.h, .92); fcap(c, a, .98 * k, b, .88 * k, look.accC); }
+  if (DET && look.acc === 'fingertape') { const q = [arm.h[0] + arm.dir[0] * 1.2 * k, arm.h[1] + arm.dir[1] * 1.2 * k]; fcap(c, L2(arm.h, q, .5), .62 * k, q, .56 * k, look.accC); }
   const s2 = L2(sh, arm.e, .44);
   fcap(c, [sh[0], sh[1] + .2 * k], 1.85 * k, s2, 1.48 * k, far ? kit.shade : kit.jersey);
   if (DET && !far) { /* окантовка рукава */
@@ -322,6 +347,10 @@ function drawTorso(c, sk, p) {
   if (INK) { c.lineWidth = INK; c.strokeStyle = INKC; c.lineJoin = 'round'; c.stroke(); }
   c.fillStyle = g; c.fill();
   c.lineCap = 'round'; c.lineJoin = 'round';
+  if (DET) { /* сел-тень со стороны спины + светлый блик на груди */
+    smoothPath(c, [[-.05, -2.3], [.3, -1.95], [.62, -2.1], [.92, -2.15], [1.03, -1.05], [.98, -.55], [.7, -.7], [.35, -.55], [0, -.8]].map(([u, v]) => at(u, v)), true);
+    c.fillStyle = kit.shade; c.globalAlpha = .6; c.fill(); c.globalAlpha = 1;
+  }
   if (DET) {
     /* складка на животе и тень под грудью */
     const f1 = at(.16, 1.75), f2 = at(.3, .8), f3 = at(.17, -.15), f4 = at(.5, 2.0), f5 = at(.43, 1.5);
@@ -344,8 +373,8 @@ function drawTorso(c, sk, p) {
   c.stroke();
   const m = at(.52, .15);
   c.save(); c.translate(m[0], m[1]); c.scale(p.face, -1); c.rotate(p.face * ln);
-  c.font = `700 ${4.8 * k}px Oswald, "Arial Narrow", sans-serif`; c.textAlign = 'center'; c.textBaseline = 'middle';
-  c.lineJoin = 'round'; c.lineWidth = .55 * k; c.strokeStyle = kit.numEdge; c.strokeText(String(p.num), 0, .2 * k);
+  c.font = `700 ${5.5 * k}px Oswald, "Arial Narrow", sans-serif`; c.textAlign = 'center'; c.textBaseline = 'middle';
+  c.lineJoin = 'round'; c.lineWidth = .8 * k; c.strokeStyle = kit.numEdge; c.strokeText(String(p.num), 0, .2 * k);
   c.fillStyle = kit.num; c.fillText(String(p.num), 0, .2 * k);
   c.restore();
 }
@@ -359,26 +388,34 @@ function moodOf(p) {
   if (st || p.recvWin > 0 || p.blocking || !p.ground) return 'focus';
   return state === 'play' || (state === 'serve' && p === server) ? 'focus' : 'calm';
 }
+const EYE = { wolf: { h: .8, bt: 1.5, bk: .2 }, part: { h: .88, bt: .8, bk: -.06, lid: 1 }, band: { h: 1.05, bt: 1.1, bk: .1 }, buzzScar: { h: .62, bt: 1.7, bk: .05 }, tail: { h: .95, bt: .75, bk: -.18 }, puff: { h: 1.18, bt: .9, bk: -.1 } };
+const EYE0 = { h: 1, bt: 1, bk: 0 };
 function drawFace(c, p, look, mood) {
+  const E = EYE[look.style] || EYE0;
   const blink = mood !== 'joy' && ((clock + (p.idx || 0) * 1.7) % 3.9) < .09;
-  const eo = blink ? .1 : mood === 'fierce' ? .62 : mood === 'focus' ? .8 : mood === 'sad' ? .9 : 1, oy = mood === 'sad' ? -.1 : 0;
+  const eo = (blink ? .1 : mood === 'fierce' ? .66 : mood === 'focus' ? .85 : mood === 'sad' ? .9 : 1) * E.h, oy = mood === 'sad' ? -.1 : 0;
   c.lineCap = 'round'; c.lineJoin = 'round';
   if (mood === 'joy') {
-    c.beginPath(); c.moveTo(1.15, .12); c.quadraticCurveTo(1.62, .92, 2.08, .12); c.strokeStyle = '#1b1517'; c.lineWidth = .3; c.stroke();
-    c.fillStyle = 'rgba(255,95,95,.28)'; c.beginPath(); c.ellipse(.95, -.7, .7, .42, 0, 0, 6.2832); c.fill();
+    c.beginPath(); c.moveTo(1.1, .05); c.quadraticCurveTo(1.62, 1.05, 2.12, .05); c.strokeStyle = '#1b1517'; c.lineWidth = .36; c.stroke();
+    c.fillStyle = 'rgba(255,95,95,.3)'; c.beginPath(); c.ellipse(.95, -.7, .7, .42, 0, 0, 6.2832); c.fill();
+  } else if (blink) {
+    c.beginPath(); c.moveTo(1.1, .2); c.lineTo(2.1, .2); c.strokeStyle = '#1b1517'; c.lineWidth = .26; c.stroke();
   } else {
-    c.beginPath(); c.ellipse(1.58, .22, .44, .5 * eo, 0, 0, 6.2832); c.fillStyle = '#f6f2ec'; c.fill(); c.strokeStyle = 'rgba(27,21,23,.55)'; c.lineWidth = .1; c.stroke();
-    c.fillStyle = '#1b1517'; c.beginPath(); c.ellipse(1.76, .18 + oy, .27, .41 * eo, 0, 0, 6.2832); c.fill();
-    if (!blink) { c.fillStyle = '#fff'; c.beginPath(); c.arc(1.85, .3 + oy + (eo - 1) * .1, .1, 0, 6.2832); c.moveTo(1.74, .02 + oy); c.arc(1.7, .02 + oy, .05, 0, 6.2832); c.fill(); }
-    else { c.beginPath(); c.moveTo(1.2, .2); c.lineTo(2.0, .2); c.strokeStyle = '#1b1517'; c.lineWidth = .2; c.stroke(); }
+    const ey = .22, ry = .66 * eo, pr = mood === 'fierce' ? .26 : .36;
+    c.beginPath(); c.ellipse(1.6, ey, .52, ry, 0, 0, 6.2832); c.fillStyle = '#f6f2ec'; c.fill();
+    c.fillStyle = '#1b1517'; c.beginPath(); c.ellipse(1.86, ey - .02 + oy, pr, ry * .93, 0, 0, 6.2832); c.fill();
+    c.fillStyle = tint(look.hair, .5); c.beginPath(); c.ellipse(1.86, ey - ry * .45 + oy, pr * .72, ry * .42, 0, 0, 6.2832); c.fill();
+    c.fillStyle = '#fff'; c.beginPath(); c.arc(1.98, ey + ry * .42 + oy, .14, 0, 6.2832); c.moveTo(1.78, ey - ry * .5 + oy); c.arc(1.74, ey - ry * .5 + oy, .07, 0, 6.2832); c.fill();
+    c.beginPath(); c.ellipse(1.6, ey, .52, ry, 0, .12, Math.PI - .12); c.strokeStyle = '#1b1517'; c.lineWidth = E.lid ? .34 : .24; c.stroke();
+    if (E.lid) { c.beginPath(); c.ellipse(1.6, ey, .5, ry, 0, .3, Math.PI - .3); c.fillStyle = look.skinD; c.fill(); }
   }
-  c.strokeStyle = look.hair; c.lineWidth = mood === 'fierce' ? .44 : .34; c.beginPath();
+  const d = E.bk; c.strokeStyle = look.hair; c.lineWidth = (mood === 'fierce' ? .5 : .36) * E.bt; c.beginPath();
   switch (mood) {
-    case 'fierce': c.moveTo(1.0, 1.25); c.lineTo(2.15, .62); break;
-    case 'focus': c.moveTo(1.1, 1.05); c.lineTo(2.1, .8); break;
-    case 'joy': c.moveTo(1.15, 1.0); c.quadraticCurveTo(1.65, 1.7, 2.1, 1.15); break;
-    case 'sad': c.moveTo(1.1, .78); c.lineTo(2.1, 1.22); break;
-    default: c.moveTo(1.12, .95); c.quadraticCurveTo(1.6, 1.12, 2.08, 1.0);
+    case 'fierce': c.moveTo(.95, 1.4); c.lineTo(2.2, .6 - d * .5); break;
+    case 'focus': c.moveTo(1.05, 1.1); c.lineTo(2.15, .8 - d); break;
+    case 'joy': c.moveTo(1.1, 1.0); c.quadraticCurveTo(1.65, 1.75, 2.15, 1.2); break;
+    case 'sad': c.moveTo(1.1, .75); c.lineTo(2.1, 1.25); break;
+    default: c.moveTo(1.08, .98); c.quadraticCurveTo(1.6, 1.15 - d * .3, 2.1, 1.0 - d);
   }
   c.stroke();
   c.strokeStyle = '#8a4a40'; c.lineWidth = .24; c.beginPath();
@@ -392,7 +429,43 @@ function drawFace(c, p, look, mood) {
     c.moveTo(1.55, -1.65); c.quadraticCurveTo(1.85, -1.3, 2.1, -1.6); c.stroke();
     c.fillStyle = 'rgba(160,215,255,.9)'; c.beginPath(); c.moveTo(.55, .75); c.quadraticCurveTo(.15, .1, .55, .12); c.quadraticCurveTo(.95, .1, .55, .75); c.fill();
   } else if (mood === 'focus') { c.moveTo(1.65, -1.45); c.lineTo(2.08, -1.42); c.stroke(); }
+  else if (look.style === 'wolf' || look.style === 'tail') { c.moveTo(1.6, -1.4); c.quadraticCurveTo(2.05, -1.55, 2.3, -1.15); c.stroke(); }
   else { c.moveTo(1.68, -1.4); c.quadraticCurveTo(1.92, -1.58, 2.15, -1.36); c.stroke(); }
+}
+/* лента/хвост за головой (до волос) и детали поверх волос (после) — координаты головы */
+function hairBack(c, p, look, style) {
+  if (!DET) return;
+  const id = p.idx || 0, mv = Math.min(1, Math.abs(p.vx || 0) / 120), air = p.ground === false ? 1 : 0;
+  const sw = Math.sin(clock * 9 + id * 1.4) * (.25 + .35 * mv + .2 * air), up = air * .9 + mv * .3;
+  c.lineCap = 'round'; c.lineJoin = 'round';
+  if (style === 'tail') {
+    const tx = -5.0 - mv * .7, ty = .3 + up * 1.4 + sw;
+    c.beginPath(); c.moveTo(-2.2, 2.5); c.quadraticCurveTo(-4.3, 3.2 + up, tx, ty); c.quadraticCurveTo(-3.7, 1.0, -2.3, 1.2); c.closePath();
+    if (INK) { c.lineWidth = INK / p.look.tall * 1.1; c.strokeStyle = INKC; c.stroke(); }
+    c.fillStyle = shade(look.hair, .92); c.fill();
+    c.beginPath(); c.moveTo(-2.8, 2.6); c.quadraticCurveTo(-4.1, 2.6 + up, tx + .5, ty + .5); c.strokeStyle = tint(look.hair, .35); c.lineWidth = .3; c.stroke();
+  } else if (style === 'band') {
+    for (const e of [[-4.4, .5 - up * 1.0 - sw * 1.4], [-4.0, 2.0 + up * 1.2 + sw]]) {
+      c.beginPath(); c.moveTo(-2.7, 1.3); c.quadraticCurveTo(-3.6, 1.2 + (e[1] - 1.3) * .3, e[0], e[1]);
+      c.strokeStyle = INKC; c.lineWidth = .85; c.stroke(); c.strokeStyle = look.accC; c.lineWidth = .55; c.stroke();
+    }
+  }
+}
+function hairFront(c, p, look, style) {
+  c.lineCap = 'round'; c.lineJoin = 'round';
+  if (style === 'band' || style === 'puff') {
+    const col = style === 'band' ? look.accC : look.accC;
+    c.beginPath(); c.moveTo(style === 'band' ? 2.4 : 2.75, 1.4); c.quadraticCurveTo(0, style === 'band' ? 2.1 : 2.2, style === 'band' ? -2.6 : -3.0, 1.35);
+    c.strokeStyle = INKC; c.lineWidth = .95; c.stroke(); c.strokeStyle = col; c.lineWidth = .65; c.stroke();
+    c.beginPath(); c.moveTo(style === 'band' ? 2.2 : 2.5, 1.12); c.quadraticCurveTo(0, 1.9, -2.2, 1.15); c.strokeStyle = shade(col, .75); c.lineWidth = .16; c.stroke();
+    if (style === 'band') { c.beginPath(); c.arc(-2.65, 1.3, .5, 0, 6.2832); c.fillStyle = shade(col, .85); c.fill(); }
+  } else if (style === 'tail') {
+    c.beginPath(); c.arc(-2.45, 1.85, .45, 0, 6.2832); c.fillStyle = look.accC; c.fill();
+  } else if (style === 'buzzScar') {
+    c.beginPath(); c.moveTo(.9, 2.35); c.lineTo(2.0, 1.75); c.strokeStyle = look.skin; c.lineWidth = .24; c.stroke();
+    c.beginPath(); c.moveTo(1.5, 1.5); c.lineTo(1.95, .45); c.strokeStyle = look.accC; c.lineWidth = .17; c.stroke();
+    c.beginPath(); c.moveTo(1.38, 1.05); c.lineTo(1.78, 1.2); c.moveTo(1.55, .75); c.lineTo(1.95, .88); c.lineWidth = .1; c.stroke();
+  }
 }
 function drawHead(c, sk, p) {
   const look = p.look, k = look.tall, H = sk.headC, style = look.style;
@@ -404,15 +477,18 @@ function drawHead(c, sk, p) {
   c.fillStyle = look.skin; c.fill();
   c.fillStyle = 'rgba(90,45,30,.16)'; c.beginPath(); c.ellipse(-.5, -.6, 1.6, 1.9, 0, 0, 6.2832); c.fill();
   c.fillStyle = look.skinD; c.beginPath(); c.ellipse(-.3, -.15, .55, .8, .2, 0, 6.2832); c.fill();
-  smoothPath(c, hairPts(p, style), style === 'spiky');
-  if (INK) { c.lineWidth = INK / k; c.strokeStyle = INKC; c.lineJoin = 'round'; c.stroke(); }
+  hairBack(c, p, look, style);
+  smoothPath(c, hairPts(p, style), style === 'spiky' || style === 'wolf' || style === 'band');
+  if (INK) { c.lineWidth = INK / k * 1.15; c.strokeStyle = INKC; c.lineJoin = 'round'; c.stroke(); }
   c.fillStyle = look.hair; c.fill();
+
   if (DET) {
     c.lineCap = 'round';
     const ln = HAIR_LN[style];
     if (ln && ln.length) { c.beginPath(); for (const s of ln) { c.moveTo(s[0], s[1]); c.quadraticCurveTo(s[2], s[3], s[4], s[5]); } c.strokeStyle = shade(look.hair, .6); c.lineWidth = .16; c.globalAlpha = .8; c.stroke(); c.globalAlpha = 1; }
     c.beginPath(); for (const s of HAIR_HI[style] || HAIR_HI.short) { c.moveTo(s[0], s[1]); c.quadraticCurveTo(s[2], s[3], s[4], s[5]); }
     c.strokeStyle = tint(look.hair, .3); c.lineWidth = .36; c.stroke();
+    hairFront(c, p, look, style);
     drawFace(c, p, look, moodOf(p));
   } else {
     c.fillStyle = '#1b1517'; c.beginPath(); c.ellipse(1.78, .18, .21, .32, 0, 0, 6.2832); c.fill();
@@ -421,19 +497,21 @@ function drawHead(c, sk, p) {
 }
 function drawPlayerAt(c, p, x, y, sl, mirror) {
   const sk = solve(p), k = p.look.tall;
-  INK = mirror ? 0 : .55; DET = mirror ? 0 : 1;
+  const INK0 = .6; INK = mirror ? 0 : INK0; DET = mirror ? 0 : 1;
   const nl = p.pose.nl, fl = p.pose.fl;
   sk.clasp = Math.hypot(sk.nArm.h[0] - sk.fArm.h[0], sk.nArm.h[1] - sk.fArm.h[1]) < 2.4 * k && nl > .45 && nl < 1.75 && fl > .45 && fl < 1.75;
   /* сжатие при приземлении и растяжение в прыжке (вокруг стоп) */
   const lq = p.landT > 0 && p.ground ? Math.min(1, p.landT / .2) : 0, st = p.ground === false ? Math.abs(clamp((p.vh || 0) / JUMP_V, -1, 1)) : 0;
   const sx = 1 + .09 * lq - .035 * st, sy = 1 - .08 * lq + .05 * st;
   c.save(); c.translate(x, y); c.scale(p.face * sl * sx, -sl * sy);
-  drawArm(c, sk, sk.fArm, true, p);
+  INK = mirror ? 0 : INK0 * .8; drawArm(c, sk, sk.fArm, true, p);
   drawLeg(c, sk, sk.fLeg, p.pose.ffa, true, p);
+  INK = mirror ? 0 : INK0;
   drawLeg(c, sk, sk.nLeg, p.pose.nfa, false, p);
   drawShorts(c, sk, p);
-  drawTorso(c, sk, p);
-  drawHead(c, sk, p);
+  INK = mirror ? 0 : INK0 * 1.35; drawTorso(c, sk, p);
+  INK = mirror ? 0 : INK0 * 1.5; drawHead(c, sk, p);
+  INK = mirror ? 0 : INK0;
   drawArm(c, sk, sk.nArm, false, p);
   c.restore();
   INK = 0; DET = 1;

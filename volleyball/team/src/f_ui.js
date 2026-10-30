@@ -2,7 +2,7 @@
 /* ================= menu preview ================= */
 const teamCv = $('teamCv'), tctx = teamCv.getContext('2d');
 const prevTeam = { side: -1, D: HUMAN_D, roles: {}, players: [] };
-const preview = [[7, 'org'], [10, 'blk'], [4, 'org']].map(([n, kn], i) => ({
+const preview = [[9, 'org'], [10, 'blk'], [4, 'lib']].map(([n, kn], i) => ({
   team: prevTeam, idx: i, num: n, kit: KIT[kn], look: LOOKS[n], face: 1, x: 0, lane: LANE0, h: 0, vx: 0, vh: 0,
   ground: true, swing: 0, swingType: '', run: 0, landT: 0, toss: 0, pose: null, preview: true }));
 prevTeam.players = preview; prevTeam.roles.hitter = preview[2];
@@ -40,26 +40,29 @@ let arenaPick = lsGet('vb-arena') === 'beach' ? 'beach' : 'hall';
 let camp = null, campBase = 11, endAct = '', champ = false, champTimer = 0;   // camp: { kind: 'tour', stage } | { kind: 'colo', wins }
 const TOUR = [
   { name: 'ОТБОРОЧНЫЙ', team: 'ЗЕЛЁНАЯ ШКОЛА', arena: 'hall', target: 7, diff: 'easy', boost: 0, talk: [
-    ['c', 'Так, команда. Первый турнир, и сразу вы. Без паники.'],
-    ['10', 'Я не паникую. Я просто три раза проверил шнурки.'],
-    ['4', 'Четыре раза. Я считал.'],
-    ['c', 'Отборочный — разминка. Играйте как во дворе, только с судьёй.']] },
+    ['c', 'Школа «Северная Верфь», крыша течёт, сетку чинили скотчем. Зато вы здесь.'],
+    ['10', 'Я не нервничаю. Я просто трижды перешнуровал кроссовки.'],
+    ['4', 'Четыре раза. Я считал. И пол уже протёр, пока вы спали.'],
+    ['9', 'Дышим ровно. Я подам, Рэй, ты бьёшь. Остальное — мелочи.'],
+    ['o', 'Мы Зелёная школа. Нас тут все знают. Вас — нет. Пока.']] },
   { name: 'ЧЕТВЕРТЬФИНАЛ', team: 'ГОРОДСКИЕ ЛИСЫ', arena: 'hall', target: 7, diff: 'normal', boost: 0, talk: [
-    ['4', 'Мы прошли! Я до сих пор не верю.'],
-    ['10', 'Говорил же: нашу связку не остановить.'],
-    ['c', 'Не расслабляйтесь. Лисы читают чужую игру как книгу.'],
-    ['4', 'Значит, сыграем так, что им будет не до чтения.']] },
+    ['4', 'Прошли! Я думал, нас снимут за одни шнурки Рэя.'],
+    ['9', 'Лисы читают игру. Значит, будем быстрее, чем они читают.'],
+    ['10', 'Арис, дай мне свой быстрый. Тот, что почти не видно.'],
+    ['c', 'Квик ещё сырой. Не сработает — не геройствуй, играй от приёма.'],
+    ['o', 'Я Мира, капитан Лис. Люблю, когда новички пробуют быстрый мяч.']] },
   { name: 'ПОЛУФИНАЛ', team: 'СОЛЁНЫЕ ВОЛНЫ', arena: 'beach', target: 9, diff: 'hard', boost: 0, talk: [
-    ['c', 'Полуфинал на песке. Ноги вязнут, мяч летит по-другому.'],
-    ['10', 'Песок? Я на нём вырос. Ну, был там один раз. В отпуске.'],
-    ['4', 'Главное — не ждать мяч, а идти к нему.'],
-    ['o', 'Волны не спрашивают, готов ли ты. Удачи, ребята.'],
-    ['10', 'Мы без удачи. У нас солнце и №4.']] },
+    ['10', 'Арис, опять не мне? Я стоял открытый! Ты что, мне не веришь?'],
+    ['9', 'Верю. Но ты бьёшь по эмоциям, а не по блоку. Это терять очки.'],
+    ['4', 'Ребята, давайте потом. Песок, ветер, Волны ждут...'],
+    ['c', 'Хватит. Хотите спорить — спорьте на площадке. Но вместе.'],
+    ['o', 'Я Кай, капитан Волн. Ссоритесь? Тогда мы выиграем без труда.']] },
   { name: 'ФИНАЛ', team: 'СТАЛЬНЫЕ ЯСТРЕБЫ', arena: 'hall', target: 11, diff: 'hard', boost: 2, talk: [
-    ['10', 'Слушай, проиграем — всё равно было классно.'],
-    ['4', 'Проиграем — я сильно обижусь. Давай выиграем.'],
-    ['o', 'Ястребы не отдают мячи. Покажите, на что вы способны.'],
-    ['c', 'Вы пришли сюда не за вторым местом. Идите и играйте!']] },
+    ['10', 'Арис, прости. Я бил в одиночку. Ты ведь видишь блок лучше меня.'],
+    ['9', 'И ты прости. Я не говорил, что ждал, пока ты поверишь в мой пас.'],
+    ['4', 'Я первым пришёл в зал. Мяч упасть не даст, обещаю. Бейте смело.'],
+    ['o', 'Вера, капитан Ястребов. Нас четыре года никто не пробивал.'],
+    ['c', 'Школа, которую забыли, вышла в финал. Теперь вспомнят все.']] },
 ];
 function boostD(base, k) {   // плавное усиление соперника: k = 0 — как есть, дальше сильнее, но в разумных пределах
   const d = Object.assign({}, base);
@@ -97,7 +100,7 @@ function showCampEnd(win) {
     const st = TOUR[camp.stage], last = camp.stage === TOUR.length - 1;
     if (win && last) {
       tourSave = { stage: 0, done: true }; lsSet('vb-tour', tourSave);
-      title = 'ЧЕМПИОНЫ!'; sub = 'Четыре этапа позади. №4 и №10 — лучшая связка турнира.'; btn = 'ЗАНОВО'; endAct = 'tourAgain';
+      title = 'ЧЕМПИОНЫ!'; sub = 'Рэй, Арис и Дан взяли турнир. Но это только начало: впереди регион!'; btn = 'ЗАНОВО'; endAct = 'tourAgain';
       champ = true; el.classList.add('lite'); makeConfetti();
       let n = 0; champTimer = setInterval(() => { if (el.hidden || ++n > 7) clearInterval(champTimer); else makeConfetti(); }, 1300);
     } else if (win) {
@@ -125,7 +128,7 @@ function endAgain() {
 
 /* сцена истории: реплики поверх арены, тап — дальше */
 let sto = { lines: [], i: 0, full: '', n: 0, tm: 0, on: false };
-const STO_AV = { 4: 'org', 10: 'blk', 7: 'org', o: 'wht' };
+const STO_AV = { 4: 'lib', 10: 'blk', 9: 'org', o: 'wht' };
 function openStory(st) {
   sto.lines = st.talk; sto.i = 0; sto.on = true; state = 'story';
   $('stKick').textContent = 'ЭТАП ' + (camp.stage + 1) + ' ИЗ ' + TOUR.length; $('stName').textContent = st.name;
@@ -136,6 +139,7 @@ function storyLine() {
   const [who, text] = sto.lines[sto.i], av = $('stAv'), num = who === 'o' ? 9 : who;
   const k = KIT[STO_AV[who]];
   if (who === 'c') { av.style.background = 'var(--teal)'; av.style.color = '#fff'; av.style.borderColor = '#fff'; av.textContent = 'Т'; $('stWho').textContent = 'ТРЕНЕР'; }
+  else if (who === 'o') { const kw = KIT.wht, st = TOUR[camp && camp.kind === 'tour' ? camp.stage : 0]; av.style.background = kw.jersey; av.style.color = kw.num; av.style.borderColor = kw.trim; av.textContent = 'К'; $('stWho').textContent = 'КАПИТАН · ' + (st ? st.team : 'СОПЕРНИКИ'); }
   else { av.style.background = k.jersey; av.style.color = k.num; av.style.borderColor = k.trim === k.jersey ? '#fff' : k.trim; av.textContent = num; $('stWho').textContent = nameOf(num) ? nameOf(num) + ' · №' + num : '№' + num; }
   clearInterval(sto.tm); sto.full = text; sto.n = 0;
   const t = $('stTxt');
@@ -175,7 +179,7 @@ function showEnd() {
   $('endTitle').textContent = mode === 'local2' ? 'ИГРОК ' + (TL.score > TR.score ? 1 : 2) + ' ПОБЕДИЛ' : win ? 'ПОБЕДА!' : 'ПОРАЖЕНИЕ';
   $('endTitle').className = win || mode === 'local2' ? 'win' : '';
   $('endScore').textContent = me.score + ' : ' + other(me).score;
-  $('endSub').textContent = mode === 'local2' ? 'Реванш?' : mode === 'solo' ? (win ? '№4, №10 и №7 забирают матч.' : 'Гости оказались сильнее. Реванш?') : (win ? 'Победа над другом!' : 'Друг оказался сильнее. Реванш?');
+  $('endSub').textContent = mode === 'local2' ? 'Реванш?' : mode === 'solo' ? (win ? 'Рэй, Арис и Дан забирают матч.' : 'Гости оказались сильнее. Реванш?') : (win ? 'Победа над другом!' : 'Друг оказался сильнее. Реванш?');
   show('end');
 }
 function pauseGame() { if (isOnline()) return; if (!['serve', 'play', 'point'].includes(state)) return; pausedFrom = state; state = 'paused'; show('pause'); }
@@ -190,8 +194,8 @@ document.querySelectorAll('[data-diff]').forEach(b => b.addEventListener('click'
 document.querySelectorAll('[data-target]').forEach(b => b.addEventListener('click', () => { TARGET = +b.dataset.target; syncSeg(); }));
 document.querySelectorAll('[data-arena]').forEach(b => b.addEventListener('click', () => { arenaPick = b.dataset.arena; lsSet('vb-arena', arenaPick); syncSeg(); }));
 syncSeg();
-for (const n of [4, 10, 7]) {
-  const el = $('n' + n); el.value = names[n] || '';
+for (const n of [4, 10, 9]) {
+  const el = $('n' + n); el.value = names[n] || ''; if (HERO[n]) el.placeholder = HERO[n].name[0] + HERO[n].name.slice(1).toLowerCase();
   el.addEventListener('input', () => { names[n] = el.value.slice(0, 12); try { localStorage.setItem('vb-names', JSON.stringify(names)); } catch (e) {} });
 }
 $('againBtn').addEventListener('click', () => { if (endAct) endAgain(); else startMatch(); });

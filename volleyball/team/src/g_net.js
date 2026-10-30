@@ -7,7 +7,7 @@ let onNetStatus = () => {};
 let onNetEnd = () => {};   // сессия закончилась сама (обрыв, «комната занята», разные версии): UI снимает блокировку кнопок
 function netStatus(text) { try { onNetStatus(text); } catch (e) {} }
 function netEnd() { try { onNetEnd(); } catch (e) {} }
-const PROTO = 2;   // версия сетевого протокола: хост и гость должны совпадать
+const PROTO = 3;   // версия сетевого протокола: хост и гость должны совпадать
 const NET_NOWEB = 'Онлайн-игра работает в версии на GitHub';
 const NET_VER = 'Версии игры разные — обновите страницу у обоих';
 const NET_ERR = { noweb: NET_NOWEB, net: 'Нет связи с сервером комнат. Проверьте интернет', conn: 'Не удалось соединиться. Попробуйте другую сеть или Wi-Fi', room: 'Комната не найдена. Проверьте код', full: 'В комнате уже играют двое' };
@@ -506,7 +506,7 @@ function guestInit(m) {
   if (!Number.isFinite(m.id) || m.id === net.initId) return;
   net.initId = m.id;
   mode = 'guest'; audio();
-  if (m.names && typeof m.names === 'object') for (const k of [4, 7, 10]) if (k in m.names) names[k] = cleanName(m.names[k]);
+  if (m.names && typeof m.names === 'object') for (const k of [4, 9, 10]) if (k in m.names) names[k] = cleanName(m.names[k]);
   if ([7, 11, 15].includes(m.target)) TARGET = m.target;
   const ar = m.ar === 'beach' ? 'beach' : 'hall'; if (ar !== ARENA) setArena(ar);   // площадку выбирает хост
   newMatch();
