@@ -22,6 +22,7 @@
 |---|---|---|---|
 | Планирование и архитектура | Opus | game-director | редкие, но самые сложные решения: план, баланс, разбор трудных багов |
 | Код средней сложности | Sonnet | gameplay-engineer, character-artist, arena-artist, ui-hud-designer, perf-optimizer, code-reviewer | основная работа: нужна аккуратность, но не максимальная модель |
+| Сеть и онлайн | Sonnet | network-engineer | онлайн между странами: серверы, переподключение, задержка |
 | Творческие тексты и дизайн | Sonnet | story-writer, character-designer | история, реплики, облик героев: нужен вкус, а не максимальная модель |
 | Рутина | Haiku | qa-tester, release-builder, vfx-audio, copywriter-ru | команды по чек-листу, короткие точечные правки |
 
