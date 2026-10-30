@@ -2,7 +2,7 @@
 /* ================= menu preview ================= */
 const teamCv = $('teamCv'), tctx = teamCv.getContext('2d');
 const prevTeam = { side: -1, D: HUMAN_D, roles: {}, players: [] };
-const preview = [[7, 'org'], [10, 'blk'], [4, 'org']].map(([n, kn], i) => ({
+const preview = [[9, 'org'], [10, 'blk'], [4, 'lib']].map(([n, kn], i) => ({
   team: prevTeam, idx: i, num: n, kit: KIT[kn], look: LOOKS[n], face: 1, x: 0, lane: LANE0, h: 0, vx: 0, vh: 0,
   ground: true, swing: 0, swingType: '', run: 0, landT: 0, toss: 0, pose: null, preview: true }));
 prevTeam.players = preview; prevTeam.roles.hitter = preview[2];

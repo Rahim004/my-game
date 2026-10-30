@@ -244,10 +244,11 @@ function pickSetter(T, p) {   // у TL: пасует Арис; если прин
   if (!st || !hi) return closest(T, mirror(T, SET_X), p);
   return p === st ? hi : st;
 }
-function pickHitter(T, p) {   // p — тот, кого исключаем (пасующий / только что коснувшийся); атакует Рэй, иначе Арис, никогда не либеро
+function pickHitter(T, p) {   // p — исключаемый (пасующий / только что коснувшийся); атакует Рэй, если недоступен — Арис, затем Дан
   const hi = byJob(T, 'hit'), st = byJob(T, 'set');
   if (!hi || !st) return closest(T, mirror(T, ATT_X), p);
-  return p !== hi ? hi : st;
+  if (p !== hi) return hi;
+  return p !== st ? st : byJob(T, 'lib');   // Рэй недоступен — Арис, затем Дан
 }
 function receive(p, perfect) {
   const T = p.team; snapBall(p, 'receive', perfect ? 22 : 16); touch(p, 'receive');
@@ -269,7 +270,7 @@ function humanAtk(T, h) {   // тип атаки человека — по по�
 }
 function setBall(p, low) {
   const T = p.team; snapBall(p, low ? 'receive' : 'set', 14); touch(p, low ? 'receive' : 'set');
-  let h = T.roles.hitter; if (!h || h === p || h.lib) h = pickHitter(T, p);
+  let h = T.roles.hitter; if (!h || h === p) h = pickHitter(T, p);
   T.roles.hitter = h;
   T.atk = T.human ? humanAtk(T, h) : (T.plan || chooseAtk(T));
   const A = ATK[T.atk]; T.setH = A.h; T.plan = null;

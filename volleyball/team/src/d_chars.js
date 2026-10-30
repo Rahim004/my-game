@@ -477,14 +477,11 @@ function drawHead(c, sk, p) {
   c.fillStyle = look.skin; c.fill();
   c.fillStyle = 'rgba(90,45,30,.16)'; c.beginPath(); c.ellipse(-.5, -.6, 1.6, 1.9, 0, 0, 6.2832); c.fill();
   c.fillStyle = look.skinD; c.beginPath(); c.ellipse(-.3, -.15, .55, .8, .2, 0, 6.2832); c.fill();
-  if (DET) { c.fillStyle = 'rgba(90,45,30,.2)'; c.beginPath(); c.ellipse(1.0, -2.0, 1.9, .75, -.1, 0, 6.2832); c.fill(); }
   hairBack(c, p, look, style);
   smoothPath(c, hairPts(p, style), style === 'spiky' || style === 'wolf' || style === 'band');
   if (INK) { c.lineWidth = INK / k * 1.15; c.strokeStyle = INKC; c.lineJoin = 'round'; c.stroke(); }
   c.fillStyle = look.hair; c.fill();
-  if (DET) { /* сел-тень волос: нижняя тёмная зона под шапкой */
-    c.save(); c.clip(); c.fillStyle = shade(look.hair, .62); c.beginPath(); c.ellipse(-.9, -.1, 3.1, 2.2, .1, 0, 6.2832); c.fill(); c.restore();
-  }
+
   if (DET) {
     c.lineCap = 'round';
     const ln = HAIR_LN[style];

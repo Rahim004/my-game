@@ -874,7 +874,7 @@ function drawCutin(c) {
     c.drawImage(im, ix, iy, iw, ih);
   } else {
     c.beginPath(); c.moveTo(fx + sk * .9 - sk * .45, y - H * .2); c.lineTo(fx + fw + sk * .9, y - H * .2); c.lineTo(fx + fw, y + H); c.lineTo(fx, y + H); c.closePath(); c.clip();
-    const keep = p.handTrail, k = H / 21 * (1 + (1 - ein) * .25); drawPlayerAt(c, p, pcx + (1 - ein) * 30 * u, y + H * 1.34 + (1 - ein) * 12 * u, k); p.handTrail = keep;
+    const keep = p.handTrail, k = H / 33 * (1 + (1 - ein) * .25); drawPlayerAt(c, p, pcx + (1 - ein) * 30 * u, y + H * 1.42 + (1 - ein) * 12 * u, k); p.handTrail = keep;
   }
   c.restore();
   c.restore();
