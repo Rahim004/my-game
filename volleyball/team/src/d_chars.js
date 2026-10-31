@@ -495,7 +495,51 @@ function drawHead(c, sk, p) {
   }
   c.restore();
 }
+/* ===== пилот спрайтов: №10 Рэй из рендера Blender (tools/blender/rey.py), только с ?sprites=1 ===== */
+const SPRITES = (() => { try { return /[?&]sprites=1(&|$)/.test(location.search); } catch (e) { return false; } })();
+/* кадры атласа 128×160 (7 в ряд), точка опоры (64,152), 2.6 px на единицу игры; pf — поза кадра (порядок PF),
+   hp — центр ладони ударной руки в единицах игры от точки опоры (y вверх). Таблицу печатает rey.py. */
+const REY = { cols: 7, w: 128, h: 160, u: 2.6, ox: 64, oy: 152, joy: 14,
+  air: [0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0],
+  pf: [[-.3, 16.8, .42, -.32, -3.3, 0, 3.1, 0, 0, 0, .38, 1.12, .45, 1.2], [.5, 18.4, .32, -.22, 5.6, 0, -5.6, 0, 0, 0, -.95, .4, .95, 2.3],
+    [.5, 19.2, .32, -.22, 0, 0, 0, 3.8, 0, -.45, 0, 1.35, 0, 1.35], [.5, 18.4, .32, -.22, -5.6, 0, 5.6, 0, 0, 0, .95, 2.3, -.95, .4],
+    [.5, 19.2, .32, -.22, 0, 3.8, 0, 0, -.45, 0, 0, 1.35, 0, 1.35], [0, 20.3, .08, -.2, -1.2, 3.6, 1.6, 2.2, -.9, -.9, 2.3, 2.6, 2.1, 2.45],
+    [0, 20.5, -.5, -.6, -4.9, 6, -2.9, 4.2, -1.05, -.95, 2.7, 2.9, 4.08, 5.5], [0, 20.5, -.01, -.285, -3.169, 4.144, -.731, 2.65, -.9, -.8, 1.672, 1.981, 2.82, 5.136],
+    [0, 20.5, .393, -.026, -1.909, 3.028, .889, 1.786, -.9, -.8, .826, 1.225, 1.783, 3.409], [0, 20.5, .62, .12, -1.2, 2.4, 1.8, 1.3, -.9, -.8, .35, .8, 1.2, 1.45],
+    [0, 20.4, .03, -.25, -.9, 1.6, .9, 1, -.95, -.95, 2.92, 2.95, 2.82, 2.86], [-.4, 14.96, .528, -.62, -4.4, 0, 4, 0, 0, 0, .93, .93, .98, .98],
+    [0, 18.6, -.02, -.7, -2.4, 0, 2.6, 0, 0, 0, 2.4, 3.5, 2.48, 3.55], [0, 19.6, -.22, -.62, -3, 0, 2.7, 0, 0, 0, 2.9, 3, 4.05, 5.4],
+    [0, 17.4, -.08, -.55, -3.7, 0, 3.5, 0, 0, 0, .95, 2.5, 3, 3.12]],
+  hp: [[15.81, 18.95], [16.89, 31.62], [12.41, 22.27], [1.41, 19.11], [12.41, 22.27], [12.84, 43.36], [-18.14, 31.04], [-4.95, 37.71], [10.48, 41.91],
+    [22.73, 27.54], [5.06, 48.41], [19.22, 17.51], [1.34, 44.98], [-15.13, 32.14], [.23, 45.89]] };
+/* веса признаков позы при выборе ближайшего кадра (порядок PF) */
+const REY_W = [.05, .05, 2, .5, .03, .05, .03, .05, .3, .3, 1, 1, 1, 1];
+function reyFrame(p) {
+  const P = p.pose, air = p.ground === false ? 1 : 0;
+  if (air === 0 && !p.preview && p.team && (state === 'point' || state === 'over') && p.team === pointWinner) return REY.joy;
+  let best = 0, bd = 1e9;
+  for (let i = 0; i < REY.pf.length; i++) {
+    if (REY.air[i] !== air || i === REY.joy) continue;
+    const f = REY.pf[i]; let d = 0;
+    for (let j = 0; j < 14; j++) { const e = P[PF[j]] - f[j]; d += REY_W[j] * e * e; }
+    if (d < bd) { bd = d; best = i; }
+  }
+  return best;
+}
 function drawPlayerAt(c, p, x, y, sl, mirror) {
+  const atl = SPRITES && p.num === 10 && p.kit === KIT.blk && p.pose ? img('rey_atlas') : null;
+  if (atl) {
+    const lq = p.landT > 0 && p.ground ? Math.min(1, p.landT / .2) : 0, st = p.ground === false ? Math.abs(clamp((p.vh || 0) / JUMP_V, -1, 1)) : 0;
+    const sx = 1 + .09 * lq - .035 * st, sy = 1 - .08 * lq + .05 * st, fr = reyFrame(p), R = REY;
+    c.save(); c.translate(x, y); c.scale(p.face * sl * sx / R.u, sl * sy / R.u);
+    c.drawImage(atl, (fr % R.cols) * R.w, ((fr / R.cols) | 0) * R.h, R.w, R.h, -R.ox, -R.oy, R.w, R.h);
+    c.restore();
+    if (mirror) return;
+    if (p.swing > 0 && (p.swingType === 'spike' || p.swingType === 'serve' || p.swingType === 'tip')) {
+      const h = R.hp[fr], hp = [x + p.face * sl * sx * h[0], y - sl * sy * h[1]];
+      (p.handTrail = p.handTrail || []).unshift(hp); if (p.handTrail.length > 7) p.handTrail.length = 7;
+    } else if (p.handTrail) p.handTrail.length = 0;
+    return;
+  }
   const sk = solve(p), k = p.look.tall;
   const INK0 = .6; INK = mirror ? 0 : INK0; DET = mirror ? 0 : 1;
   const nl = p.pose.nl, fl = p.pose.fl;
@@ -538,6 +582,12 @@ function drawBall(c) {
   if (ball.spiked && state === 'play') {
     const gl = c.createRadialGradient(x, y, r * .5, x, y, r * 4); gl.addColorStop(0, 'rgba(255,170,60,.55)'); gl.addColorStop(1, 'rgba(255,120,30,0)');
     c.fillStyle = gl; c.beginPath(); c.arc(x, y, r * 4, 0, 6.2832); c.fill();
+  }
+  const bs = img('ball_strip');
+  if (bs) { /* рендер Blender: 16 кадров вращения 48×48, мяч r = 21 px в кадре; кадр i = поворот на i·22.5° по часовой */
+    const f = ((Math.floor(ball.rot / 6.2832 * 16) % 16) + 16) % 16, d = 48 * r / 21;
+    c.drawImage(bs, f * 48, 0, 48, 48, x - d / 2, y - d / 2, d, d);
+    return;
   }
   c.save(); c.translate(x, y);
   c.beginPath(); c.arc(0, 0, r, 0, 6.2832); c.fillStyle = '#f7d230'; c.fill();

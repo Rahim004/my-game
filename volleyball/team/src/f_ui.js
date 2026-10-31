@@ -184,7 +184,7 @@ function showEnd() {
 }
 function pauseGame() { if (isOnline()) return; if (!['serve', 'play', 'point'].includes(state)) return; pausedFrom = state; state = 'paused'; show('pause'); }
 function resumeGame() { if (state !== 'paused') return; state = pausedFrom; last = performance.now(); show(null); }
-function toMenu() { if (mode === 'host' || mode === 'guest') netLeave(); mode = 'solo'; state = 'menu'; stopStory(); champ = false; clearInterval(champTimer); $('end').classList.remove('lite'); endCamp(); setArena(arenaPick); syncMode(); cutin = null; TL = TR = null; active = null; banners = []; confetti = []; show('menu'); updateCamera(0, true); }
+function toMenu() { if (mode === 'host' || mode === 'guest') netLeave(); mode = 'solo'; state = 'menu'; tut = null; tim = null; stopStory(); champ = false; clearInterval(champTimer); $('end').classList.remove('lite'); endCamp(); setArena(arenaPick); syncMode(); cutin = null; TL = TR = null; active = null; banners = []; confetti = []; show('menu'); updateCamera(0, true); }
 function syncSeg() {
   document.querySelectorAll('[data-diff]').forEach(x => x.setAttribute('aria-pressed', String(x.dataset.diff === diff)));
   document.querySelectorAll('[data-target]').forEach(x => x.setAttribute('aria-pressed', String(+x.dataset.target === TARGET)));
@@ -232,6 +232,57 @@ syncMode();
 $('campReset').addEventListener('click', () => { tourSave = { stage: 0, done: false }; lsSet('vb-tour', tourSave); syncMode(); });
 $('playBtn').addEventListener('click', () => { audio(); if (pick === 'online') openOnline(); else if (pick === 'tour') startTour(); else if (pick === 'colo') startColo(); else startMatch(pick); });
 
+/* ================= обучение: запуск и рисование (логика — c_ai.js) ================= */
+function startTutorial() {
+  if (mode === 'host' || mode === 'guest') netLeave();
+  endCamp(); setArena(arenaPick); mode = 'solo'; audio();
+  const sh = serveHints; newMatch(); serveHints = sh; show(null); updateCamera(0, true);
+  banners = []; state = 'play';
+  ball.x = 300; ball.h = BR; ball.vx = ball.vh = 0; ball.lane = LANE0; ball.trail = [];
+  tut = { step: 0, t: 0, wait: 2.6, miss: 0, done: false, endT: 0, exit: false, msg: '', msgT: 0 };
+}
+$('tutBtn').addEventListener('click', startTutorial);
+const TOUCH_UI = (() => { try { return matchMedia('(pointer: coarse)').matches; } catch (e) { return false; } })();
+function tutText() {
+  const act = TOUCH_UI ? 'ПРИЁМ' : '↓', hit = TOUCH_UI ? 'УДАР' : 'Пробел';
+  return [['1 / 3 · ПРИЁМ', 'Мяч летит к тебе. Когда он снижается — жми ' + act + '.'],
+    ['2 / 3 · ПАС', 'Отлично! Арис делает пас — следи за мячом.'],
+    ['3 / 3 · УДАР', 'Жми ' + (TOUCH_UI ? 'УДАР' : 'Пробел') + ' — прыжок. Мяч у руки — ' + hit + ' ещё раз!'],
+    ['ГОТОВО!', 'Ты умеешь принимать, пасовать и бить. Возвращаемся в меню.']][tut.step];
+}
+function drawTutorial(c) {
+  const u = clamp(cssW / 820, .7, 1.25), t = tutText(), w = Math.min(cssW * .8, 430 * u), h = 40 * u, x = (cssW - w) / 2, y = 58 * u;
+  c.fillStyle = 'rgba(13,15,20,.86)'; skew(c, x, y, w, h, 8 * u); c.fill();
+  c.fillStyle = tut.done ? TONE.gold : TONE.teal; c.fillRect(x + 8 * u, y + h - 2.4 * u, (w - 16 * u) * Math.min(1, tut.step / 3), 2.4 * u);
+  c.textAlign = 'center'; c.textBaseline = 'middle';
+  c.font = `700 ${11.5 * u}px Oswald, "Arial Narrow", sans-serif`; c.fillStyle = TONE.gold; c.fillText(t[0], cssW / 2, y + 10 * u);
+  c.font = `500 ${11 * u}px Rubik, Arial, sans-serif`; c.fillStyle = tut.msg ? '#ffb27a' : '#ffffff'; c.fillText(tut.msg || t[1], cssW / 2, y + 26 * u, w - 20 * u);
+}
+function timingFx(c) {   // кольцо тайминга у мяча + метка у игрока (поверх кадра, экранные пиксели)
+  if (!TL || !ball || mode === 'guest') return;
+  const sc = cam.scale, u = clamp(cssW / 820, .7, 1.25);
+  if (state === 'play') for (const T of [TL, TR]) {
+    const p = T.human && (mode === 'local2' || T === TL) ? T.act : null;
+    if (!p || !ownLoose(T, ball.x) || p === lastToucher) continue;
+    let hp = null, gold = 0;
+    if (T.touches === 0 && p.ground && ball.vh < 0) { hp = handPoint(p, 'receive'); gold = 26; }
+    else if (T.touches === 2 && p === T.roles.hitter) { hp = handPoint(p, 'spike'); gold = 6.5; }
+    if (!hp) continue;
+    const d = Math.hypot(ball.x - hp[0], ball.h - hp[1]); if (d > 40) continue;
+    const sl = sOf(ball.lane), bx = (PX(ball.x, ball.lane) - cam.x) * sc + cssW / 2, by = (ball.lane - ball.h * sl - cam.top) * sc;
+    c.strokeStyle = d < gold ? 'rgba(242,194,48,.95)' : 'rgba(255,255,255,.7)'; c.lineWidth = d < gold ? 2 : 1.2;
+    c.beginPath(); c.arc(bx, by, (BR + d * .5) * sl * sc, 0, 6.283); c.stroke();
+  }
+  if (tim) {
+    const p = tim.p, sl = sOf(p.lane), k = tim.t / tim.life, a = Math.min(1, (1 - k) * 2.5, k * 12);
+    const px = (PX(p.x, p.lane) - cam.x) * sc + cssW / 2, py = (p.lane - (p.h + 56 * p.look.tall) * sl - cam.top) * sc - k * 18 * u;
+    c.save(); c.globalAlpha = Math.max(0, a); c.textAlign = 'center'; c.textBaseline = 'middle'; c.lineJoin = 'round';
+    c.font = `700 ${(tim.gold ? 20 : 14) * u}px Oswald, "Arial Narrow", sans-serif`;
+    c.lineWidth = 3.2 * u; c.strokeStyle = 'rgba(13,15,20,.85)'; c.strokeText(tim.text, px, py);
+    c.fillStyle = tim.gold ? '#f2c230' : tim.text === 'Хорошо' ? '#ffffff' : '#5fd3da'; c.fillText(tim.text, px, py);
+    c.restore();
+  }
+}
 const ovOnline = $('online'), netStatusEl = $('netStatus'), codeIn = $('codeIn');
 const netKind = () => { try { const q = location.search; return /[?&]net=bc\b/.test(q) ? 'bc' : /[?&]net=peer\b/.test(q) ? 'peer' : 'auto'; } catch (e) { return 'auto'; } };
 const RU2LAT = { 'й': 'Q', 'ц': 'W', 'у': 'E', 'к': 'R', 'е': 'T', 'н': 'Y', 'г': 'U', 'ш': 'I', 'щ': 'O', 'з': 'P', 'ф': 'A', 'ы': 'S', 'в': 'D', 'а': 'F', 'п': 'G', 'р': 'H', 'о': 'J', 'л': 'K', 'д': 'L', 'я': 'Z', 'ч': 'X', 'с': 'C', 'м': 'V', 'и': 'B', 'т': 'N', 'ь': 'M' };
@@ -398,6 +449,10 @@ function frame(now) {
   requestAnimationFrame(frame);
   const raw = Math.max(0, (now - last) / 1000), dt = Math.min(1 / 30, raw); last = now;
   try {
+    if (tut && tut.exit) toMenu();
+    if (tut) banners = banners.filter(b => !b.small);   // в обучении мелкие подсказки заменены панелью
+    const tk = tut && !tut.done ? ['act', '', 'hit'][tut.step] : '';
+    if (document.body.dataset.tut !== tk) document.body.dataset.tut = tk;
     const live = state === 'serve' || state === 'play' || state === 'point';
     if (mode === 'guest') netGuestFrame(dt);   // гость не считает игру: показывает снимки хоста
     else if (live) { if (freeze > 0) freeze -= dt; else update(dt); }
@@ -412,7 +467,7 @@ function frame(now) {
     const am2 = state === 'serve' && TR && servingTeam === TR && mode === 'local2' ? 'serve' : 'recv';   // подача второго игрока (только local2: в онлайне вторая кнопка не нужна)
     if (am2 !== actMode2) { actMode2 = am2; setActLabel(actBtns2, am2 === 'serve'); }
     const overlay = !ovMenu.hidden || !ovPause.hidden || (!ovEnd.hidden && !champ) || !ovOnline.hidden || !$('story').hidden;
-    if (!overlay) { render(); staticDone = false; }
+    if (!overlay) { render(); staticDone = false; out.setTransform(dpr, 0, 0, dpr, 0, 0); timingFx(out); if (tut) drawTutorial(out); }
     else if (!staticDone && TL) { render(); staticDone = true; }
     if (!ovMenu.hidden) drawPreview(dt);
     if (live && !overlay && raw < .5 && ++perfSkip > 20) {

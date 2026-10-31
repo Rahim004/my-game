@@ -371,8 +371,24 @@ let bgL = null;
 function setArena(a) {   // сменить площадку: перестроить заранее нарисованные слои
   ARENA = a === 'beach' ? 'beach' : 'hall'; bgL = null;
 }
+/* Фон зала из Blender (tools/blender/arena.py): 512×240 / 1024×480 под тот же прямоугольник BGX0..BGX1 × BGY0..BGY1.
+   Нет картинки — рисуем кодом, как раньше; догрузилась — пересобираем слои (bgL = null). */
+function hallImg(res) {
+  const a = img('arena_hall_1x'), b = img('arena_hall_2x');
+  return res <= 1.5 ? (a || b) : (b || a);
+}
+onImg(k => { if (k.startsWith('arena_hall') && ARENA !== 'beach') bgL = null; });
 function buildBg(res) {
   const w = Math.ceil((BGX1 - BGX0) * res), h = Math.ceil((BGY1 - BGY0) * res);
+  const him = ARENA !== 'beach' && hallImg(res);
+  if (him) {   // одна картинка на спокойные и ликующие трибуны: «прыжок» верхней части даёт bounce в render()
+    const cv2 = document.createElement('canvas'); cv2.width = w; cv2.height = h;
+    const c = cv2.getContext('2d'); c.imageSmoothingQuality = 'high'; c.drawImage(him, 0, 0, w, h);
+    c.scale(res, res); c.translate(-BGX0, -BGY0);   // глубина: верхние ряды темнее, игроки читаются на фоне трибун (как в код-версии)
+    const g = c.createLinearGradient(0, BGY0, 0, 166); g.addColorStop(0, 'rgba(8,6,8,.5)'); g.addColorStop(.6, 'rgba(8,6,8,.16)'); g.addColorStop(1, 'rgba(8,6,8,0)');
+    c.fillStyle = g; c.fillRect(BGX0, BGY0, BGX1 - BGX0, 206);
+    return { calm: cv2, cheer: cv2, res };
+  }
   const make = cheer => {
     const cv2 = document.createElement('canvas'); cv2.width = w; cv2.height = h; const c = cv2.getContext('2d'); c.scale(res, res); c.translate(-BGX0, -BGY0);
     if (ARENA === 'beach') { drawBeachBg(c); return cv2; }

@@ -23,6 +23,19 @@ const SET_X = 206, ATT_X = 222, HOMES = [70, 205, 150], HOMES_TL = [178, 220, 78
 const PLAT = 12.5;
 const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
+/* ================= картинки (рендеры Blender) =================
+   build.py подставляет сюда base64 из assets/img/*.png. Картинок нет или не загрузились — всё рисуется кодом, как раньше.
+   img('имя') — готовая картинка или null; onImg(fn) — вызвать fn, когда догрузится любая картинка (например, пересобрать кэш фона). */
+const IMG_SRC = {/*__IMG__*/};
+const IMGS = {}, imgWait = [];
+const img = k => IMGS[k] || null;
+const onImg = fn => imgWait.push(fn);
+for (const k in IMG_SRC) {
+  const im = new Image();
+  im.onload = () => { IMGS[k] = im; for (const fn of imgWait) { try { fn(k); } catch (e) { showErr(e); } } };
+  im.src = IMG_SRC[k];
+}
+
 const KIT = {
   org: { jersey: '#f07a22', shade: '#c25b13', trim: '#1b1a20', shorts: '#1b1a20', shortsTrim: '#f07a22', num: '#ffffff', numEdge: '#1b1a20', sock: '#f4f4f2', sockBand: '#1b1a20', pad: '#1f1e25', shoe: '#f4f4f2', sole: '#f07a22' },
   blk: { jersey: '#25232c', shade: '#141318', trim: '#f07a22', shorts: '#1b1a20', shortsTrim: '#f07a22', num: '#ffffff', numEdge: '#f07a22', sock: '#f4f4f2', sockBand: '#f07a22', pad: '#1f1e25', shoe: '#f4f4f2', sole: '#1b1a20' },
@@ -125,6 +138,7 @@ const input = { left: false, right: false, jump: false, hit: false, act: false, 
 const input2 = { left: false, right: false, jump: false, hit: false, act: false, jumpQ: false, hitQ: false, actQ: false };
 const myTeam = () => mode === 'guest' ? TR : TL;
 let recvHints = 0, serveHints = 0, atkHints = 0;
+let tut = null, tim = null;   // tut — состояние обучения (c_ai.js: tutTick/tutFeed/tutEvt), tim — метка тайминга у игрока (timeMark, рисует f_ui.js)
 
 const mirror = (T, x) => T.side < 0 ? x : VW - x;
 const other = T => T === TL ? TR : TL;
@@ -146,7 +160,7 @@ function mkPlayer(team, idx, num, kitName) {
   p.x = homeOf(p); p.goal = p.x; return p;
 }
 function newMatch() {
-  const twoHumans = mode !== 'solo';
+  const twoHumans = mode !== 'solo'; tut = null; tim = null;
   TL = mkTeam(-1, HUMAN_D, mode === 'local2' ? 'ИГРОК 1' : '№4 · №10');
   TR = mkTeam(1, twoHumans ? HUMAN_D : DIFF[diff], mode === 'local2' ? 'ИГРОК 2' : twoHumans ? 'ДРУГ' : 'ГОСТИ');
   TL.human = true; TL.inp = input;
@@ -251,7 +265,8 @@ function pickHitter(T, p) {   // p — исключаемый (пасующий 
   return p !== st ? st : byJob(T, 'lib');   // Рэй недоступен — Арис, затем Дан
 }
 function receive(p, perfect) {
-  const T = p.team; snapBall(p, 'receive', perfect ? 22 : 16); touch(p, 'receive');
+  const T = p.team, rw = p.recvWin; snapBall(p, 'receive', perfect ? 22 : 16); touch(p, 'receive');
+  timeRecv(p, perfect, rw); tutEvt('recv', p, perfect);
   const setter = pickSetter(T, p);
   T.roles = { setter, hitter: pickHitter(T, setter) };
   passTo(mirror(T, SET_X) + (Math.random() * 2 - 1) * (perfect ? 1 : T.D.err), 42, 1.15);
@@ -275,7 +290,7 @@ function setBall(p, low) {
   T.atk = T.human ? humanAtk(T, h) : (T.plan || chooseAtk(T));
   const A = ATK[T.atk]; T.setH = A.h; T.plan = null;
   passTo(NETX + T.side * A.d + (Math.random() * 2 - 1) * T.D.err * .6, A.h, A.t);
-  aimLane(h, A.t); sfx.set(); ring('w');
+  aimLane(h, A.t); sfx.set(); ring('w'); tutEvt('set', p);
   T.spikeRoll = Math.random(); other(T).blockRoll = Math.random() / A.blk; other(T).blockUsed = false;
   if (T === TL) {
     if (A.txt) banner(A.txt, 'gold', .8, true);
@@ -327,7 +342,7 @@ function spike(p, human) {
   flash = .12;
   speedLines = { wx: PX(ball.x, ball.lane), wy: ball.lane - ball.h * sOf(ball.lane), t: 0, seeds: Array.from({ length: 30 }, () => Math.random()) };
   spray(16, ['#ffffff', '#ffe28a', '#f07a22'], 120, .35); ring('w');
-  if (human) banner(Math.random() < .5 ? 'АТАКА!' : 'МОЩНО!', 'org', .9);
+  if (human) { banner(Math.random() < .5 ? 'АТАКА!' : 'МОЩНО!', 'org', .9); tutEvt('spike', p); }
   else if (O === TL && recvHints < 3) { recvHints++; banner('ЖМИ «ПРИЁМ»!', 'gold', .9, true, 'L'); }
 }
 function startToss(p) {
@@ -448,6 +463,7 @@ function stepBall(dt) {
   if (ball.x < -40) { ball.x = -40; ball.vx = Math.abs(ball.vx) * .3; } else if (ball.x > VW + 40) { ball.x = VW + 40; ball.vx = -Math.abs(ball.vx) * .3; }   // стены арены: мяч не улетает за край
 }
 function land() {
+  if (tut) { tutLand(); return; }   // обучение: без очков
   const x = ball.x; let W, out = false;
   if (x >= COURT_L && x < NETX) W = TR; else if (x > NETX && x <= COURT_R) W = TL;
   else { out = true; W = lastTeam ? other(lastTeam) : (x < NETX ? TR : TL); }

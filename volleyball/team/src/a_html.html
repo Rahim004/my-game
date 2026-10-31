@@ -264,7 +264,10 @@ h1 .x { color: var(--gold); }
   .code { font-size: 46px; }
   .noweb { padding: 10px 14px; }
 }
-@media (prefers-reduced-motion: reduce) { .ctl, .play { transition: none; } }
+@keyframes tutp { 50% { box-shadow: 0 0 0 6px rgba(242, 194, 48, .8); } }
+body[data-tut="act"] .ctl.act, body[data-tut="hit"] .ctl.hit { animation: tutp .9s ease-in-out infinite; }
+#tutBtn { margin-top: 8px; min-height: 44px; }
+@media (prefers-reduced-motion: reduce) { .ctl, .play { transition: none; } body[data-tut] .ctl { animation: none !important; } }
 .errbox { position: fixed; left: 12px; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); z-index: 20; padding: 10px 12px; border-radius: 10px; background: #3a1414; border: 1px solid #a33; color: #ffd9d9; font-size: 13px; line-height: 1.4; }
 </style>
 
@@ -331,6 +334,7 @@ h1 .x { color: var(--gold); }
         <details class="rules">
           <summary>Как играть</summary>
           <p>Когда партнёр набросит мяч к сетке, жми <strong>УДАР</strong> — игрок выпрыгнет, и ещё раз <strong>УДАР</strong> в воздухе — пробьёт. Стрелка во время удара меняет направление: к сетке — коротко, назад — в глубину. <strong>ПРЫЖОК</strong> у сетки — блок. <strong>ПРИЁМ</strong> в момент подлёта мяча — точный приём, только так достаётся сильная атака. На своей подаче эта кнопка становится <strong>СИЛОВОЙ</strong> — подача в прыжке, быстрая, но может уйти в аут. Твой игрок — под синей стрелкой, игрок друга — под красной.</p>
+          <button class="ghost" id="tutBtn" type="button">ТРЕНИРОВКА · 60 С</button>
         </details>
       </div>
       <div class="menu-r">
