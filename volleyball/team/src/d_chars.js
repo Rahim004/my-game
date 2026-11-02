@@ -759,8 +759,8 @@ function drawBall(c) {
 const PORT_KIT = { 4: 'lib', 9: 'org', 10: 'blk', 2: 'wht', 5: 'wht', 8: 'wht' };
 const PORT_W = 384, PORT_S = 34, portCache = new Map();
 const EMO_ALIAS = { fierce: 'angry', neutral: 'calm', happy: 'joy', win: 'joy', lose: 'sad', serious: 'focus' };
-function bakePortrait(num, emo) {
-  const look = LOOKS[num], kit = KIT[PORT_KIT[num]] || KIT.wht, W = PORT_W, cv = mkCv(W, W), g = cv.getContext('2d');
+function bakePortrait(num, emo, kitKey) {
+  const look = LOOKS[num], kit = KIT[kitKey] || KIT[PORT_KIT[num]] || KIT.wht, W = PORT_W, cv = mkCv(W, W), g = cv.getContext('2d');
   g.lineCap = 'round'; g.lineJoin = 'round';
   const sk = look ? look.skin : '#6d6c7a', sd = look ? look.skinD : '#54535f', ox = 212, oy = 172;
   g.save(); g.translate(16, 22);
@@ -802,11 +802,11 @@ function bakePortrait(num, emo) {
   g.restore();
   return cv;
 }
-function drawPortrait(c, num, emo, cx, cy, size) {
+function drawPortrait(c, num, emo, cx, cy, size, kitKey) {   // kitKey — необязательная форма (например, команды-соперника этапа)
   emo = EMO_ALIAS[emo] || emo; if (!EMOS[emo]) emo = 'calm';
   size = size > 0 ? size : 100; cx = +cx || 0; cy = +cy || 0;
-  const key = num + emo; let img = portCache.get(key);
-  if (!img) { img = bakePortrait(num, emo); portCache.set(key, img); }
+  const key = num + emo + (kitKey || ''); let img = portCache.get(key);
+  if (!img) { img = bakePortrait(num, emo, kitKey); portCache.set(key, img); }
   c.save(); c.imageSmoothingEnabled = true; c.imageSmoothingQuality = 'high';
   c.drawImage(img, cx - size / 2, cy - size / 2, size, size); c.restore();
 }

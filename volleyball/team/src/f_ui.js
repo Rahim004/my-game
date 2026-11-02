@@ -158,9 +158,10 @@ function drawStoryAv(who, emo) {   // крупный портрет в плаш�
   const cv = $('stAv'), r = cv.getBoundingClientRect(), dpr = Math.min(2, window.devicePixelRatio || 1), W = Math.max(40, Math.round((r.width || 84) * dpr)), H = Math.max(40, Math.round((r.height || 84) * dpr));
   if (cv.width !== W || cv.height !== H) { cv.width = W; cv.height = H; }
   const c = cv.getContext('2d'); c.clearRect(0, 0, W, H);
-  const kit = who === 'o' ? KIT[(CHS[camp && camp.kind === 'tour' ? camp.ch : 0].stages[camp && camp.kind === 'tour' ? camp.stage : 0] || {}).kit] || KIT.wht : KIT[STO_AV[who]];
+  const oKey = who === 'o' ? (CHS[camp && camp.kind === 'tour' ? camp.ch : 0].stages[camp && camp.kind === 'tour' ? camp.stage : 0] || {}).kit : '';
+  const kit = who === 'o' ? KIT[oKey] || KIT.wht : KIT[STO_AV[who]];
   if (who !== 'c' && typeof drawPortrait === 'function') {
-    try { c.save(); drawPortrait(c, PORT_NUM[who], emo, W / 2, H / 2, Math.min(W, H)); c.restore(); return; } catch (e) { c.restore(); c.clearRect(0, 0, W, H); }
+    try { c.save(); drawPortrait(c, PORT_NUM[who], emo, W / 2, H / 2, Math.min(W, H), KIT[oKey] ? oKey : undefined); c.restore(); return; } catch (e) { c.restore(); c.clearRect(0, 0, W, H); }
   }
   const R = Math.min(W, H) / 2 - 3 * dpr;
   c.beginPath(); c.arc(W / 2, H / 2, R, 0, 6.2832); c.fillStyle = who === 'c' ? '#138f97' : kit.jersey; c.fill();
