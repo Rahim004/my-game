@@ -37,7 +37,7 @@ function drawPreview(dt) {
 const lsGet = k => { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch (e) { return null; } };
 const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
 let arenaPick = lsGet('vb-arena') === 'beach' ? 'beach' : 'hall';
-let camp = null, campBase = 11, endAct = '', champ = false, champTimer = 0;   // camp: { kind: 'tour', stage } | { kind: 'colo', wins }
+let camp = null, campBase = 11, endAct = '', champ = false, champTimer = 0;   // camp: { kind: 'tour', ch, stage } | { kind: 'colo', wins }
 const TOUR = [
   { name: 'ОТБОРОЧНЫЙ', team: 'ЗЕЛЁНАЯ ШКОЛА', arena: 'hall', target: 7, diff: 'easy', boost: 0, talk: [
     ['c', 'Школа «Северная Верфь», крыша течёт, сетку чинили скотчем. Зато вы здесь.'],
@@ -72,23 +72,37 @@ function boostD(base, k) {   // плавное усиление соперник
   d.spike = Math.min(1, d.spike + .01 * k); d.pserve = Math.min(.85, d.pserve + .04 * k);
   return d;
 }
-let tourSave = (() => { const v = lsGet('vb-tour'); return v && Number.isInteger(v.stage) && v.stage >= 0 && v.stage < TOUR.length ? { stage: v.stage, done: !!v.done } : { stage: 0, done: false }; })();
+/* главы: [глава 1 = TOUR] + CHAPTERS_NEXT (h_story.js); этап может иметь kit — ключ KIT формы соперника */
+const CHS = [{ id: 'c1', title: 'Глава 1', stages: TOUR }].concat((typeof CHAPTERS_NEXT !== 'undefined' && Array.isArray(CHAPTERS_NEXT) ? CHAPTERS_NEXT : []).filter(c => c && Array.isArray(c.stages) && c.stages.length).map((c, i) => Object.assign({}, c, { title: c.title || 'Глава ' + (i + 2) })));
+const progKey = i => i === 0 ? 'vb-tour' : 'vb-tour-' + (i + 1);   // vb-tour — прогресс главы 1 (совместимость)
+const progCache = [];
+function getProg(i) {
+  if (!progCache[i]) { const v = lsGet(progKey(i)), n = CHS[i].stages.length; progCache[i] = v && Number.isInteger(v.stage) && v.stage >= 0 && v.stage < n ? { stage: v.stage, done: !!v.done } : { stage: 0, done: false }; }
+  return progCache[i];
+}
+function setProg(i, v) { progCache[i] = v; lsSet(progKey(i), v); }
+let chapOpen = (() => { const v = lsGet('vb-chaps'), o = v && Number.isInteger(v.open) ? v.open : 0; return Math.max(o, getProg(0).done ? 1 : 0); })();
+const isOpen = i => i === 0 || i <= chapOpen;
+function openChap(i) { if (i > chapOpen) { chapOpen = i; lsSet('vb-chaps', { open: i }); } }
+let chapPick = Math.min(CHS.length - 1, Math.max(0, +lsGet('vb-chap') || 0)); if (!isOpen(chapPick)) chapPick = 0;
 let coloBest = Math.max(0, Math.floor(+lsGet('vb-colo') || 0));
 function endCamp() { if (camp) { TARGET = campBase; camp = null; syncSeg(); } }
 function campMatch(withStory) {   // новый матч кампании (camp уже выставлен)
   if (isOnline()) netLeave();
   let st = null, D, nm, ar, tg;
-  if (camp.kind === 'tour') { st = TOUR[camp.stage]; ar = st.arena; tg = st.target; D = boostD(DIFF[st.diff], st.boost); nm = st.team; }
+  if (camp.kind === 'tour') { st = CHS[camp.ch].stages[camp.stage]; ar = st.arena; tg = st.target; D = boostD(DIFF[st.diff], st.boost); nm = st.team; }
   else { ar = camp.wins % 2 ? 'beach' : 'hall'; tg = 5; D = boostD(DIFF.hard, camp.wins); nm = 'РАУНД ' + (camp.wins + 1); }
   mode = 'solo'; audio(); TARGET = tg; setArena(ar); newMatch(); TR.D = D; TR.name = nm;
+  if (st && st.kit && KIT[st.kit]) for (const p of TR.players) p.kit = KIT[st.kit];
   champ = false; endAct = ''; clearInterval(champTimer); $('end').classList.remove('lite');
   staticDone = false; updateCamera(0, true); last = performance.now();
   if (st && withStory) openStory(st); else { show(null); if (!st) banner('РАУНД ' + (camp.wins + 1) + ' · ДО 5', 'gold', 1.8, true); }
 }
 function startTour() {
-  if (tourSave.done) { tourSave = { stage: 0, done: false }; lsSet('vb-tour', tourSave); }
+  const ch = chapPick; if (!isOpen(ch)) return;
+  if (getProg(ch).done) setProg(ch, { stage: 0, done: false });
   if (!camp) campBase = TARGET;
-  camp = { kind: 'tour', stage: tourSave.stage }; campMatch(true);
+  camp = { kind: 'tour', ch, stage: getProg(ch).stage }; campMatch(true);
 }
 function startColo() { if (!camp) campBase = TARGET; camp = { kind: 'colo', wins: 0 }; campMatch(false); }
 function showCampEnd(win) {
@@ -97,16 +111,18 @@ function showCampEnd(win) {
   $('menuBtn').textContent = 'В МЕНЮ';
   let title, sub, btn;
   if (camp.kind === 'tour') {
-    const st = TOUR[camp.stage], last = camp.stage === TOUR.length - 1;
+    const ch = camp.ch, C = CHS[ch], st = C.stages[camp.stage], last = camp.stage === C.stages.length - 1, nxt = ch + 1 < CHS.length;
     if (win && last) {
-      tourSave = { stage: 0, done: true }; lsSet('vb-tour', tourSave);
-      title = 'ЧЕМПИОНЫ!'; sub = 'Рэй, Арис и Дан взяли турнир. Но это только начало: впереди регион!'; btn = 'ЗАНОВО'; endAct = 'tourAgain';
+      setProg(ch, { stage: 0, done: true });
+      if (nxt) { openChap(ch + 1); title = 'ГЛАВА ПРОЙДЕНА'; sub = 'Глава ' + (ch + 1) + ' позади. Дальше — ' + CHS[ch + 1].title + '.'; btn = 'ГЛАВА ' + (ch + 2); endAct = 'chapNext'; }
+      else if (ch === 0) { title = 'ЧЕМПИОНЫ!'; sub = 'Рэй, Арис и Дан взяли турнир. Но это только начало: впереди регион!'; btn = 'ЗАНОВО'; endAct = 'tourAgain'; }
+      else { title = 'ГЛАВА ПРОЙДЕНА'; sub = 'Глава ' + (ch + 1) + ' позади. Продолжение следует.'; btn = 'ЗАНОВО'; endAct = 'tourAgain'; }
       champ = true; el.classList.add('lite'); makeConfetti();
       let n = 0; champTimer = setInterval(() => { if (el.hidden || ++n > 7) clearInterval(champTimer); else makeConfetti(); }, 1300);
     } else if (win) {
-      tourSave = { stage: camp.stage + 1, done: false }; lsSet('vb-tour', tourSave);
-      title = 'ЭТАП ПРОЙДЕН'; sub = st.name + ': победа над «' + st.team + '». Дальше — ' + TOUR[camp.stage + 1].name.toLowerCase() + '.'; btn = 'ДАЛЬШЕ'; endAct = 'tourNext';
-    } else { title = 'ПОРАЖЕНИЕ'; sub = 'Этап ' + (camp.stage + 1) + ' из ' + TOUR.length + ': «' + st.team + '» оказались сильнее. Ещё раз?'; btn = 'ЕЩЁ РАЗ'; endAct = 'tourRetry'; }
+      setProg(ch, { stage: camp.stage + 1, done: false });
+      title = 'ЭТАП ПРОЙДЕН'; sub = st.name + ': победа над «' + st.team + '». Дальше — ' + C.stages[camp.stage + 1].name.toLowerCase() + '.'; btn = 'ДАЛЬШЕ'; endAct = 'tourNext';
+    } else { title = 'ПОРАЖЕНИЕ'; sub = 'Этап ' + (camp.stage + 1) + ' из ' + C.stages.length + ': «' + st.team + '» оказались сильнее. Ещё раз?'; btn = 'ЕЩЁ РАЗ'; endAct = 'tourRetry'; }
   } else {
     if (win) { camp.wins++; if (camp.wins > coloBest) { coloBest = camp.wins; lsSet('vb-colo', coloBest); } title = 'РАУНД ПРОЙДЕН'; btn = 'ДАЛЬШЕ'; endAct = 'coloNext'; }
     else { title = 'КОНЕЦ СЕРИИ'; btn = 'НОВАЯ СЕРИЯ'; endAct = 'coloAgain'; }
@@ -121,7 +137,8 @@ function endAgain() {
   const a = endAct; endAct = '';
   if (a === 'tourNext') { camp.stage++; campMatch(true); }
   else if (a === 'tourRetry') campMatch(false);
-  else if (a === 'tourAgain') { tourSave = { stage: 0, done: false }; lsSet('vb-tour', tourSave); camp = { kind: 'tour', stage: 0 }; campMatch(true); }
+  else if (a === 'tourAgain') { setProg(camp.ch, { stage: 0, done: false }); camp = { kind: 'tour', ch: camp.ch, stage: 0 }; campMatch(true); }
+  else if (a === 'chapNext') { const ch = camp.ch + 1; chapPick = ch; lsSet('vb-chap', ch); const pg = getProg(ch), st0 = pg.done ? 0 : pg.stage; if (pg.done) setProg(ch, { stage: 0, done: false }); camp = { kind: 'tour', ch, stage: st0 }; campMatch(true); }   // начатая глава продолжается с сохранённого этапа
   else if (a === 'coloNext') campMatch(false);
   else if (a === 'coloAgain') { camp = { kind: 'colo', wins: 0 }; campMatch(false); }
 }
@@ -130,17 +147,38 @@ function endAgain() {
 let sto = { lines: [], i: 0, full: '', n: 0, tm: 0, on: false };
 const STO_AV = { 4: 'lib', 10: 'blk', 9: 'org', o: 'wht' };
 function openStory(st) {
-  sto.lines = st.talk; sto.i = 0; sto.on = true; state = 'story';
-  $('stKick').textContent = 'ЭТАП ' + (camp.stage + 1) + ' ИЗ ' + TOUR.length; $('stName').textContent = st.name;
+  sto.lines = st.talk; sto.i = 0; sto.on = true; state = 'story'; sto.who = '';
+  const C = CHS[camp.ch];
+  $('stKick').textContent = (CHS.length > 1 ? 'ГЛАВА ' + (camp.ch + 1) + ' · ' : '') + 'ЭТАП ' + (camp.stage + 1) + ' ИЗ ' + C.stages.length; $('stName').textContent = st.name;
   $('stVs').textContent = 'против «' + st.team + '» · ' + (st.arena === 'beach' ? 'пляж' : 'зал') + ' · до ' + st.target;
   show('story'); storyLine();
 }
+const PORT_NUM = { 4: 4, 9: 9, 10: 10, o: 8 };
+function drawStoryAv(who, emo) {   // крупный портрет в плашке реплики; запасной вариант — кружок с номером
+  const cv = $('stAv'), r = cv.getBoundingClientRect(), dpr = Math.min(2, window.devicePixelRatio || 1), W = Math.max(40, Math.round((r.width || 84) * dpr)), H = Math.max(40, Math.round((r.height || 84) * dpr));
+  if (cv.width !== W || cv.height !== H) { cv.width = W; cv.height = H; }
+  const c = cv.getContext('2d'); c.clearRect(0, 0, W, H);
+  const oKey = who === 'o' ? (CHS[camp && camp.kind === 'tour' ? camp.ch : 0].stages[camp && camp.kind === 'tour' ? camp.stage : 0] || {}).kit : '';
+  const kit = who === 'o' ? KIT[oKey] || KIT.wht : KIT[STO_AV[who]];
+  if (who !== 'c' && typeof drawPortrait === 'function') {
+    try { c.save(); drawPortrait(c, PORT_NUM[who], emo, W / 2, H / 2, Math.min(W, H), KIT[oKey] ? oKey : undefined); c.restore(); return; } catch (e) { c.restore(); c.clearRect(0, 0, W, H); }
+  }
+  const R = Math.min(W, H) / 2 - 3 * dpr;
+  c.beginPath(); c.arc(W / 2, H / 2, R, 0, 6.2832); c.fillStyle = who === 'c' ? '#138f97' : kit.jersey; c.fill();
+  c.lineWidth = 3 * dpr; c.strokeStyle = who === 'c' ? '#fff' : kit.trim === kit.jersey ? '#fff' : kit.trim; c.stroke();
+  c.fillStyle = who === 'c' ? '#fff' : kit.num; c.font = '700 ' + Math.round(R * .95) + 'px Oswald, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
+  c.fillText(who === 'c' ? 'Т' : who === 'o' ? 'К' : who, W / 2, H / 2 + R * .06);
+}
 function storyLine() {
-  const [who, text] = sto.lines[sto.i], av = $('stAv'), num = who === 'o' ? 9 : who;
-  const k = KIT[STO_AV[who]];
-  if (who === 'c') { av.style.background = 'var(--teal)'; av.style.color = '#fff'; av.style.borderColor = '#fff'; av.textContent = 'Т'; $('stWho').textContent = 'ТРЕНЕР'; }
-  else if (who === 'o') { const kw = KIT.wht, st = TOUR[camp && camp.kind === 'tour' ? camp.stage : 0]; av.style.background = kw.jersey; av.style.color = kw.num; av.style.borderColor = kw.trim; av.textContent = 'К'; $('stWho').textContent = 'КАПИТАН · ' + (st ? st.team : 'СОПЕРНИКИ'); }
-  else { av.style.background = k.jersey; av.style.color = k.num; av.style.borderColor = k.trim === k.jersey ? '#fff' : k.trim; av.textContent = num; $('stWho').textContent = nameOf(num) ? nameOf(num) + ' · №' + num : '№' + num; }
+  const [who, text, emo] = sto.lines[sto.i], num = who === 'o' ? 8 : who;
+  if (who === 'c') $('stWho').textContent = 'ТРЕНЕР';
+  else if (who === 'o') { const st = CHS[camp && camp.kind === 'tour' ? camp.ch : 0].stages[camp && camp.kind === 'tour' ? camp.stage : 0]; $('stWho').textContent = 'КАПИТАН · ' + (st ? st.team : 'СОПЕРНИКИ'); }
+  else $('stWho').textContent = nameOf(num) ? nameOf(num) + ' · №' + num : '№' + num;
+  const box = $('stBox'), av = $('stAv'), right = who === 'o';
+  box.classList.toggle('right', right);
+  drawStoryAv(who, emo || 'calm');
+  if (sto.who !== who && !REDUCED && av.animate) av.animate([{ transform: 'translateX(' + (right ? 28 : -28) + 'px)', opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: 240, easing: 'ease-out' });
+  sto.who = who;
   clearInterval(sto.tm); sto.full = text; sto.n = 0;
   const t = $('stTxt');
   if (REDUCED) { t.textContent = text; sto.n = text.length; return; }
@@ -211,7 +249,7 @@ document.addEventListener('visibilitychange', () => { if (document.hidden) pause
 
 /* ================= режимы: меню и онлайн-экран ================= */
 let pick = 'solo';   // выбор в меню: 'solo' | 'local2' | 'online'
-const MODE_NOTE = { solo: 'Играешь против компьютера.', local2: 'Игрок 1 слева, игрок 2 справа.', online: 'Каждый на своём телефоне. Паузы нет.', tour: 'Четыре матча, история, разные площадки.', colo: 'Соперник сильнее с каждой победой.' };
+const MODE_NOTE = { solo: 'Играешь против компьютера.', local2: 'Игрок 1 слева, игрок 2 справа.', online: 'Каждый на своём телефоне. Паузы нет.', tour: 'Матчи, история, главы по порядку.', colo: 'Соперник сильнее с каждой победой.' };
 function syncMode() {
   document.querySelectorAll('[data-mode]').forEach(x => x.setAttribute('aria-pressed', String(x.dataset.mode === pick)));
   const cp = pick === 'tour' || pick === 'colo';
@@ -219,17 +257,26 @@ function syncMode() {
   $('opts').hidden = cp; $('campInfo').hidden = !cp; $('optArena').hidden = cp; $('playRow').classList.toggle('one', cp);
   $('opts').classList.toggle('one', pick !== 'solo');
   if (pick === 'tour') {
-    const ts = tourSave, fresh = !ts.done && ts.stage === 0;
-    $('campLbl').textContent = 'Турнир'; $('campTxt').textContent = ts.done ? 'Турнир пройден!' : 'Этап ' + (ts.stage + 1) + ' из ' + TOUR.length + ' · ' + TOUR[ts.stage].name;
-    $('campReset').hidden = fresh; $('playBtn').textContent = ts.done ? 'СЫГРАТЬ СНОВА' : fresh ? 'НАЧАТЬ' : 'ПРОДОЛЖИТЬ';
+    const ch = chapPick, C = CHS[ch], ts = getProg(ch), fresh = !ts.done && ts.stage === 0, open = isOpen(ch);
+    const box = $('chaps'); box.hidden = CHS.length < 2;
+    if (CHS.length > 1) {
+      box.innerHTML = '';
+      CHS.forEach((c, i) => { const b = document.createElement('button'); b.className = 'chap'; b.setAttribute('aria-pressed', String(i === ch)); b.dataset.ch = i; if (!isOpen(i)) b.classList.add('locked');
+        b.innerHTML = (isOpen(i) ? '' : '<svg viewBox="0 0 12 14" width="11" height="13" aria-hidden="true"><rect x="1" y="6" width="10" height="7.5" rx="1.5" fill="currentColor"/><path d="M3.2 6V4.4a2.8 2.8 0 0 1 5.6 0V6" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>') + 'Глава ' + (i + 1);
+        b.addEventListener('click', () => { chapPick = i; lsSet('vb-chap', i); syncMode(); }); box.appendChild(b); });
+    }
+    $('campLbl').textContent = CHS.length > 1 ? 'Турнир · ' + (C.title || 'Глава ' + (ch + 1)) : 'Турнир';
+    $('campTxt').textContent = !open ? 'Пройди главу ' + ch : ts.done ? (ch ? 'Глава пройдена!' : 'Турнир пройден!') : 'Этап ' + (ts.stage + 1) + ' из ' + C.stages.length + ' · ' + C.stages[ts.stage].name;
+    $('campReset').hidden = fresh || !open; $('playBtn').textContent = ts.done ? 'СЫГРАТЬ СНОВА' : fresh ? 'НАЧАТЬ' : 'ПРОДОЛЖИТЬ'; $('playBtn').disabled = !open;
   } else if (pick === 'colo') {
+    $('chaps').hidden = true; $('playBtn').disabled = false;
     $('campLbl').textContent = 'Колизей'; $('campTxt').textContent = 'Рекорд: ' + coloBest + ' ' + pluralWins(coloBest); $('campReset').hidden = true; $('playBtn').textContent = 'В БОЙ';
-  } else $('playBtn').textContent = pick === 'online' ? 'ДАЛЕЕ' : 'ИГРАТЬ';
+  } else { $('chaps').hidden = true; $('playBtn').disabled = false; $('playBtn').textContent = pick === 'online' ? 'ДАЛЕЕ' : 'ИГРАТЬ'; }
   $('modeNote').textContent = MODE_NOTE[pick];
 }
 document.querySelectorAll('[data-mode]').forEach(b => b.addEventListener('click', () => { pick = b.dataset.mode; syncMode(); }));
 syncMode();
-$('campReset').addEventListener('click', () => { tourSave = { stage: 0, done: false }; lsSet('vb-tour', tourSave); syncMode(); });
+$('campReset').addEventListener('click', () => { setProg(chapPick, { stage: 0, done: false }); syncMode(); });
 $('playBtn').addEventListener('click', () => { audio(); if (pick === 'online') openOnline(); else if (pick === 'tour') startTour(); else if (pick === 'colo') startColo(); else startMatch(pick); });
 
 const ovOnline = $('online'), netStatusEl = $('netStatus'), codeIn = $('codeIn');

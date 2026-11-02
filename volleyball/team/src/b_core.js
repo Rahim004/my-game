@@ -28,6 +28,11 @@ const KIT = {
   blk: { jersey: '#25232c', shade: '#141318', trim: '#f07a22', shorts: '#1b1a20', shortsTrim: '#f07a22', num: '#ffffff', numEdge: '#f07a22', sock: '#f4f4f2', sockBand: '#f07a22', pad: '#1f1e25', shoe: '#f4f4f2', sole: '#1b1a20' },
   lib: { jersey: '#f2c230', shade: '#c99a12', trim: '#1b1a20', shorts: '#1b1a20', shortsTrim: '#f2c230', num: '#1b1a20', numEdge: '#fff3c4', sock: '#f4f4f2', sockBand: '#f2c230', pad: '#1f1e25', shoe: '#f4f4f2', sole: '#f2c230' },   // либеро — другой цвет формы
   wht: { jersey: '#f1f4f6', shade: '#bfcad2', trim: '#138f97', shorts: '#138f97', shortsTrim: '#f1f4f6', num: '#0f6a71', numEdge: '#f1f4f6', sock: '#138f97', sockBand: '#f1f4f6', pad: '#e9eef1', shoe: '#23262d', sole: '#f1f4f6' },
+  // глава 2: соперники «Регионального» (см. docs/characters.md)
+  rvA: { jersey: '#c8233b', shade: '#8f1428', trim: '#d9dde2', shorts: '#3a3d45', shortsTrim: '#c8233b', num: '#ffffff', numEdge: '#3a3d45', sock: '#d9dde2', sockBand: '#c8233b', pad: '#2b2d34', shoe: '#d9dde2', sole: '#c8233b' },
+  rvB: { jersey: '#1f3f9a', shade: '#142a6b', trim: '#b9c4d6', shorts: '#142a6b', shortsTrim: '#b9c4d6', num: '#ffffff', numEdge: '#142a6b', sock: '#b9c4d6', sockBand: '#1f3f9a', pad: '#14193a', shoe: '#e8edf5', sole: '#1f3f9a' },
+  rvC: { jersey: '#7a4cc2', shade: '#573391', trim: '#7fe3c4', shorts: '#3b2a63', shortsTrim: '#7fe3c4', num: '#ffffff', numEdge: '#3b2a63', sock: '#e9e4f5', sockBand: '#7a4cc2', pad: '#2a2040', shoe: '#e9e4f5', sole: '#7fe3c4' },
+  rvD: { jersey: '#1f6b4a', shade: '#144a33', trim: '#c9d1c4', shorts: '#2e3a40', shortsTrim: '#c9d1c4', num: '#ffffff', numEdge: '#144a33', sock: '#c9d1c4', sockBand: '#1f6b4a', pad: '#1d262b', shoe: '#c9d1c4', sole: '#2e3a40' },
 };
 const LOOKS = {
   // style — что умеет d_chars.js сейчас; styleNew — целевой стиль из docs/characters.md (пока рисуется как style); acc — аксессуар

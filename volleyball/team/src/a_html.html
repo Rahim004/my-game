@@ -138,7 +138,8 @@ h1 .x { color: var(--gold); }
 .rules { margin: 0; padding: 12px 14px; background: var(--panel); border-radius: 12px; border-left: 3px solid var(--orange); color: var(--muted); font-size: 14px; line-height: 1.55; }
 .rules strong { color: var(--ink); font-weight: 500; }
 .play { border: 0; border-radius: 12px; padding: 15px; background: var(--orange); color: #1d0f04; font-family: var(--display); font-weight: 700; font-size: 22px; letter-spacing: .1em; box-shadow: 0 5px 0 var(--orange-deep); }
-.play:active { transform: translateY(3px); box-shadow: 0 2px 0 var(--orange-deep); }
+.play:disabled { background: var(--line); color: var(--muted); box-shadow: none; cursor: default; }
+.play:active:not(:disabled) { transform: translateY(3px); box-shadow: 0 2px 0 var(--orange-deep); }
 .ghost { border: 1px solid var(--line); background: var(--panel); border-radius: 12px; padding: 14px; font-family: var(--display); font-weight: 500; font-size: 16px; letter-spacing: .08em; }
 .result { text-align: center; display: flex; flex-direction: column; gap: 10px; align-items: center; }
 .result h2 { margin: 0; font-family: var(--display); font-weight: 700; font-size: 46px; letter-spacing: .03em; }
@@ -223,13 +224,21 @@ h1 .x { color: var(--gold); }
 .st-chip span { font-size: 12px; color: var(--muted); }
 .st-skip { flex: none; min-height: 56px; padding-inline: 18px; background: rgba(15, 17, 21, .78); }
 .st-box { box-sizing: border-box; display: flex; align-items: center; gap: 14px; width: 100%; max-width: 740px; margin: 0 auto; min-height: 92px; padding: 12px 18px 12px 14px; background: rgba(24, 28, 36, .95); border: 1px solid var(--line); border-left: 4px solid var(--orange); border-radius: 14px; position: relative; box-shadow: 0 8px 24px rgba(0, 0, 0, .5); }
-.st-av { flex: none; width: 62px; height: 62px; border-radius: 50%; display: grid; place-items: center; border: 3px solid var(--ink); font-family: var(--display); font-weight: 700; font-size: 26px; box-shadow: 0 4px 10px rgba(0, 0, 0, .4); }
+.st-av { flex: none; width: 84px; height: 84px; margin: -14px 0; border-radius: 12px; }
+.st-box.right { flex-direction: row-reverse; border-left: 1px solid var(--line); border-right: 4px solid var(--teal); }
+.st-box.right .st-who { background: var(--teal); color: #fff; }
+.st-box.right .st-body { text-align: right; }
+.st-box.right .st-next { right: auto; left: 14px; }
+.chaps { display: flex; gap: 6px; margin: 0 0 4px; flex-wrap: wrap; }
+.chap { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 14px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); font-family: var(--display); font-weight: 600; font-size: 14px; letter-spacing: .06em; cursor: pointer; touch-action: manipulation; }
+.chap[aria-pressed="true"] { border-color: var(--gold); color: var(--gold); }
+.chap.locked { color: var(--muted); }
 .st-body { flex: 1; min-width: 0; }
 .st-who { display: inline-block; margin-bottom: 4px; padding: 1px 10px; border-radius: 6px; background: var(--orange); color: #1d0f04; font-family: var(--display); font-weight: 600; font-size: 14px; letter-spacing: .08em; }
 .st-txt { margin: 0; font-size: 17px; line-height: 1.35; min-height: 2.7em; }
 .st-next { position: absolute; right: 14px; bottom: 10px; width: 0; height: 0; border-left: 7px solid transparent; border-right: 7px solid transparent; border-top: 9px solid var(--gold); animation: stb .8s ease-in-out infinite alternate; }
 @keyframes stb { to { transform: translateY(4px); } }
-@media (max-height: 520px) { .st-txt { font-size: 15px; } .st-av { width: 54px; height: 54px; font-size: 22px; } .st-box { min-height: 84px; padding-block: 10px; } .st-chip b { font-size: 19px; } }
+@media (max-height: 520px) { .st-txt { font-size: 15px; } .st-av { width: 72px; height: 72px; margin: -12px 0; } .st-box { min-height: 84px; padding-block: 10px; } .st-chip b { font-size: 19px; } }
 @media (prefers-reduced-motion: reduce) { .st-next { animation: none; } }
 
 /* online screen */
@@ -351,7 +360,7 @@ h1 .x { color: var(--gold); }
             </button>
             <button class="mode sm" data-mode="tour" aria-pressed="false">
               <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M9 5h14v7a7 7 0 0 1-14 0zM9 8H4c0 4 2 6 5 6.500M23 8h5c0 4-2 6-5 6.500M16 19v5M10 27h12"/></svg>
-              <span><b>ТУРНИР</b><small>история · 4 этапа</small></span>
+              <span><b>ТУРНИР</b><small>история · главы</small></span>
             </button>
             <button class="mode sm" data-mode="colo" aria-pressed="false">
               <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M3 9h26M3 27h26M5 9v18M27 9v18M11 27V17a5 5 0 0 1 10 0v10M5 9c2-3 4-4 6-4h10c2 0 4 1 6 4"/></svg>
@@ -379,7 +388,7 @@ h1 .x { color: var(--gold); }
           </div>
         </div>
         <div class="campinfo" id="campInfo" hidden>
-          <div><p class="label" id="campLbl">Турнир</p><div class="camptxt" id="campTxt"></div></div>
+          <div><p class="label" id="campLbl">Турнир</p><div class="chaps" id="chaps" hidden></div><div class="camptxt" id="campTxt"></div></div>
           <button class="ghost" id="campReset">ЗАНОВО</button>
         </div>
         <div class="playrow" id="playRow">
@@ -447,7 +456,7 @@ h1 .x { color: var(--gold); }
       <button class="ghost st-skip" id="stSkip">ПРОПУСТИТЬ</button>
     </div>
     <div class="st-box" id="stBox">
-      <div class="st-av" id="stAv"></div>
+      <canvas class="st-av" id="stAv" width="168" height="168" aria-hidden="true"></canvas>
       <div class="st-body"><div class="st-who" id="stWho"></div><p class="st-txt" id="stTxt"></p></div>
       <span class="st-next" aria-hidden="true"></span>
     </div>
