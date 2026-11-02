@@ -138,7 +138,7 @@ function endAgain() {
   if (a === 'tourNext') { camp.stage++; campMatch(true); }
   else if (a === 'tourRetry') campMatch(false);
   else if (a === 'tourAgain') { setProg(camp.ch, { stage: 0, done: false }); camp = { kind: 'tour', ch: camp.ch, stage: 0 }; campMatch(true); }
-  else if (a === 'chapNext') { const ch = camp.ch + 1; chapPick = ch; lsSet('vb-chap', ch); setProg(ch, { stage: 0, done: false }); camp = { kind: 'tour', ch, stage: 0 }; campMatch(true); }
+  else if (a === 'chapNext') { const ch = camp.ch + 1; chapPick = ch; lsSet('vb-chap', ch); const pg = getProg(ch), st0 = pg.done ? 0 : pg.stage; if (pg.done) setProg(ch, { stage: 0, done: false }); camp = { kind: 'tour', ch, stage: st0 }; campMatch(true); }   // начатая глава продолжается с сохранённого этапа
   else if (a === 'coloNext') campMatch(false);
   else if (a === 'coloAgain') { camp = { kind: 'colo', wins: 0 }; campMatch(false); }
 }
