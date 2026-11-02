@@ -3,7 +3,7 @@
 Результат: dist/volleyball.html (для публикации) и dist/test.html (с отладочным хуком для автотестов)."""
 import re, subprocess, sys, pathlib
 root = pathlib.Path(__file__).resolve().parent.parent
-parts = ['a_html.html', 'b_core.js', 'c_ai.js', 'd_chars.js', 'e_scene.js', 'g_net.js', 'f_ui.js']
+parts = ['a_html.html', 'b_core.js', 'c_ai.js', 'd_chars.js', 'e_scene.js', 'g_net.js', 'h_story.js', 'f_ui.js']
 src = '\n'.join((root / 'src' / p).read_text(encoding='utf-8') for p in parts)
 # mqtt.js встроен отдельным <script> перед основным кодом: window.mqtt доступен сразу, без CDN (в части стран они заблокированы)
 mq = (root / 'assets' / 'mqtt.min.js').read_text(encoding='utf-8').strip()
