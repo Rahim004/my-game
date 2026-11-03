@@ -245,9 +245,9 @@ $('tutBtn').addEventListener('click', startTutorial);
 const TOUCH_UI = (() => { try { return matchMedia('(pointer: coarse)').matches; } catch (e) { return false; } })();
 function tutText() {
   const act = TOUCH_UI ? 'ПРИЁМ' : '↓', hit = TOUCH_UI ? 'УДАР' : 'Пробел';
-  return [['1 / 3 · ПРИЁМ', 'Мяч летит к тебе. Когда он снижается — жми ' + act + '.'],
+  return [['1 / 3 · ПРИЁМ', 'Мяч снижается — жми ' + act + '. ' + act + ' + стрелка — скольжение.'],
     ['2 / 3 · ПАС', 'Отлично! Арис делает пас — следи за мячом.'],
-    ['3 / 3 · УДАР', 'Жми ' + (TOUCH_UI ? 'УДАР' : 'Пробел') + ' — прыжок. Мяч у руки — ' + hit + ' ещё раз!'],
+    ['3 / 3 · УДАР', 'Жми ' + (TOUCH_UI ? 'УДАР' : 'Пробел') + ' — прыжок. Мяч у руки — ' + hit + '! ' + act + ' в прыжке — скидка.'],
     ['ГОТОВО!', 'Ты умеешь принимать, пасовать и бить. Возвращаемся в меню.']][tut.step];
 }
 function drawTutorial(c) {
@@ -257,6 +257,21 @@ function drawTutorial(c) {
   c.textAlign = 'center'; c.textBaseline = 'middle';
   c.font = `700 ${11.5 * u}px Oswald, "Arial Narrow", sans-serif`; c.fillStyle = TONE.gold; c.fillText(t[0], cssW / 2, y + 10 * u);
   c.font = `500 ${11 * u}px Rubik, Arial, sans-serif`; c.fillStyle = tut.msg ? '#ffb27a' : '#ffffff'; c.fillText(tut.msg || t[1], cssW / 2, y + 26 * u, w - 20 * u);
+}
+function syncHud(c) {   // шкала «СИНХРОН» своей команды под табло (у local2 — обеих): 3 деления, полная — золотая и мигает
+  if (!TL || tut || !(state === 'serve' || state === 'play' || state === 'point')) return;
+  const u = clamp(cssW / 820, .7, 1.25), y = 58 * u, list = mode === 'local2' ? [TL, TR] : mode === 'guest' ? [TR] : mode === 'solo' || mode === 'host' ? [TL] : [];
+  c.textBaseline = 'middle'; c.font = `700 ${8.5 * u}px Oswald, "Arial Narrow", sans-serif`;
+  for (const T of list) {
+    const n = clamp(T.sync | 0, 0, 3), full = n >= 3, left = T === TL, w = 92 * u, x = left ? cssW / 2 - 24 * u - w : cssW / 2 + 24 * u;
+    c.fillStyle = 'rgba(13,15,20,.78)'; skew(c, x, y, w, 15 * u, 5 * u); c.fill();
+    c.textAlign = 'left'; c.fillStyle = full ? TONE.gold : '#d9dde3'; c.fillText('СИНХРОН', x + 8 * u, y + 7.8 * u);
+    const blink = full && (clock * 4 % 1) < .5;
+    for (let i = 0; i < 3; i++) {
+      c.fillStyle = i < n ? (blink ? '#ffffff' : TONE.gold) : 'rgba(255,255,255,.18)';
+      c.fillRect(x + 50 * u + i * 13 * u, y + 4.5 * u, 10 * u, 6 * u);
+    }
+  }
 }
 function timingFx(c) {   // кольцо тайминга у мяча + метка у игрока (поверх кадра, экранные пиксели)
   if (!TL || !ball || mode === 'guest') return;
@@ -467,7 +482,7 @@ function frame(now) {
     const am2 = state === 'serve' && TR && servingTeam === TR && mode === 'local2' ? 'serve' : 'recv';   // подача второго игрока (только local2: в онлайне вторая кнопка не нужна)
     if (am2 !== actMode2) { actMode2 = am2; setActLabel(actBtns2, am2 === 'serve'); }
     const overlay = !ovMenu.hidden || !ovPause.hidden || (!ovEnd.hidden && !champ) || !ovOnline.hidden || !$('story').hidden;
-    if (!overlay) { render(); staticDone = false; out.setTransform(dpr, 0, 0, dpr, 0, 0); timingFx(out); if (tut) drawTutorial(out); }
+    if (!overlay) { render(); staticDone = false; out.setTransform(dpr, 0, 0, dpr, 0, 0); timingFx(out); syncHud(out); if (tut) drawTutorial(out); }
     else if (!staticDone && TL) { render(); staticDone = true; }
     if (!ovMenu.hidden) drawPreview(dt);
     if (live && !overlay && raw < .5 && ++perfSkip > 20) {

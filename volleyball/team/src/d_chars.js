@@ -47,6 +47,17 @@ function poseCeleb(p) {
   return P_({ hipH: 20.2, lean: -.05, head: -.4, ffx: -2.1, nfx: 2.1, fu: 2.55 + w, fl: 3.55, nu: 2.45 - w, nl: 3.5 });
 }
 const poseSad = () => P_({ hipH: 16.2, lean: .88, head: .25, ffx: -2.7, nfx: 2.7, fu: -.08, fl: .05, nu: -.05, nl: .08 });
+/* скольжение (поля механики: p.slide — сек до конца, p.slideDir ±1, p.slideMax; p.rise — сек подъёма, p.riseMax).
+   Числа совпадают с кадрами tools/blender/heroes.py (SL_LUNGE, SL_FWD, SL_BACK, RISE). */
+const poseSlideLunge = () => P_({ hipX: 1, hipH: 12.6, lean: .95, head: -.85, ffx: -10, ffy: .3, nfx: 6.5, ffa: -.4, fu: 1.3, fl: 1.45, nu: 1.4, nl: 1.5 });
+const poseSlideFwd = () => P_({ hipX: -3, hipH: 3, lean: 1.45, head: -1.2, ffx: -23.5, ffy: 1.9, nfx: -23.2, nfy: 1.3, ffa: 3, nfa: 3, fu: 1.52, fl: 1.58, nu: 1.6, nl: 1.66 });
+const poseSlideBack = () => P_({ hipX: -2.5, hipH: 4.2, lean: -.75, head: .55, ffx: 17.5, ffy: 1.6, nfx: 17.5, nfy: .4, ffa: .2, nfa: .2, fu: 1.5, fl: 1.9, nu: 1.85, nl: 2.15 });
+const poseRiseUp = () => P_({ hipX: -1, hipH: 9.8, lean: .88, head: -.65, ffx: -7, nfx: 4.2, ffa: -.5, fu: 1.2, fl: 1.55, nu: .45, nl: .3 });
+const slidePhase = p => 1 - p.slide / Math.max(p.slideMax || .55, p.slide);
+const risePhase = p => 1 - p.rise / Math.max(p.riseMax || .35, p.rise);
+const slideFwd = p => !(p.slideDir > 0 || p.slideDir < 0) || p.slideDir === p.face;   /* рыбка к лицу/сетке, иначе подкат на бедре назад */
+function poseSlide(p) { return slideFwd(p) ? (slidePhase(p) < .2 ? poseSlideLunge() : poseSlideFwd()) : poseSlideBack(); }
+function poseRise(p) { return risePhase(p) < .35 ? (slideFwd(p) ? poseSlideFwd() : poseSlideBack()) : poseRiseUp(); }
 
 function targetPose(p) {
   const T = p.team;
@@ -60,6 +71,8 @@ function targetPose(p) {
     if (p.jumpServe) return p.ground ? poseRun(p) : poseSpikeCock();
     return p.toss > 0 ? poseServeToss() : poseServeHold();
   }
+  if (p.slide > 0) return poseSlide(p);
+  if (p.rise > 0) return poseRise(p);
   if (p.swing > 0) {
     const s = 1 - p.swing / (p.swingType === 'dive' ? .5 : SW);
     switch (p.swingType) {
@@ -98,8 +111,9 @@ function blendPose(p, dt) {
   const whip = p.swing > 0 && (p.swingType === 'spike' || p.swingType === 'serve');
   const fastArms = p.swing > 0 || !p.ground;
   const moving = Math.abs(p.vx) > 8 || !p.ground;
+  const sk = p.slide > 0 || p.rise > 0 ? 2 : 1;   /* скольжение — быстрый переход в позу */
   for (const k of PF) {
-    const rate = ARMK[k] ? (whip ? 60 : fastArms ? 32 : 15) : FEETK[k] ? (moving ? 30 : 14) : (whip ? 30 : 13);
+    const rate = sk * (ARMK[k] ? (whip ? 60 : fastArms ? 32 : 15) : FEETK[k] ? (moving ? 30 : 14) : (whip ? 30 : 13));
     p.pose[k] += (tgt[k] - p.pose[k]) * (1 - Math.exp(-rate * dt));
   }
 }
@@ -383,6 +397,7 @@ function moodOf(p) {
   if (state === 'point' || state === 'over') return p.preview || !p.team ? 'calm' : p.team === pointWinner ? 'joy' : 'sad';
   if (p.preview) return p.swing > 0 ? 'fierce' : 'focus';
   if (state === 'menu' || !p.team) return 'calm';
+  if (p.slide > 0) return 'fierce';
   const st = p.swing > 0 ? p.swingType : '';
   if (st === 'spike' || st === 'serve' || st === 'tip') return 'fierce';
   if (st || p.recvWin > 0 || p.blocking || !p.ground) return 'focus';
@@ -495,47 +510,67 @@ function drawHead(c, sk, p) {
   }
   c.restore();
 }
-/* ===== пилот спрайтов: №10 Рэй из рендера Blender (tools/blender/rey.py), только с ?sprites=1 ===== */
-const SPRITES = (() => { try { return /[?&]sprites=1(&|$)/.test(location.search); } catch (e) { return false; } })();
-/* кадры атласа 128×160 (7 в ряд), точка опоры (64,152), 2.6 px на единицу игры; pf — поза кадра (порядок PF),
-   hp — центр ладони ударной руки в единицах игры от точки опоры (y вверх). Таблицу печатает rey.py. */
-const REY = { cols: 7, w: 128, h: 160, u: 2.6, ox: 64, oy: 152, joy: 14,
-  air: [0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0],
-  pf: [[-.3, 16.8, .42, -.32, -3.3, 0, 3.1, 0, 0, 0, .38, 1.12, .45, 1.2], [.5, 18.4, .32, -.22, 5.6, 0, -5.6, 0, 0, 0, -.95, .4, .95, 2.3],
-    [.5, 19.2, .32, -.22, 0, 0, 0, 3.8, 0, -.45, 0, 1.35, 0, 1.35], [.5, 18.4, .32, -.22, -5.6, 0, 5.6, 0, 0, 0, .95, 2.3, -.95, .4],
-    [.5, 19.2, .32, -.22, 0, 3.8, 0, 0, -.45, 0, 0, 1.35, 0, 1.35], [0, 20.3, .08, -.2, -1.2, 3.6, 1.6, 2.2, -.9, -.9, 2.3, 2.6, 2.1, 2.45],
-    [0, 20.5, -.5, -.6, -4.9, 6, -2.9, 4.2, -1.05, -.95, 2.7, 2.9, 4.08, 5.5], [0, 20.5, -.01, -.285, -3.169, 4.144, -.731, 2.65, -.9, -.8, 1.672, 1.981, 2.82, 5.136],
-    [0, 20.5, .393, -.026, -1.909, 3.028, .889, 1.786, -.9, -.8, .826, 1.225, 1.783, 3.409], [0, 20.5, .62, .12, -1.2, 2.4, 1.8, 1.3, -.9, -.8, .35, .8, 1.2, 1.45],
-    [0, 20.4, .03, -.25, -.9, 1.6, .9, 1, -.95, -.95, 2.92, 2.95, 2.82, 2.86], [-.4, 14.96, .528, -.62, -4.4, 0, 4, 0, 0, 0, .93, .93, .98, .98],
-    [0, 18.6, -.02, -.7, -2.4, 0, 2.6, 0, 0, 0, 2.4, 3.5, 2.48, 3.55], [0, 19.6, -.22, -.62, -3, 0, 2.7, 0, 0, 0, 2.9, 3, 4.05, 5.4],
-    [0, 17.4, -.08, -.55, -3.7, 0, 3.5, 0, 0, 0, .95, 2.5, 3, 3.12]],
-  hp: [[15.81, 18.95], [16.89, 31.62], [12.41, 22.27], [1.41, 19.11], [12.41, 22.27], [12.84, 43.36], [-18.14, 31.04], [-4.95, 37.71], [10.48, 41.91],
-    [22.73, 27.54], [5.06, 48.41], [19.22, 17.51], [1.34, 44.98], [-15.13, 32.14], [.23, 45.89]] };
+/* ===== спрайты наших героев: рендеры Blender (tools/blender/heroes.py) — №10 Рэй, №9 Арис, №4 Дан.
+   Включены по умолчанию для своей формы (KIT); выключить — ?sprites=0. Нет картинки — векторная отрисовка ниже. ===== */
+const SPRITES = (() => { try { return !/[?&]sprites=0(&|$)/.test(location.search); } catch (e) { return true; } })();
+const SPR_U = 5.2;   /* px атласа на единицу игры (номинальный кадр 256×320, опора 128,304) */
+/* SPR_PF — поза кадра (порядок PF), общая для героев; SPR_HP — центр ладони ударной руки при росте 1 (× look.tall),
+   единицы игры от точки опоры, y вверх; HERO_SPR[n].f — [x, y, w, h, ox, oy]: обрезка в атласе и точка опоры в ней.
+   Таблицы печатает tools/blender/heroes.py --pack. */
+const SPR_PF = {
+  stand: [-.3, 16.8, .42, -.32, -3.3, 0, 3.1, 0, 0, 0, .38, 1.12, .45, 1.2], run0: [.5, 18.4, .32, -.22, 5.6, 0, -5.6, 0, 0, 0, -.95, .4, .95, 2.3],
+  run1: [.5, 19.2, .32, -.22, 0, 0, 0, 3.8, 0, -.45, 0, 1.35, 0, 1.35], run2: [.5, 18.4, .32, -.22, -5.6, 0, 5.6, 0, 0, 0, .95, 2.3, -.95, .4],
+  run3: [.5, 19.2, .32, -.22, 0, 3.8, 0, 0, -.45, 0, 0, 1.35, 0, 1.35], air: [0, 20.3, .08, -.2, -1.2, 3.6, 1.6, 2.2, -.9, -.9, 2.3, 2.6, 2.1, 2.45],
+  cock: [0, 20.5, -.5, -.6, -4.9, 6, -2.9, 4.2, -1.05, -.95, 2.7, 2.9, 4.08, 5.5], hit: [0, 20.5, .071, -.233, -2.915, 3.919, -.405, 2.476, -.9, -.8, 1.502, 1.829, 2.611, 4.916],
+  follow: [0, 20.5, .62, .12, -1.2, 2.4, 1.8, 1.3, -.9, -.8, .35, .8, 1.2, 1.45], block: [0, 20.4, .03, -.25, -.9, 1.6, .9, 1, -.95, -.95, 2.92, 2.95, 2.82, 2.86],
+  recv: [-.4, 14.96, .528, -.62, -4.4, 0, 4, 0, 0, 0, .93, .93, .98, .98], set: [0, 18.6, -.02, -.7, -2.4, 0, 2.6, 0, 0, 0, 2.4, 3.5, 2.48, 3.55],
+  toss: [0, 19.6, -.22, -.62, -3, 0, 2.7, 0, 0, 0, 2.9, 3, 4.05, 5.4],
+  set2: [0, 20.2, -.08, -.75, -2.3, 0, 2.5, 0, 0, 0, 2.95, 3, 3, 3.05], recv2: [-.6, 13.2, .68, -.6, -4.6, 0, 4.2, 0, 0, 0, .72, .72, .76, .76],
+};
+const SPR_HP = { stand: [15.06, 18.05], run0: [16.09, 30.11], run1: [11.82, 21.21], run2: [1.34, 18.2], run3: [11.82, 21.21], air: [12.23, 41.3], cock: [-17.28, 29.56], hit: [-2.82, 36.82], follow: [21.65, 26.23], block: [4.82, 46.1], recv: [18.3, 16.68], set: [1.28, 42.84], toss: [-14.41, 30.61], joy: [-.25, 42.53], sad: [9.79, 8.59], dive: [29.31, 14.02], slide0: [25.96, 17.36], slideF: [24.28, 4.9], slideB: [2.52, 18.8], rise: [14.02, 3.3], set2: [.75, 46.44], recv2: [17.53, 11.39] };
+const HERO_SPR = {
+  10: { img: 'hero10', kit: 'blk', n: 'stand run0 run1 run2 run3 air cock hit follow block recv set toss joy sad dive slide0 slideF slideB rise'.split(' '),
+    f: [[432, 282, 123, 215, 31, 203], [151, 282, 141, 226, 44, 214], [874, 0, 92, 228, 18, 219], [292, 282, 140, 226, 43, 214], [782, 0, 92, 231, 18, 219], [291, 0, 108, 257, 32, 249], [399, 0, 146, 254, 104, 257], [655, 0, 127, 234, 33, 228], [0, 282, 151, 227, 23, 215], [0, 0, 75, 282, 37, 268], [555, 282, 147, 201, 37, 189], [203, 0, 88, 259, 41, 247], [75, 0, 128, 274, 88, 262], [545, 0, 110, 254, 45, 242], [702, 282, 126, 180, 28, 168], [409, 509, 224, 143, 54, 127], [0, 509, 221, 169, 69, 157], [0, 678, 289, 74, 146, 71], [633, 509, 217, 130, 100, 120], [221, 509, 188, 159, 53, 145]] },
+  9: { img: 'hero9', kit: 'org', n: 'stand run0 run1 run2 run3 air cock hit follow block recv set toss joy sad dive slide0 slideF slideB rise set2'.split(' '),
+    f: [[409, 267, 116, 201, 29, 189], [0, 267, 134, 211, 42, 199], [874, 0, 87, 212, 17, 203], [134, 267, 132, 211, 41, 199], [787, 0, 87, 215, 17, 203], [334, 0, 94, 242, 22, 235], [428, 0, 138, 239, 98, 242], [667, 0, 120, 220, 31, 214], [266, 267, 143, 208, 22, 196], [0, 0, 59, 267, 23, 253], [525, 267, 139, 189, 35, 177], [255, 0, 79, 245, 35, 233], [134, 0, 121, 259, 83, 247], [566, 0, 101, 226, 25, 214], [664, 267, 119, 168, 26, 156], [178, 478, 212, 132, 51, 116], [783, 267, 208, 157, 65, 145], [586, 478, 273, 67, 138, 64], [390, 478, 196, 123, 85, 113], [0, 478, 178, 148, 50, 134], [59, 0, 75, 264, 41, 252]] },
+  4: { img: 'hero4', kit: 'lib', n: 'stand run0 run1 run2 run3 air cock hit follow block recv set toss joy sad dive slide0 slideF slideB rise recv2'.split(' '),
+    f: [[263, 263, 115, 196, 29, 185], [0, 263, 132, 207, 41, 196], [861, 0, 87, 209, 17, 200], [132, 263, 131, 207, 41, 196], [774, 0, 87, 211, 17, 200], [276, 0, 98, 240, 27, 233], [374, 0, 139, 237, 97, 240], [513, 0, 119, 215, 31, 209], [632, 0, 142, 214, 22, 202], [0, 0, 71, 263, 33, 250], [500, 263, 138, 185, 35, 173], [194, 0, 82, 241, 36, 230], [71, 0, 123, 256, 83, 245], [378, 263, 122, 188, 36, 176], [638, 263, 115, 173, 26, 162], [382, 470, 209, 130, 50, 114], [0, 470, 206, 154, 64, 142], [0, 624, 269, 68, 136, 63], [591, 470, 205, 119, 95, 109], [206, 470, 176, 145, 50, 131], [753, 263, 135, 170, 36, 158]] },
+};
+/* кадры-типы: «особые» выбираются по состоянию, остальные — ближайшие по позе среди земных/воздушных */
+const SPR_AIR = { air: 1, cock: 1, hit: 1, follow: 1, block: 1 };
+for (const k in HERO_SPR) {
+  const H = HERO_SPR[k]; H.ix = {}; H.near = [[], []];
+  H.n.forEach((nm, i) => { H.ix[nm] = i; if (SPR_PF[nm]) H.near[SPR_AIR[nm] ? 1 : 0].push(i); });
+}
 /* веса признаков позы при выборе ближайшего кадра (порядок PF) */
-const REY_W = [.05, .05, 2, .5, .03, .05, .03, .05, .3, .3, 1, 1, 1, 1];
-function reyFrame(p) {
-  const P = p.pose, air = p.ground === false ? 1 : 0;
-  if (air === 0 && !p.preview && p.team && (state === 'point' || state === 'over') && p.team === pointWinner) return REY.joy;
-  let best = 0, bd = 1e9;
-  for (let i = 0; i < REY.pf.length; i++) {
-    if (REY.air[i] !== air || i === REY.joy) continue;
-    const f = REY.pf[i]; let d = 0;
-    for (let j = 0; j < 14; j++) { const e = P[PF[j]] - f[j]; d += REY_W[j] * e * e; }
-    if (d < bd) { bd = d; best = i; }
+const SPR_W = [.05, .05, 2, .5, .03, .05, .03, .05, .3, .3, 1, 1, 1, 1];
+function heroFrame(p, H) {
+  const ix = H.ix;
+  if (p.slide > 0) return !slideFwd(p) ? ix.slideB : slidePhase(p) < .2 ? ix.slide0 : ix.slideF;
+  if (p.rise > 0) return risePhase(p) < .35 ? (slideFwd(p) ? ix.slideF : ix.slideB) : ix.rise;
+  const air = p.ground === false ? 1 : 0;
+  if (!air && !p.preview && p.team && (state === 'point' || state === 'over')) return p.team === pointWinner ? ix.joy : ix.sad;
+  if (p.swing > 0 && p.swingType === 'dive') return ix.dive;
+  const P = p.pose, L = H.near[air]; let best = L[0], bd = 1e9;
+  for (let q = 0; q < L.length; q++) {
+    const f = SPR_PF[H.n[L[q]]]; let d = 0;
+    for (let j = 0; j < 14; j++) { const e = P[PF[j]] - f[j]; d += SPR_W[j] * e * e; }
+    if (d < bd) { bd = d; best = L[q]; }
   }
   return best;
 }
 function drawPlayerAt(c, p, x, y, sl, mirror) {
-  const atl = SPRITES && p.num === 10 && p.kit === KIT.blk && p.pose ? img('rey_atlas') : null;
+  const H = SPRITES && p.pose ? HERO_SPR[p.num] : null;
+  const atl = H && p.kit === KIT[H.kit] ? img(H.img) : null;
   if (atl) {
     const lq = p.landT > 0 && p.ground ? Math.min(1, p.landT / .2) : 0, st = p.ground === false ? Math.abs(clamp((p.vh || 0) / JUMP_V, -1, 1)) : 0;
-    const sx = 1 + .09 * lq - .035 * st, sy = 1 - .08 * lq + .05 * st, fr = reyFrame(p), R = REY;
-    c.save(); c.translate(x, y); c.scale(p.face * sl * sx / R.u, sl * sy / R.u);
-    c.drawImage(atl, (fr % R.cols) * R.w, ((fr / R.cols) | 0) * R.h, R.w, R.h, -R.ox, -R.oy, R.w, R.h);
+    const sx = 1 + .09 * lq - .035 * st, sy = 1 - .08 * lq + .05 * st, fr = heroFrame(p, H), R = H.f[fr];
+    c.save(); c.translate(x, y); c.scale(p.face * sl * sx / SPR_U, sl * sy / SPR_U);
+    c.drawImage(atl, R[0], R[1], R[2], R[3], -R[4], -R[5], R[2], R[3]);
     c.restore();
     if (mirror) return;
     if (p.swing > 0 && (p.swingType === 'spike' || p.swingType === 'serve' || p.swingType === 'tip')) {
-      const h = R.hp[fr], hp = [x + p.face * sl * sx * h[0], y - sl * sy * h[1]];
+      const h = SPR_HP[H.n[fr]], k = p.look.tall, hp = [x + p.face * sl * sx * h[0] * k, y - sl * sy * h[1] * k];
       (p.handTrail = p.handTrail || []).unshift(hp); if (p.handTrail.length > 7) p.handTrail.length = 7;
     } else if (p.handTrail) p.handTrail.length = 0;
     return;

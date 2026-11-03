@@ -7,7 +7,7 @@ let onNetStatus = () => {};
 let onNetEnd = () => {};   // сессия закончилась сама (обрыв, «комната занята», разные версии): UI снимает блокировку кнопок
 function netStatus(text) { try { onNetStatus(text); } catch (e) {} }
 function netEnd() { try { onNetEnd(); } catch (e) {} }
-const PROTO = 3;   // версия сетевого протокола: хост и гость должны совпадать
+const PROTO = 4;   // версия сетевого протокола: хост и гость должны совпадать
 const NET_NOWEB = 'Онлайн-игра работает в версии на GitHub';
 const NET_VER = 'Версии игры разные — обновите страницу у обоих';
 const NET_ERR = { noweb: NET_NOWEB, net: 'Нет связи с сервером комнат. Проверьте интернет', conn: 'Не удалось соединиться. Попробуйте другую сеть или Wi-Fi', room: 'Комната не найдена. Проверьте код', mqscript: 'Не загрузилась библиотека связи. Проверьте интернет или VPN и обновите страницу', mqnet: 'Ни один сервер недоступен — попробуйте выключить/включить VPN', full: 'В комнате уже играют двое' };
@@ -460,12 +460,13 @@ function hostOnMsg(m) {
   }
   net.gn = { j: m.jn | 0, h: m.hn | 0, a: m.an | 0 };
 }
-const SWT = ['', 'receive', 'set', 'spike', 'tip', 'serve', 'dive'];
+const SWT = ['', 'receive', 'set', 'spike', 'tip', 'serve', 'dive', 'slide', 'rise'];   // 'slide'/'rise' (PROTO 4): в row[6] тогда p.slide / p.rise
 const idxOf = (T, p) => p ? T.players.indexOf(p) : -1;
 function buildSnap() {
   const pl = [];
   for (const T of [TL, TR]) for (const p of T.players) {
-    const row = [nq2(p.x), nq2(p.h), nq2(p.lane), nq2(p.vx), nq2(p.vh), p.ground ? 1 : 0, nq3(p.swing), Math.max(0, SWT.indexOf(p.swingType))];
+    const sw = p.slide > 0 ? [p.slide, 'slide'] : p.rise > 0 ? [p.rise, 'rise'] : [p.swing, p.swingType];
+    const row = [nq2(p.x), nq2(p.h), nq2(p.lane), nq2(p.vx), nq2(p.vh), p.ground ? 1 : 0, nq3(sw[0]), Math.max(0, SWT.indexOf(sw[1]))];
     for (const k of PF) row.push(nq3(p.pose ? p.pose[k] : 0));
     pl.push(row);
   }
@@ -482,6 +483,7 @@ function buildSnap() {
     fx: [nq3(flash), nq2(shake), nq3(punch), nq2(hype), nq3(netShake)],
     sl: speedLines ? [nq2(speedLines.wx), nq2(speedLines.wy), nq3(speedLines.t)] : null,
     ev: netEv.splice(0, netEv.length), rt: Math.round(net.rtt || 0),
+    sy: clamp(TR.sync | 0, 0, 3),   // шкала «СИНХРОН» команды гостя
   };
   return s;
 }
@@ -613,11 +615,17 @@ function validSnap(m) {   // true — снимок годится (строки 
     if (m.sl != null && (!isA(m.sl, 3) || !inR(m.sl[0], -2000, 3000) || !inR(m.sl[1], -2000, 3000) || !inR(m.sl[2], 0, 5))) return false;
     if (!Array.isArray(m.ev) || m.ev.length > 60 || !m.ev.every(validEv)) return false;
     if (!inR(m.rt, 0, 1e5)) m.rt = 0;
+    if (!isI(m.sy, 0, 3)) return false;
     return true;
   } catch (e) { return false; }
 }
 function guestPush(m) {
-  if (!validSnap(m)) { net.bad++; return; }
+  if (!validSnap(m)) {   // подряд ~3 с плохих снимков — данные несовместимы: выходим с понятной причиной, а не замираем молча
+    net.bad++;
+    if ((net.badRun = (net.badRun || 0) + 1) > 90) guestLost('Данные игры несовместимы — обновите страницу у обоих');
+    return;
+  }
+  net.badRun = 0;
   const buf = net.buf, lastS = buf[buf.length - 1];
   if (lastS && (m.n <= lastS.n || m.ts < lastS.ts)) return;   // порядок снимков должен расти
   const at = performance.now(), lat = at - m.ts;
@@ -649,7 +657,7 @@ function guestDiscrete(s) {   // то, что не интерполируетс�
   serveT = s.sT; timer = s.tm;
   TL.act = TL.players[s.ac[0]] || null; TR.act = TR.players[s.ac[1]] || null;
   active = TR.act; active2 = TL.act;   // у гостя «основной» игрок — свой (TR), маркер active2 — игрок хоста
-  TL.touches = s.tc[0]; TR.touches = s.tc[1];
+  TL.touches = s.tc[0]; TR.touches = s.tc[1]; TR.sync = s.sy;
   TL.roles = { hitter: TL.players[s.ro[0]], setter: TL.players[s.ro[1]] };
   TR.roles = { hitter: TR.players[s.ro[2]], setter: TR.players[s.ro[3]] };
   if (s.st !== state) {
@@ -695,6 +703,11 @@ function guestContinuous(a, b, al, rt) {
     p.x = L(ra[0], rb[0], kk); p.h = L(ra[1], rb[1], kk); p.lane = L(ra[2], rb[2], kk);
     p.vx = ra[3]; p.vh = ra[4]; p.ground = !!ra[5];
     p.swing = Math.max(0, ra[6] - ageA); p.swingType = SWT[ra[7]] || '';
+    const sT = p.swingType, wasRise = p.rise > 0;
+    p.slide = sT === 'slide' ? p.swing : 0; p.rise = sT === 'rise' ? p.swing : 0;
+    p.slideMax = SLIDE_DUR; if (p.rise > 0 && !wasRise) p.riseMax = p.rise;   // фазы поз в d_chars.js
+    if (p.slide > 0) p.slideDir = Math.sign(ra[3]) || p.slideDir || p.face;   // ra[3] — скорость игрока по x
+    if (sT === 'slide' || sT === 'rise') { p.swing = 0; p.swingType = ''; }
     if (!p.pose) p.pose = {};
     for (let j = 0; j < PF.length; j++) p.pose[PF[j]] = L(ra[8 + j], rb[8 + j], kk);
   }
