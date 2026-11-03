@@ -112,6 +112,7 @@ function showCampEnd(win) {
     else { title = 'КОНЕЦ СЕРИИ'; btn = 'НОВАЯ СЕРИЯ'; endAct = 'coloAgain'; }
     sub = 'Серия: ' + camp.wins + ' ' + pluralWins(camp.wins) + ' · Рекорд: ' + coloBest;
   }
+  sub += upAward(win, win && camp.kind === 'tour' ? 1 : 0);   // этап турнира — +1 ★ сверху
   T.textContent = title; T.className = win ? 'win' : '';
   $('endScore').textContent = sc; $('endSub').textContent = sub; $('againBtn').textContent = btn;
   show('end');
@@ -159,7 +160,39 @@ $('stSkip').addEventListener('click', e => { e.stopPropagation(); storyDone(); }
 
 /* ================= screens ================= */
 let pausedFrom = null;
-function show(id) { ['menu', 'pause', 'end', 'online', 'leave', 'story'].forEach(k => $(k).hidden = k !== id); }
+function show(id) { ['menu', 'pause', 'end', 'online', 'leave', 'story', 'ups'].forEach(k => $(k).hidden = k !== id); }
+
+/* ================= прокачка: экран и награда за матч ================= */
+function upAward(win, bonus = 0) {   // очки за матч против компьютера; возвращает строку для экрана итогов
+  const n = (win ? 3 : 1) + bonus; ups.pts += n; upSave(); syncUps();
+  return ' +' + n + ' ★ на прокачку.';
+}
+function syncUps() {
+  $('upPts').textContent = ups.pts ? '★ ' + ups.pts : ''; $('upPts2').textContent = ups.pts;
+  const L = $('upList'); L.textContent = '';
+  for (const n of [10, 9, 4]) {
+    const box = document.createElement('div'); box.className = 'up-hero';
+    const h = document.createElement('h3'); h.textContent = nameOf(n); const sm = document.createElement('small'); sm.textContent = '№' + n + ' · ' + HERO[n].role; h.append(sm); box.append(h);
+    for (const [k, title, hint] of UP_STATS) {
+      const lv = ups.h[n][k], cost = lv + 1, row = document.createElement('div'); row.className = 'up-st'; row.title = hint;
+      const b = document.createElement('b'); b.textContent = title;
+      const pips = document.createElement('div'); pips.className = 'up-pips';
+      for (let i = 0; i < UP_MAX; i++) { const p = document.createElement('i'); if (i < lv) p.className = 'on'; pips.append(p); }
+      const btn = document.createElement('button'); btn.type = 'button';
+      btn.textContent = lv >= UP_MAX ? 'МАКС' : '+ ' + cost + '★'; btn.disabled = lv >= UP_MAX || ups.pts < cost;
+      btn.addEventListener('click', () => { if (ups.h[n][k] >= UP_MAX || ups.pts < cost) return; ups.pts -= cost; ups.h[n][k]++; upSave(); sfx.sync(); syncUps(); });
+      row.append(b, btn, pips); box.append(row);
+    }
+    L.append(box);
+  }
+}
+syncUps();
+$('upBtn').addEventListener('click', () => { audio(); syncUps(); show('ups'); });
+$('upBack').addEventListener('click', () => show('menu'));
+function syncMus() { const t = music.on ? '♪ МУЗЫКА: ВКЛ' : '♪ МУЗЫКА: ВЫКЛ'; $('musBtn').textContent = t; $('musBtn2').textContent = t; }
+for (const id of ['musBtn', 'musBtn2']) $(id).addEventListener('click', () => { audio(); music.toggle(); syncMus(); });
+syncMus();
+document.addEventListener('pointerdown', () => audio(), { once: true });   // музыка меню — с первого касания (браузер не даёт звук без жеста)
 const isOnline = () => mode === 'host' || mode === 'guest';
 /* startMatch(m): m = 'solo' | 'local2' (без сети). Без аргумента (или с событием клика) — повтор текущего режима;
    онлайн: хост перезапускает матч для обоих, гость ждёт хоста. Онлайн-режимы запускаются через netHost/netJoin (g_net.js). */
@@ -179,7 +212,7 @@ function showEnd() {
   $('endTitle').textContent = mode === 'local2' ? 'ИГРОК ' + (TL.score > TR.score ? 1 : 2) + ' ПОБЕДИЛ' : win ? 'ПОБЕДА!' : 'ПОРАЖЕНИЕ';
   $('endTitle').className = win || mode === 'local2' ? 'win' : '';
   $('endScore').textContent = me.score + ' : ' + other(me).score;
-  $('endSub').textContent = mode === 'local2' ? 'Реванш?' : mode === 'solo' ? (win ? 'Рэй, Арис и Дан забирают матч.' : 'Гости оказались сильнее. Реванш?') : (win ? 'Победа над другом!' : 'Друг оказался сильнее. Реванш?');
+  $('endSub').textContent = mode === 'local2' ? 'Реванш?' : mode === 'solo' ? (win ? 'Рэй, Арис и Дан забирают матч.' : 'Гости оказались сильнее. Реванш?') + upAward(win) : (win ? 'Победа над другом!' : 'Друг оказался сильнее. Реванш?');
   show('end');
 }
 function pauseGame() { if (isOnline()) return; if (!['serve', 'play', 'point'].includes(state)) return; pausedFrom = state; state = 'paused'; show('pause'); }

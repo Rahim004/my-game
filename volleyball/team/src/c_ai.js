@@ -77,11 +77,11 @@ function pickActive(T) {   // каким игроком команды T упр�
 
 /* ================= simulation ================= */
 function stepPlayer(p, dir, jump, dt, slow) {
-  const sp = SPEED * p.team.D.speed * slow, sl = p.slide > 0, ri = p.rise > 0;
+  const sp = SPEED * p.team.D.speed * slow * (1 + .03 * upLv(p, 'spd')),sl = p.slide > 0, ri = p.rise > 0;
   if (sl) { p.vx = p.slideDir * SLIDE_V * Math.exp(-slideK() * (SLIDE_DUR - p.slide)); jump = false; }
   else if (ri) { p.vx = 0; jump = false; }   // лежит после скольжения: не бежит и не прыгает
   else if (p.ground) p.vx = dir * sp;
-  if (jump && p.ground && (state === 'play' || p.jumpServe)) { p.vh = JUMP_V; p.ground = false; if (p.team.human && p === p.team.act) sfx.jump(); }
+  if (jump && p.ground && (state === 'play' || p.jumpServe)) { p.vh = JUMP_V * (1 + .025 * upLv(p, 'jmp')); p.ground = false; if (p.team.human && p === p.team.act) sfx.jump(); }
   if (jump && p.ground && state === 'point' && p.team === pointWinner) { p.vh = 150; p.ground = false; }
   if (!p.ground) p.vh -= GP * dt;
   p.x += p.vx * dt; p.h += p.vh * dt;

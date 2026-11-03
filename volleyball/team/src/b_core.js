@@ -89,9 +89,24 @@ const nameOf = n => OPP_NAMES[n] || String(names[n] || '').trim().toUpperCase() 
 const labelOf = n => nameOf(n) ? `${nameOf(n)} · ${n}` : `№${n}`;
 window.claude?.hot?.snapshot?.(() => ({ diff, target: TARGET, names }));
 
+/* ================= прокачка героев: очки за матчи, 4 характеристики по 5 уровней =================
+   Действует только в режимах против компьютера (Один, Турнир, Колизей) и только на нашу команду:
+   онлайн и «вдвоём» играют на равных, сеть не затрагивается. */
+const UP_MAX = 5;
+const UP_STATS = [['pow', 'СИЛА УДАРА', '+12 к скорости удара и силовой подачи'], ['jmp', 'ПРЫЖОК', '+2,5% к высоте прыжка'],
+  ['spd', 'СКОРОСТЬ', '+3% к бегу'], ['dig', 'ПРИЁМ', '+3,5% к шансу достать сильный удар']];
+let ups = (() => {
+  const u = { pts: 0, h: {} };
+  try { const v = JSON.parse(localStorage.getItem('vb-up') || 'null'); if (v) { u.pts = Math.max(0, v.pts | 0); for (const n of [10, 9, 4]) u.h[n] = v.h && v.h[n] || {}; } } catch (e) {}
+  for (const n of [10, 9, 4]) { u.h[n] = u.h[n] || {}; for (const [k] of UP_STATS) u.h[n][k] = clamp(u.h[n][k] | 0, 0, UP_MAX); }
+  return u;
+})();
+const upSave = () => { try { localStorage.setItem('vb-up', JSON.stringify(ups)); } catch (e) {} };
+const upLv = (p, k) => typeof mode !== 'undefined' && mode === 'solo' && p && p.team === TL && ups.h[p.num] ? ups.h[p.num][k] : 0;
+
 /* ================= audio ================= */
 let ac = null;
-function audio() { try { ac = ac || new (window.AudioContext || window.webkitAudioContext)(); if (ac.state === 'suspended') ac.resume(); } catch (e) { ac = null; } }
+function audio() { try { ac = ac || new (window.AudioContext || window.webkitAudioContext)(); if (ac.state === 'suspended') ac.resume(); music.start(); } catch (e) { ac = null; } }
 function tone(freq, vol, dur, type = 'sine', end = .45) {
   if (!ac) return; const t = ac.currentTime, o = ac.createOscillator(), gg = ac.createGain();
   o.type = type; o.frequency.setValueAtTime(freq, t); o.frequency.exponentialRampToValueAtTime(freq * end, t + dur);
@@ -124,6 +139,59 @@ const sfx = {
   },
   crowd(v = .14) { noise(v, 1.8, 1100); },
 };
+/* ================= музыка: синтез в коде, без файлов. Меню — спокойная тема (ля минор), матч — бодрая (ре минор) ================= */
+const music = (() => {
+  let on = (() => { try { return localStorage.getItem('vb-music') !== '0'; } catch (e) { return true; } })();
+  let mg = null, nb = null, timer = 0, next = 0, step = 0, song = '';
+  const SONGS = {   // prog — аккорды по тактам (MIDI-ноты)
+    menu: { bpm: 92, prog: [[57, 60, 64], [53, 57, 60], [48, 52, 55], [55, 59, 62]] },
+    match: { bpm: 128, prog: [[50, 53, 57], [46, 50, 53], [48, 52, 55], [45, 49, 52]] },
+  };
+  const hz = m => 440 * Math.pow(2, (m - 69) / 12);
+  function note(m, t, d, v, type) {
+    const o = ac.createOscillator(), g = ac.createGain(); o.type = type; o.frequency.value = hz(m);
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(v, t + .015); g.gain.exponentialRampToValueAtTime(.0005, t + d);
+    o.connect(g).connect(mg); o.start(t); o.stop(t + d + .02);
+  }
+  function kick(t) {
+    const o = ac.createOscillator(), g = ac.createGain(); o.frequency.setValueAtTime(130, t); o.frequency.exponentialRampToValueAtTime(42, t + .12);
+    g.gain.setValueAtTime(.28, t); g.gain.exponentialRampToValueAtTime(.001, t + .16); o.connect(g).connect(mg); o.start(t); o.stop(t + .17);
+  }
+  function hiss(t, v, d, f, type) {
+    if (!nb) { const len = ac.sampleRate * .3 | 0; nb = ac.createBuffer(1, len, ac.sampleRate); const x = nb.getChannelData(0); for (let i = 0; i < len; i++) x[i] = Math.random() * 2 - 1; }
+    const s = ac.createBufferSource(), fl = ac.createBiquadFilter(), g = ac.createGain(); s.buffer = nb; fl.type = type; fl.frequency.value = f;
+    g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(.001, t + d); s.connect(fl).connect(g).connect(mg); s.start(t); s.stop(t + d);
+  }
+  function sched(S, st, t, sp) {
+    const s = st % 16, ch = S.prog[(st >> 4) % 4];
+    if (song === 'menu') {
+      if (s === 0) ch.forEach(m => note(m + 12, t, sp * 15, .035, 'triangle'));
+      if (s % 2 === 0) note(ch[(s >> 1) % 3] + 24, t, sp * 3, .025, 'sine');
+      if (s === 0 || s === 10) note(ch[0] - 12, t, sp * 6, .07, 'triangle');
+    } else {
+      if (s % 4 === 0) kick(t);
+      if (s % 4 === 2) hiss(t, .03, .05, 7000, 'highpass');
+      if (s === 4 || s === 12) hiss(t, .09, .14, 1800, 'bandpass');
+      if (s % 2 === 0) note(ch[0] - 12 + (s === 6 || s === 14 ? 12 : 0), t, sp * 1.8, .07, 'triangle');
+      note(ch[[0, 1, 2, 1][s % 4]] + 24, t, sp * .9, .014, 'square');
+      if (s === 0 && (st >> 4) % 2 === 0) ch.forEach(m => note(m + 12, t, sp * 30, .02, 'sawtooth'));
+    }
+  }
+  function tick() {
+    if (!ac || !mg) return;
+    const want = ['menu', 'story', 'over'].includes(state) ? 'menu' : 'match';
+    if (want !== song) { song = want; step = 0; next = Math.max(next, ac.currentTime + .05); }
+    if (!on) { next = ac.currentTime + .05; return; }
+    const S = SONGS[song], sp = 60 / S.bpm / 4;
+    if (next < ac.currentTime - .5) next = ac.currentTime + .05;   // вкладка спала — не догоняем пропущенное
+    while (next < ac.currentTime + .3) { sched(S, step, next, sp); next += sp; step = (step + 1) % 64; }
+  }
+  return {
+    start() { if (!ac) return; if (!mg) { mg = ac.createGain(); mg.gain.value = on ? .6 : 0; mg.connect(ac.destination); } if (!timer) timer = setInterval(() => { try { tick(); } catch (e) {} }, 90); },
+    toggle() { on = !on; try { localStorage.setItem('vb-music', on ? '1' : '0'); } catch (e) {} if (mg) mg.gain.setTargetAtTime(on ? .6 : 0, ac.currentTime, .05); return on; },
+    get on() { return on; },
+  };
+})();
 function buzz(ms) { try { navigator.vibrate && navigator.vibrate(ms); } catch (e) {} }
 
 /* ================= state ================= */
@@ -365,7 +433,7 @@ function spike(p, human, boost = false) {   // boost — усиленный уд
   }
   touch(p, 'spike');
   let ok = false, flight = .5;
-  for (let sp = T.D.power + (T.atk === 'pipe' ? 30 : 0) + (boost ? 40 : 0); sp >= 160; sp -= 20) {
+  for (let sp = T.D.power + 12 * upLv(p, 'pow') + (T.atk === 'pipe' ? 30 : 0) + (boost ? 40 : 0); sp >= 160; sp -= 20) {
     const vx = Math.sign(xt - ball.x) * sp, t = (xt - ball.x) / vx, vh = (0 - ball.h + .5 * G * t * t) / t;
     const tn = (NETX - ball.x) / vx, hn = ball.h + vh * tn - .5 * G * tn * tn;
     if (tn < 0 || hn > NET_H + BR + 2) { ball.vx = vx; ball.vh = vh; ok = true; flight = t; break; }
@@ -405,7 +473,7 @@ function powerServe(p) {
   const fault = Math.random() < (T === TL ? .1 : .15);
   const xt = NETX + o * (fault ? 224 + Math.random() * 22 : 70 + Math.random() * 140);
   let flight = 1;
-  for (let sp = T.D.power + 40; sp >= 160; sp -= 20) {
+  for (let sp = T.D.power + 12 * upLv(p, 'pow') + 40; sp >= 160; sp -= 20) {
     const vx = Math.sign(xt - ball.x) * sp, t = (xt - ball.x) / vx, vh = (0 - ball.h + .5 * G * t * t) / t;
     const tn = (NETX - ball.x) / vx, hn = ball.h + vh * tn - .5 * G * tn * tn;
     if (hn > NET_H + BR + 3) { ball.vx = vx; ball.vh = vh; flight = t; break; }
@@ -458,8 +526,9 @@ function checkContacts() {
       }
       if (T.touches === 0 && ball.vh < 0 && ball.h < 30 && ball.h > 4) {
         if (ball.spiked) {
-          if (dxp < 7 && T.digRoll < T.D.dig) { receive(p); return; }
-          if (dxp < 18 && !p.diveDone && T.digRoll >= T.D.dig) { p.diveDone = true; p.swing = .5; p.swingType = 'dive'; }
+          const dg = T.D.dig + .035 * upLv(p, 'dig');
+          if (dxp < 7 && T.digRoll < dg) { receive(p); return; }
+          if (dxp < 18 && !p.diveDone && T.digRoll >= dg) { p.diveDone = true; p.swing = .5; p.swingType = 'dive'; }
           continue;
         }
         if (dxp < 10) { receive(p); return; }
