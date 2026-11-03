@@ -33,7 +33,7 @@ const STUB = `(() => {
 })();`;
 (async () => {
   const dist = path.join(__dirname, '..', 'dist'), port = 8700 + Math.floor(Math.random() * 200);
-  const srv = spawn('python3', ['-m', 'http.server', String(port)], { cwd: dist, stdio: 'ignore' });
+  const srv = spawn(process.platform === 'win32' ? 'python' : 'python3',['-m', 'http.server', String(port)], { cwd: dist, stdio: 'ignore' });
   await new Promise(r => setTimeout(r, 800));
   const b = await chromium.launch();
   const errs = [], fails = [];

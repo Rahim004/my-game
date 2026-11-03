@@ -542,6 +542,17 @@ for (const k in HERO_SPR) {
   const H = HERO_SPR[k]; H.ix = {}; H.near = [[], []];
   H.n.forEach((nm, i) => { H.ix[nm] = i; if (SPR_PF[nm]) H.near[SPR_AIR[nm] ? 1 : 0].push(i); });
 }
+/* нарисованные кадры SpriteCook (пилот №10, assets/img/hero10sc.png): тот же масштаб SPR_U и опора у ступней.
+   map — Blender-кадр → кадр SpriteCook; позы без своего кадра (скольжение, нырок, подъём, грусть) берутся из Blender-атласа.
+   f — [x, y, w, h, ox, oy]; hp — ладонь ударной руки при росте 1 (как SPR_HP). */
+const SC_SPR = {
+  10: { img: 'hero10sc',
+    f: { stand: [0, 0, 140, 215, 70, 214], run: [142, 0, 195, 219, 110, 218], recv: [339, 0, 136, 185, 68, 184], set: [477, 0, 105, 232, 57, 231],
+      air: [584, 0, 120, 216, 57, 215], hit: [706, 0, 151, 215, 62, 214], block: [859, 0, 92, 240, 47, 239], joy: [0, 242, 181, 222, 94, 221] },
+    map: { stand: 'stand', run0: 'run', run1: 'run', run2: 'run', run3: 'run', air: 'air', cock: 'air', hit: 'hit', follow: 'hit', block: 'block',
+      recv: 'recv', recv2: 'recv', set: 'set', set2: 'set', toss: 'set', joy: 'joy' },
+    hp: { air: [8, 39], hit: [15.93, 39.19] } },
+};
 /* веса признаков позы при выборе ближайшего кадра (порядок PF) */
 const SPR_W = [.05, .05, 2, .5, .03, .05, .03, .05, .3, .3, 1, 1, 1, 1];
 function heroFrame(p, H) {
@@ -564,13 +575,15 @@ function drawPlayerAt(c, p, x, y, sl, mirror) {
   const atl = H && p.kit === KIT[H.kit] ? img(H.img) : null;
   if (atl) {
     const lq = p.landT > 0 && p.ground ? Math.min(1, p.landT / .2) : 0, st = p.ground === false ? Math.abs(clamp((p.vh || 0) / JUMP_V, -1, 1)) : 0;
-    const sx = 1 + .09 * lq - .035 * st, sy = 1 - .08 * lq + .05 * st, fr = heroFrame(p, H), R = H.f[fr];
+    const sx = 1 + .09 * lq - .035 * st, sy = 1 - .08 * lq + .05 * st, fr = heroFrame(p, H), nm = H.n[fr];
+    const S = SC_SPR[p.num], sn = S && S.map[nm], sat = sn ? img(S.img) : null;
+    const R = sat ? S.f[sn] : H.f[fr];
     c.save(); c.translate(x, y); c.scale(p.face * sl * sx / SPR_U, sl * sy / SPR_U);
-    c.drawImage(atl, R[0], R[1], R[2], R[3], -R[4], -R[5], R[2], R[3]);
+    c.drawImage(sat || atl, R[0], R[1], R[2], R[3], -R[4], -R[5], R[2], R[3]);
     c.restore();
     if (mirror) return;
     if (p.swing > 0 && (p.swingType === 'spike' || p.swingType === 'serve' || p.swingType === 'tip')) {
-      const h = SPR_HP[H.n[fr]], k = p.look.tall, hp = [x + p.face * sl * sx * h[0] * k, y - sl * sy * h[1] * k];
+      const h = (sat && S.hp[sn]) || SPR_HP[nm], k = p.look.tall, hp = [x + p.face * sl * sx * h[0] * k, y - sl * sy * h[1] * k];
       (p.handTrail = p.handTrail || []).unshift(hp); if (p.handTrail.length > 7) p.handTrail.length = 7;
     } else if (p.handTrail) p.handTrail.length = 0;
     return;
