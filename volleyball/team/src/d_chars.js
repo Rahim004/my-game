@@ -545,14 +545,37 @@ for (const k in HERO_SPR) {
 /* нарисованные кадры SpriteCook (пилот №10, assets/img/hero10sc.png): тот же масштаб SPR_U и опора у ступней.
    map — Blender-кадр → кадр SpriteCook; позы без своего кадра (скольжение, нырок, подъём, грусть) берутся из Blender-атласа.
    f — [x, y, w, h, ox, oy]; hp — ладонь ударной руки при росте 1 (как SPR_HP). */
+const SC_RUN = { stand: 'stand', run0: 'run', run1: 'run', run2: 'run', run3: 'run', recv: 'recv', recv2: 'recv', set: 'set', set2: 'set', toss: 'set', joy: 'joy' };
+const SC_ATK = Object.assign({ air: 'air', cock: 'air', hit: 'hit', follow: 'hit', block: 'block' }, SC_RUN);   /* лист с блоком (№10, №9) */
+const SC_OPP = Object.assign({ air: 'air', cock: 'air', block: 'air', hit: 'hit', follow: 'hit2', sad: 'stand' }, SC_RUN);   /* соперники: 2 кадра удара, без блока */
+const scFrames = (names, rects) => { const f = {}; names.split(' ').forEach((k, i) => f[k] = rects[i]); return f; };
 const SC_SPR = {
-  10: { img: 'hero10sc',
-    f: { stand: [0, 0, 140, 215, 70, 214], run: [142, 0, 195, 219, 110, 218], recv: [339, 0, 136, 185, 68, 184], set: [477, 0, 105, 232, 57, 231],
-      air: [584, 0, 120, 216, 57, 215], hit: [706, 0, 151, 215, 62, 214], block: [859, 0, 92, 240, 47, 239], joy: [0, 242, 181, 222, 94, 221] },
-    map: { stand: 'stand', run0: 'run', run1: 'run', run2: 'run', run3: 'run', air: 'air', cock: 'air', hit: 'hit', follow: 'hit', block: 'block',
-      recv: 'recv', recv2: 'recv', set: 'set', set2: 'set', toss: 'set', joy: 'joy' },
-    hp: { air: [8, 39], hit: [15.93, 39.19] } },
+  10: { img: 'hero10sc', kit: 'blk', map: SC_ATK, hp: { air: [8, 39], hit: [15.93, 39.19] },
+    f: scFrames('stand run recv set air hit block joy', [[0, 0, 140, 215, 70, 214], [142, 0, 195, 219, 110, 218], [339, 0, 136, 185, 68, 184], [477, 0, 105, 232, 57, 231],
+      [584, 0, 120, 216, 57, 215], [706, 0, 151, 215, 62, 214], [859, 0, 92, 240, 47, 239], [0, 242, 181, 222, 94, 221]]) },
+  9: { img: 'hero9sc', kit: 'org', map: SC_ATK, hp: { hit: [16.71, 39.63] },
+    f: scFrames('stand run recv set air hit block joy', [[0, 0, 69, 217, 33, 216], [71, 0, 182, 206, 102, 205], [255, 0, 127, 175, 64, 174], [384, 0, 103, 215, 55, 214],
+      [489, 0, 101, 205, 54, 204], [592, 0, 145, 207, 58, 206], [739, 0, 89, 238, 45, 237], [830, 0, 169, 207, 88, 206]]) },
+  4: { img: 'hero4sc', kit: 'lib', hp: {},   /* либеро: без атаки, зато нырок и скольжение */
+    map: Object.assign({ dive: 'dive', slide0: 'dive', slideF: 'slide', rise: 'rise' }, SC_RUN),
+    f: scFrames('stand run recv set dive slide rise joy', [[0, 0, 150, 203, 77, 202], [152, 0, 181, 204, 99, 203], [335, 0, 138, 167, 71, 166], [475, 0, 108, 213, 57, 212],
+      [585, 0, 245, 141, 111, 140], [0, 215, 257, 138, 139, 137], [259, 215, 108, 224, 49, 223], [369, 215, 168, 217, 86, 216]]) },
+  2: { img: 'hero2sc', kit: 'wht', map: SC_OPP, hp: { hit: [16.15, 44.27], hit2: [19.41, 40.28] },
+    f: scFrames('stand run recv set air hit hit2 joy', [[0, 0, 143, 217, 71, 216], [145, 0, 200, 221, 111, 220], [347, 0, 138, 185, 69, 184], [487, 0, 111, 236, 58, 235],
+      [600, 0, 122, 256, 61, 255], [724, 0, 162, 249, 71, 248], [0, 258, 186, 229, 78, 228], [188, 258, 192, 186, 101, 185]]) },
+  5: { img: 'hero5sc', kit: 'wht', map: SC_OPP, hp: { hit: [16.23, 42.87], hit2: [19.03, 39.26] },
+    f: scFrames('stand run recv set air hit hit2 joy', [[0, 0, 127, 198, 64, 197], [129, 0, 176, 200, 99, 199], [307, 0, 122, 170, 61, 169], [431, 0, 97, 208, 51, 207],
+      [530, 0, 108, 226, 54, 225], [640, 0, 143, 219, 60, 218], [785, 0, 165, 202, 69, 201], [0, 228, 169, 174, 89, 173]]) },
+  8: { img: 'hero8sc', kit: 'wht', map: SC_OPP, hp: { hit: [15.84, 42.42], hit2: [18.85, 38.65] },
+    f: scFrames('stand run recv set air hit hit2 joy', [[0, 0, 132, 211, 67, 210], [134, 0, 185, 213, 106, 212], [321, 0, 128, 180, 65, 179], [451, 0, 102, 218, 54, 217],
+      [555, 0, 112, 236, 56, 235], [669, 0, 149, 230, 63, 229], [820, 0, 172, 214, 71, 213], [0, 238, 177, 184, 94, 183]]) },
 };
+/* для героев без Blender-атласа (соперники) — своя таблица выбора кадра из имён map */
+for (const k in SC_SPR) {
+  const S = SC_SPR[k], n = Object.keys(S.map), H = { n, ix: {}, near: [[], []] };
+  n.forEach((nm, i) => { H.ix[nm] = i; if (SPR_PF[nm]) H.near[SPR_AIR[nm] ? 1 : 0].push(i); });
+  S.H = H;
+}
 /* веса признаков позы при выборе ближайшего кадра (порядок PF) */
 const SPR_W = [.05, .05, 2, .5, .03, .05, .03, .05, .3, .3, 1, 1, 1, 1];
 function heroFrame(p, H) {
@@ -571,12 +594,13 @@ function heroFrame(p, H) {
   return best;
 }
 function drawPlayerAt(c, p, x, y, sl, mirror) {
-  const H = SPRITES && p.pose ? HERO_SPR[p.num] : null;
-  const atl = H && p.kit === KIT[H.kit] ? img(H.img) : null;
-  if (atl) {
+  const HB = SPRITES && p.pose ? HERO_SPR[p.num] : null, atl = HB && p.kit === KIT[HB.kit] ? img(HB.img) : null;
+  const S0 = SPRITES && p.pose ? SC_SPR[p.num] : null, S = S0 && p.kit === KIT[S0.kit] && img(S0.img) ? S0 : null;
+  const H = atl ? HB : S ? S.H : null, fr = H ? heroFrame(p, H) : -1, nm = H && H.n[fr];
+  const sn = S && nm && S.map[nm], sat = sn ? img(S.img) : null;
+  if (sat || (atl && nm)) {
     const lq = p.landT > 0 && p.ground ? Math.min(1, p.landT / .2) : 0, st = p.ground === false ? Math.abs(clamp((p.vh || 0) / JUMP_V, -1, 1)) : 0;
-    const sx = 1 + .09 * lq - .035 * st, sy = 1 - .08 * lq + .05 * st, fr = heroFrame(p, H), nm = H.n[fr];
-    const S = SC_SPR[p.num], sn = S && S.map[nm], sat = sn ? img(S.img) : null;
+    const sx = 1 + .09 * lq - .035 * st, sy = 1 - .08 * lq + .05 * st;
     const R = sat ? S.f[sn] : H.f[fr];
     c.save(); c.translate(x, y); c.scale(p.face * sl * sx / SPR_U, sl * sy / SPR_U);
     c.drawImage(sat || atl, R[0], R[1], R[2], R[3], -R[4], -R[5], R[2], R[3]);
