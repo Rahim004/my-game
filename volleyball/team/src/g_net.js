@@ -345,6 +345,82 @@ async function mqJoin(code, gen) {   // → { tr } | { err, up, n }
   });
 }
 
+/* ---------- друзья: почтовый ящик и статус «в сети» (через те же MQTT-брокеры) ----------
+   Ящик игрока — топик vb4x10/u/<код>, присутствие — vb4x10/p/<код>. Лёгкие подключения живут только в меню (не во время матча). */
+const PR = { want: true, cs: [], me: '', ids: new Set(), seen: {}, lastInv: {}, hbAt: 0, since: 0, busy: false, tryAt: -9e9 };
+const FR_CODE = /^[A-Z2-9]{6}$/, FR_ROOM = /^[A-Z]{5}$/;
+function frProfile() {   // → { me, nick, friends: Set } | null
+  try {
+    if (typeof getProfile !== 'function') return null;
+    const p = getProfile(); if (!p || !FR_CODE.test(p.code)) return null;
+    const fr = new Set(); for (const f of (p.friends || [])) if (f && FR_CODE.test(f.code) && f.code !== p.code) fr.add(f.code);
+    return { me: p.code, nick: String(p.nick || '').slice(0, 14), friends: fr };
+  } catch (e) { return null; }
+}
+function friendOnline(code) {   // true / false / null (неизвестно: подключений нет или ещё не слушали)
+  const p = frProfile(); if (!p || !p.friends.has(code) || !PR.cs.length) return null;
+  const t = PR.seen[code], now = performance.now();
+  if (t && now - t < 45000) return true;
+  return now - PR.since < 25000 ? null : false;
+}
+function frPublish(topic, o) { for (const c of PR.cs) { try { c.publish(topic, JSON.stringify(o), { qos: 0 }); } catch (e) {} } }
+function frMsg(topic, buf, me) {
+  let m; try { m = JSON.parse(typeof buf === 'string' ? buf : new TextDecoder().decode(buf)); } catch (e) { return; }
+  const p = frProfile(); if (!m || typeof m !== 'object' || !p || p.me !== me || typeof m.from !== 'string' || !FR_CODE.test(m.from) || !p.friends.has(m.from)) return;
+  if (topic === 'vb4x10/p/' + m.from) { if (m.t === 'here') PR.seen[m.from] = performance.now(); return; }
+  if (topic !== 'vb4x10/u/' + me || m.t !== 'inv' || typeof m.room !== 'string' || !FR_ROOM.test(m.room)) return;
+  if (typeof m.id !== 'string' || m.id.length > 40 || PR.ids.has(m.id)) return;
+  PR.ids.add(m.id); if (PR.ids.size > 200) PR.ids.delete(PR.ids.values().next().value);
+  const now = performance.now(); if (PR.lastInv[m.from] && now - PR.lastInv[m.from] < 5000) return;
+  PR.lastInv[m.from] = now;
+  try { if (typeof onFriendInvite === 'function') onFriendInvite({ from: m.from, name: typeof m.name === 'string' ? m.name.slice(0, 14) : '', room: m.room }); } catch (e) {}
+}
+function frSubscribe() {
+  const p = frProfile(); if (!p) return;
+  const topics = ['vb4x10/u/' + p.me, ...[...p.friends].map(c => 'vb4x10/p/' + c)];
+  for (const c of PR.cs) for (const t of topics) { try { c.subscribe(t, { qos: 0 }); } catch (e) {} }
+}
+function frHere() { const p = frProfile(); if (p && PR.cs.length) frPublish('vb4x10/p/' + p.me, { t: 'here', from: p.me, ts: Date.now() }); PR.hbAt = performance.now(); }
+async function frConnect() {
+  if (PR.busy || PR.cs.length || performance.now() - PR.tryAt < 8000) return; PR.busy = true; PR.tryAt = performance.now();
+  try {
+    if (await loadMQTT() !== 'ok') return;
+    const mine = []; PR.since = performance.now(); PR.cs = mine;
+    MQ_BROKERS.forEach(br => mqConnect(br).then(c => {
+      if (!c) return;
+      if (PR.cs !== mine) { try { c.end(true); } catch (e) {} return; }   // пока подключались, закрыли
+      mine.push(c);
+      c.on('message', (t, b) => { const p = frProfile(); if (p) frMsg(t, b, p.me); });
+      c.on('connect', () => frSubscribe());
+      frSubscribe(); frHere();
+    }));
+  } catch (e) {} finally { PR.busy = false; }
+}
+function frClose() { const cs = PR.cs; PR.cs = []; PR.tryAt = -9e9; PR.seen = {}; for (const c of cs) { try { c.end(true); } catch (e) {} } }
+function frTick() {
+  try {
+    const p = frProfile(), menu = typeof state !== 'undefined' && state === 'menu' && !(net && net.connected);
+    if (!PR.want || !p || !p.friends.size || !menu) { if (PR.cs.length) frClose(); return; }
+    if (!PR.cs.length) frConnect();
+    else { frSubscribe(); if (performance.now() - PR.hbAt >= 20000) frHere(); }
+  } catch (e) {}
+}
+function presenceStart() { PR.want = true; frTick(); }
+function presenceStop() { PR.want = false; frClose(); }
+async function netInvite(friendCode) {   // создать комнату и позвать друга → код комнаты | null
+  const p = frProfile(); if (!p || !p.friends.has(friendCode)) return null;
+  const room = await netHost('auto'); if (!room) return null;
+  const msg = { t: 'inv', from: p.me, name: p.nick, room, v: PROTO, id: rid() + rid() };
+  const send = async () => {
+    if (!PR.cs.length) { const w = PR.want; PR.want = true; await frConnect(); PR.want = w; for (let i = 0; i < 30 && !PR.cs.length; i++) await new Promise(r => setTimeout(r, 200)); }
+    frPublish('vb4x10/u/' + friendCode, msg);
+  };
+  await send();
+  [2500, 7000].forEach(ms => setTimeout(() => { if (net && !net.connected && net.code === room) frPublish('vb4x10/u/' + friendCode, msg); }, ms));   // повтор: получатель отсекает дубликаты по id
+  return room;
+}
+setInterval(frTick, 2000);
+
 /* ---------- сессия: общее ---------- */
 function netBeat() {
   if (!net) return;
