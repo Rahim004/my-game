@@ -197,7 +197,7 @@ $('stSkip').addEventListener('click', e => { e.stopPropagation(); storyDone(); }
 
 /* ================= screens ================= */
 let pausedFrom = null;
-function show(id) { ['menu', 'pause', 'end', 'online', 'leave', 'story'].forEach(k => $(k).hidden = k !== id); }
+function show(id) { ['menu', 'pause', 'end', 'online', 'leave', 'story', 'prof'].forEach(k => $(k).hidden = k !== id); }
 const isOnline = () => mode === 'host' || mode === 'guest';
 /* startMatch(m): m = 'solo' | 'local2' (без сети). Без аргумента (или с событием клика) — повтор текущего режима;
    онлайн: хост перезапускает матч для обоих, гость ждёт хоста. Онлайн-режимы запускаются через netHost/netJoin (g_net.js). */
@@ -211,7 +211,7 @@ function startMatch(m) {
   mode = m; audio(); newMatch(); show(null); updateCamera(0, true);
 }
 function showEnd() {
-  const me = myTeam(), win = me.score > other(me).score; state = 'over';
+  const me = myTeam(), win = me.score > other(me).score; if (state !== 'over') recStat(win); state = 'over';
   if (camp && mode === 'solo') { showCampEnd(win); return; }
   champ = false; endAct = ''; clearInterval(champTimer); $('end').classList.remove('lite'); $('againBtn').textContent = 'ЕЩЁ'; $('menuBtn').textContent = 'В МЕНЮ';
   $('endTitle').textContent = mode === 'local2' ? 'ИГРОК ' + (TL.score > TR.score ? 1 : 2) + ' ПОБЕДИЛ' : win ? 'ПОБЕДА!' : 'ПОРАЖЕНИЕ';
@@ -306,7 +306,7 @@ function resetOnline() {
   $('copyBtn').textContent = 'СКОПИРОВАТЬ ССЫЛКУ';
 }
 function openOnline(code) {
-  resetOnline(); pick = 'online'; syncMode();
+  resetOnline(); pick = 'online'; syncMode(); profLobby();
   if (code) codeIn.value = fixCode(code);
   show('online');
 }
@@ -359,6 +359,145 @@ function checkInvite() { const c = roomFromHash(); if (c && state === 'menu' && 
 addEventListener('hashchange', checkInvite);
 checkInvite();
 
+/* ================= профиль и друзья (всё в localStorage, без сервера) ================= */
+const FC_SET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';   // без 0/O/1/I
+const AV_COLORS = ['#f07a22', '#f2c230', '#138f97', '#4da3ff', '#ff5436'];
+const AV_HEROES = [[10, 'Рэй'], [9, 'Арис'], [4, 'Дан']];
+const newFC = () => { let c = ''; try { const a = new Uint8Array(6); crypto.getRandomValues(a); for (const v of a) c += FC_SET[v % FC_SET.length]; } catch (e) { for (let i = 0; i < 6; i++) c += FC_SET[Math.floor(Math.random() * FC_SET.length)]; } return c; };
+const normFC = v => String(v || '').toLowerCase().replace(/[а-яё]/g, ch => RU2LAT[ch] || '').toUpperCase().split('').filter(ch => FC_SET.includes(ch)).join('').slice(0, 6);
+const cleanNick = v => String(v || '').replace(/[\u0000-\u001f<>]/g, '').trim().slice(0, 14);
+const P = (() => {
+  const v = lsGet('vb-profile') || {}, st = v.st || {};
+  const code = typeof v.code === 'string' && v.code.length === 6 && normFC(v.code) === v.code ? v.code : newFC();
+  const n = x => Math.max(0, Math.floor(+x || 0));
+  const o = {
+    code, nick: cleanNick(v.nick) || 'Игрок-' + code.slice(0, 4),
+    hero: AV_HEROES.some(h => h[0] === v.hero) ? v.hero : 10, color: AV_COLORS.includes(v.color) ? v.color : AV_COLORS[0],
+    friends: (Array.isArray(v.friends) ? v.friends : []).filter(f => f && normFC(f.code) === f.code && f.code.length === 6).slice(0, 40).map(f => ({ code: f.code, name: cleanNick(f.name) || 'Друг' })),
+    st: { m: n(st.m), w: n(st.w), om: n(st.om), ow: n(st.ow) } };
+  lsSet('vb-profile', o); return o;
+})();
+const saveProf = () => lsSet('vb-profile', P);
+function getProfile() { return { nick: P.nick, code: P.code, avatar: { hero: P.hero, color: P.color }, friends: P.friends.map(f => ({ code: f.code, name: f.name })) }; }
+function recStat(win) {   // конец матча: против компьютера (в т.ч. турнир и колизей) или онлайн; «вдвоём» не считаем
+  try {
+    if (mode === 'solo') { P.st.m++; if (win) P.st.w++; } else if (isOnline()) { P.st.om++; if (win) P.st.ow++; } else return;
+    saveProf(); if (!$('prof').hidden) renderProf();
+  } catch (e) {}
+}
+let presence = null;   // { КОД: true } — выставляет сетевой код через setFriendPresence(); пока null, статус не показываем
+function setFriendPresence(map) { presence = map && typeof map === 'object' ? map : null; if (!$('prof').hidden) renderFriends(); }
+function drawAv(cv, hero, color) {
+  const W = cv.width, c = cv.getContext('2d'); c.clearRect(0, 0, W, W); cv.style.borderColor = color;
+  try { if (typeof drawPortrait === 'function') { drawPortrait(c, hero, 'joy', W / 2, W * .54, W * 1.12); return; } } catch (e) { c.clearRect(0, 0, W, W); }
+  c.fillStyle = '#fff'; c.font = '700 ' + Math.round(W * .5) + 'px Oswald, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(hero, W / 2, W / 2);
+}
+function renderChip() { drawAv($('chipAv'), P.hero, P.color); $('chipNick').textContent = P.nick; }
+function profLobby() { $('onlMe').textContent = 'Ты: ' + P.nick + ' · код ' + P.code; }
+function chapsDone() { let n = 0; for (let i = 0; i < CHS.length; i++) { try { if (getProg(i).done) n++; } catch (e) {} } return n; }
+function renderProf() {
+  const hr = $('heroRow'), cr = $('colRow');
+  if (!hr.children.length) {
+    AV_HEROES.forEach(([n, nm]) => { const b = document.createElement('button'); b.className = 'hbtn'; b.dataset.hero = n; b.setAttribute('aria-label', nm); b.innerHTML = '<canvas class="av" width="100" height="100"></canvas>'; b.addEventListener('click', () => { P.hero = n; saveProf(); renderProf(); }); hr.appendChild(b); });
+    AV_COLORS.forEach(col => { const b = document.createElement('button'); b.className = 'sw'; b.dataset.col = col; b.style.background = col; b.setAttribute('aria-label', 'Цвет рамки'); b.addEventListener('click', () => { P.color = col; saveProf(); renderProf(); }); cr.appendChild(b); });
+  }
+  hr.querySelectorAll('.hbtn').forEach(b => { b.setAttribute('aria-pressed', String(+b.dataset.hero === P.hero)); drawAv(b.firstChild, +b.dataset.hero, P.color); });
+  cr.querySelectorAll('.sw').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.col === P.color)));
+  if (document.activeElement !== $('nickIn')) $('nickIn').value = P.nick;
+  $('myCode').textContent = P.code;
+  const S = P.st, cell = (v, t) => '<div><b>' + v + '</b><small>' + t + '</small></div>';
+  $('stats').innerHTML = cell(S.w + ' / ' + S.m, 'с компьютером: победы / матчи') + cell(S.ow + ' / ' + S.om, 'онлайн: победы / матчи') + cell(coloBest, 'лучшая серия колизея') + cell(chapsDone() + ' / ' + CHS.length, 'глав турнира пройдено');
+  renderChip(); renderFriends();
+}
+function renderFriends() {
+  const el = $('fList'); el.textContent = '';
+  if (!P.friends.length) { const p = document.createElement('p'); p.className = 'fempty'; p.textContent = 'Пока никого. Введи код друга или отправь ему свой.'; el.appendChild(p); return; }
+  P.friends.forEach(f => {
+    const r = document.createElement('div'); r.className = 'fr';
+    const i = document.createElement('div'); i.className = 'fi';
+    const b = document.createElement('b'); b.textContent = f.name; const sm = document.createElement('small');
+    sm.textContent = f.code + (presence ? (presence[f.code] ? ' · в сети' : ' · не в сети') : ''); if (presence && presence[f.code]) sm.className = 'on';
+    i.append(b, sm);
+    const inv = document.createElement('button'); inv.className = 'inv'; inv.textContent = 'ПРИГЛАСИТЬ'; inv.addEventListener('click', () => inviteFriend(f.code));
+    const del = document.createElement('button'); del.textContent = '✕'; del.setAttribute('aria-label', 'Удалить друга'); del.addEventListener('click', () => { P.friends = P.friends.filter(x => x.code !== f.code); saveProf(); renderFriends(); });
+    r.append(i, inv, del); el.appendChild(r);
+  });
+}
+function profTab(t) {
+  $('paneP').hidden = t !== 'p'; $('paneF').hidden = t !== 'f';
+  $('tabP').setAttribute('aria-pressed', String(t === 'p')); $('tabF').setAttribute('aria-pressed', String(t === 'f'));
+}
+function openProf(t) { audio(); profTab(t || 'p'); renderProf(); show('prof'); }
+function addFriend(code, name) {
+  code = normFC(code); if (code.length !== 6) return 'Код — 6 символов';
+  if (code === P.code) return 'Это твой собственный код';
+  if (P.friends.some(f => f.code === code)) return 'Этот друг уже в списке';
+  if (P.friends.length >= 40) return 'Список друзей полон';
+  P.friends.push({ code, name: cleanNick(name) || 'Друг' }); saveProf(); return '';
+}
+async function inviteFriend(code) {
+  audio(); openOnline();
+  if (typeof netInvite !== 'function') { doHost(); return; }
+  setBusy(true); setNoweb(false); const seq = ++opSeq; endCamp(); setArena(arenaPick);
+  let r = null; try { r = await netInvite(code); } catch (e) {}
+  if (seq !== opSeq) return;
+  setBusy(false); const rc = typeof r === 'string' ? r : r && typeof r.code === 'string' ? r.code : ''; if (rc) showRoom(rc);
+}
+const gameLink = () => { try { return location.href.split('#')[0].split('?')[0] + '?friend=' + P.code; } catch (e) { return '?friend=' + P.code; } };
+function copyText(t) {
+  return new Promise(res => {
+    try { if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(t).then(() => res(true), () => res(oldCopy(t))); return; } } catch (e) {}
+    res(oldCopy(t));
+  });
+}
+function oldCopy(t) { try { const a = document.createElement('textarea'); a.value = t; a.style.cssText = 'position:fixed;opacity:0;top:0'; document.body.appendChild(a); a.select(); const ok = document.execCommand('copy'); a.remove(); return ok; } catch (e) { return false; } }
+function flash(btn, txt) { const o = btn.dataset.o || btn.textContent; btn.dataset.o = o; btn.textContent = txt; clearTimeout(btn._t); btn._t = setTimeout(() => { btn.textContent = o; }, 2000); }
+let plateTm = 0, plateOk = null;
+function showPlate(txt, okLabel, noLabel, okFn) {
+  $('plateTxt').textContent = txt; $('plateOk').textContent = okLabel; $('plateNo').textContent = noLabel; plateOk = okFn; $('plate').hidden = false;
+  clearTimeout(plateTm); plateTm = setTimeout(() => { $('plate').hidden = true; }, 30000);
+}
+function onFriendInvite(inv) {   // вызывает сетевой код: { from: код друга, name, room }
+  try {
+    if (!inv || typeof inv.room !== 'string' || !inv.room) return;
+    const fr = P.friends.find(f => f.code === inv.from), who = cleanNick(inv.name) || (fr && fr.name) || 'Друг';
+    showPlate(who + ' зовёт играть', 'ИГРАТЬ', 'ПОЗЖЕ', () => {
+      if (state !== 'menu') toMenu();
+      openOnline(inv.room); doJoin();
+    });
+  } catch (e) {}
+}
+$('plateNo').addEventListener('click', () => { $('plate').hidden = true; clearTimeout(plateTm); });
+$('plateOk').addEventListener('click', () => { $('plate').hidden = true; clearTimeout(plateTm); const f = plateOk; plateOk = null; if (f) f(); });
+$('profBtn').addEventListener('click', () => openProf('p'));
+$('profBack').addEventListener('click', () => show('menu'));
+$('tabP').addEventListener('click', () => profTab('p'));
+$('tabF').addEventListener('click', () => profTab('f'));
+$('nickIn').addEventListener('input', () => { const v = cleanNick($('nickIn').value); if (v) { P.nick = v; saveProf(); renderChip(); } });
+$('nickIn').addEventListener('blur', () => { $('nickIn').value = P.nick; });
+$('codeCopy').addEventListener('click', async () => flash($('codeCopy'), (await copyText(P.code)) ? 'СКОПИРОВАНО' : 'НЕ ВЫШЛО'));
+$('shareBtn').addEventListener('click', async () => {
+  const link = gameLink(), b = $('shareBtn');
+  try { if (navigator.share) { await navigator.share({ title: '№4 × №10', text: P.nick + ' зовёт тебя играть в волейбол. Мой код друга: ' + P.code, url: link }); return; } } catch (e) { if (e && e.name === 'AbortError') return; }
+  flash(b, (await copyText(link)) ? 'ССЫЛКА СКОПИРОВАНА' : 'НЕ ВЫШЛО');
+});
+$('fCode').addEventListener('input', () => { const v = normFC($('fCode').value); if ($('fCode').value !== v) $('fCode').value = v; });
+$('fAdd').addEventListener('click', () => {
+  const err = addFriend($('fCode').value, $('fName').value), st = $('fStat');
+  st.textContent = err || 'Друг добавлен'; st.classList.toggle('bad', !!err);
+  if (!err) { $('fCode').value = ''; $('fName').value = ''; renderFriends(); }
+});
+(function () {   // ссылка ?friend=КОД: предложить добавить друга
+  try {
+    const m = /[?&]friend=([^&#]+)/.exec(location.search); if (!m) return;
+    const c = normFC(decodeURIComponent(m[1]));
+    try { history.replaceState(null, '', location.pathname + location.search.replace(/([?&])friend=[^&]*&?/, '$1').replace(/[?&]$/, '') + location.hash); } catch (e) {}
+    if (c.length !== 6 || c === P.code || P.friends.some(f => f.code === c)) return;
+    showPlate('Добавить друга с кодом ' + c + '?', 'ДОБАВИТЬ', 'НЕТ', () => { addFriend(c, ''); toast('Друг добавлен'); if (!$('prof').hidden) renderFriends(); });
+  } catch (e) {}
+})();
+renderChip();
+
 /* ================= input ================= */
 /* Ввод. presses — счётчики нажатий (гость шлёт их хосту: короткие тапы не теряются). */
 const presses = { jump: 0, hit: 0, act: 0 };
@@ -395,6 +534,7 @@ addEventListener('keydown', e => {
   }
   if (e.code === 'KeyP' || e.code === 'Escape') {
     if (!ovOnline.hidden) { if (e.code === 'Escape') closeOnline(); return; }
+    if (!$('prof').hidden) { if (e.code === 'Escape') show('menu'); return; }
     if (isOnline()) { toggleLeave(); return; }
     state === 'paused' ? resumeGame() : pauseGame(); return;
   }

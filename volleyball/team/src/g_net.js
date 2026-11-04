@@ -351,8 +351,9 @@ const PR = { want: true, cs: [], me: '', ids: new Set(), seen: {}, lastInv: {}, 
 const FR_CODE = /^[A-Z2-9]{6}$/, FR_ROOM = /^[A-Z]{5}$/;
 function frProfile() {   // → { me, nick, friends: Set } | null
   try {
-    if (typeof getProfile !== 'function') return null;
-    const p = getProfile(); if (!p || !FR_CODE.test(p.code)) return null;
+    const gp = typeof getProfile === 'function' ? getProfile : window.__getProfile;   // window.__getProfile — подставка для автотестов
+    if (typeof gp !== 'function') return null;
+    const p = gp(); if (!p || !FR_CODE.test(p.code)) return null;
     const fr = new Set(); for (const f of (p.friends || [])) if (f && FR_CODE.test(f.code) && f.code !== p.code) fr.add(f.code);
     return { me: p.code, nick: String(p.nick || '').slice(0, 14), friends: fr };
   } catch (e) { return null; }
@@ -373,7 +374,7 @@ function frMsg(topic, buf, me) {
   PR.ids.add(m.id); if (PR.ids.size > 200) PR.ids.delete(PR.ids.values().next().value);
   const now = performance.now(); if (PR.lastInv[m.from] && now - PR.lastInv[m.from] < 5000) return;
   PR.lastInv[m.from] = now;
-  try { if (typeof onFriendInvite === 'function') onFriendInvite({ from: m.from, name: typeof m.name === 'string' ? m.name.slice(0, 14) : '', room: m.room }); } catch (e) {}
+  try { const cb = typeof onFriendInvite === 'function' ? onFriendInvite : window.__onFriendInvite; if (typeof cb === 'function') cb({ from: m.from, name: typeof m.name === 'string' ? m.name.slice(0, 14) : '', room: m.room }); } catch (e) {}
 }
 function frSubscribe() {
   const p = frProfile(); if (!p) return;
@@ -420,6 +421,7 @@ async function netInvite(friendCode) {   // создать комнату и п�
   return room;
 }
 setInterval(frTick, 2000);
+try { window.__fr = { PR, presenceStart, presenceStop, netInvite, friendOnline, netHost, netJoin, netLeave }; } catch (e) {}   // для автотестов
 
 /* ---------- сессия: общее ---------- */
 function netBeat() {
