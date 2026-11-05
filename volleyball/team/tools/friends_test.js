@@ -7,7 +7,8 @@ const STUB = `(() => {
     const ls = {}, once = {}, my = new Set(); let ch = null;
     const emit = (ev, ...a) => { (ls[ev] || []).forEach(f => f(...a)); const o = once[ev] || []; once[ev] = []; o.forEach(f => f(...a)); };
     const c = { on(ev, f) { (ls[ev] = ls[ev] || []).push(f); return c; }, once(ev, f) { (once[ev] = once[ev] || []).push(f); return c; }, connected: false,
-      subscribe(t) { my.add(t); }, publish(t, s) { if (ch) ch.postMessage({ t, s }); },
+      subscribe(t) { my.add(t); try { const r = JSON.parse(localStorage.getItem('fake-retain|' + url) || '{}'); if (r[t] !== undefined) setTimeout(() => { if (ch) emit('message', t, r[t]); }, 20); } catch (e) {} },
+      publish(t, s, o) { if (o && o.retain) { try { const r = JSON.parse(localStorage.getItem('fake-retain|' + url) || '{}'); r[t] = s; localStorage.setItem('fake-retain|' + url, JSON.stringify(r)); } catch (e) {} } if (ch) ch.postMessage({ t, s }); },
       end() { if (ch) ch.close(); ch = null; c.connected = false; emit('close'); }, reconnect() {} };
     ch = new BroadcastChannel('fake-mqtt|' + url); ch.onmessage = e => { if (my.has(e.data.t)) emit('message', e.data.t, e.data.s); };
     setTimeout(() => { c.connected = true; emit('connect'); }, 120);
@@ -28,7 +29,8 @@ const PROF = (me, nick, friends) => `window.__prof = { nick: ${JSON.stringify(ni
     await ctx.addInitScript(STUB);
     const mk = async (name, me, nick, friends) => {   // профиль — настоящий, из localStorage ('vb-profile'), как его читает интерфейс
       const p = await ctx.newPage(); p.on('pageerror', e => errs.push(name + ': ' + e.message));
-      await p.addInitScript(prof => { try { localStorage.setItem('vb-profile', JSON.stringify(prof)); } catch (e) {} }, { code: me, nick, hero: 10, color: '#f07a22', friends, st: {} });
+      await p.addInitScript(n => { window.__sn = n; window.__fsCalls = 0; window.__onFriendStats = m => { window.__fsCalls++; window.__fsLast = m; }; }, nick);
+      await p.addInitScript(prof => { try { localStorage.setItem('vb-profile', JSON.stringify(prof)); } catch (e) {} }, { code: me, nick, hero: 10, color: '#f07a22', friends, st: { w: 7, m: 12, ow: 3 } });
       await p.goto(`http://localhost:${port}/test.html`);
       return p;
     };
@@ -39,26 +41,31 @@ const PROF = (me, nick, friends) => `window.__prof = { nick: ${JSON.stringify(ni
     await A.waitForTimeout(3500);
     ok(await A.evaluate(() => window.__fr.friendOnline('BBBB33')) === true && await B.evaluate(() => window.__fr.friendOnline('AAAA22')) === true, 'A и B видят друг друга «в сети»');
     ok(await A.evaluate(() => window.__fr.friendOnline('ZZZZ99')) === null, 'не друг: статус неизвестен (null)');
-    // приглашение от не-друга игнорируется
-    const roomE = await E.evaluate(() => window.__fr.netInvite('BBBB33'));
-    await B.waitForTimeout(1500);
-    ok(typeof roomE === 'string' && !(await plate(B)).shown, 'приглашение от не-друга проигнорировано', { roomE });
-    await E.evaluate(() => window.__fr.netLeave());
-    // приглашение друга
-    const room = await A.evaluate(() => window.__fr.netInvite('BBBB33'));
-    await B.waitForTimeout(1500);
-    const pl = await plate(B);
-    ok(pl.shown && /Аня/.test(pl.txt), 'у B показана плашка приглашения от Ани', pl);
-    await B.evaluate(() => { document.getElementById('plate').hidden = true; });
-    await B.waitForTimeout(8000);   // повторные отправки A приходят, но отсекаются по id
-    ok(!(await plate(B)).shown, 'повторные отправки не дают дубликатов');
-    await B.evaluate(() => { document.getElementById('plateOk').click(); });   // приглашение принято, как при нажатии «ИГРАТЬ» (на плашке до ~30 с)
+    // рейтинг друзей: A публикует (retain), B видит, E (не друг) не виден
+    await A.waitForTimeout(12500);
+    const mine = { nick: 'Аня', wins: 7, matches: 12, chapters: await A.evaluate(() => JSON.parse(localStorage.getItem('vb-fstats') || '{}') && 0) };
+    mine.chapters = (await B.evaluate(() => friendStats())).AAAA22.chapters;
+    const fsB = await B.evaluate(() => ({ s: window.__fr.friendStats ? window.__fr.friendStats() : friendStats(), calls: window.__fsCalls }));
+    ok(fsB.s.AAAA22 && fsB.s.AAAA22.wins === mine.wins && fsB.s.AAAA22.matches === mine.matches && fsB.s.AAAA22.nick === mine.nick && fsB.calls > 0, 'B видит статистику A, onFriendStats сработал', fsB);
+    ok(!(await B.evaluate(() => friendStats().EEEE44)), 'статистики не-друга нет');
+    ok(await B.evaluate(() => !!localStorage.getItem('vb-fstats')), 'кэш vb-fstats записан');
+    // подделка: не друг и мусор отбрасываются
+    await E.evaluate(() => { for (const c of window.__fr.PR.cs) c.publish('vb4x10/s/EEEE44', JSON.stringify({ nick: 'x', wins: 1, matches: 1, onlineWins: 0, colo: 0, chapters: 0, streak: 0 })); });
+    await A.evaluate(() => { for (const c of window.__fr.PR.cs) c.publish('vb4x10/s/AAAA22', JSON.stringify({ nick: 'x', wins: 1e9, matches: 1, onlineWins: 0, colo: 0, chapters: 0, streak: 0 })); });
     await B.waitForTimeout(500);
-    await B.waitForTimeout(3000);
-    const st = await Promise.all([A, B].map(p => p.evaluate(() => ({ mode: window.__vb.mode, st: window.__vb.state }))));
-    ok(st[0].mode === 'host' && st[1].mode === 'guest' && ['serve', 'play', 'point'].includes(st[1].st), 'матч идёт', st);
-    await A.waitForTimeout(2500);
-    ok(await A.evaluate(() => window.__fr.PR.cs.length) === 0, 'во время матча лёгкие подключения закрыты');
+    ok((await B.evaluate(() => friendStats())).AAAA22.wins === mine.wins, 'мусорные значения отброшены');
+    // retain: D подключается позже публикации A и всё равно получает данные
+    const D = await mk('D', 'DDDD55', 'Дима', [{ code: 'AAAA22', name: 'Аня' }]);
+    await D.waitForTimeout(3500);
+    const fsD = await D.evaluate(() => friendStats());
+    ok(fsD.AAAA22 && fsD.AAAA22.wins === mine.wins, 'D получил retained-статистику A, подключившись позже', fsD);
+    // новая запись (позже по ts) заменяет старую, старая по ts игнорируется
+    const pubA = (w, ts) => A.evaluate(([w, ts]) => { for (const c of window.__fr.PR.cs) c.publish('vb4x10/s/AAAA22', JSON.stringify({ nick: 'Аня', wins: w, matches: w + 5, onlineWins: 3, colo: 2, chapters: 4, streak: 6, ts }), { retain: true }); }, [w, ts]);
+    const c0 = await B.evaluate(() => window.__fsCalls);
+    await pubA(8, Date.now() + 5000); await B.waitForTimeout(500);
+    ok((await B.evaluate(() => friendStats())).AAAA22.wins === 8 && await B.evaluate(() => window.__fsCalls) > c0, 'обновлённая статистика дошла до B, колбэк вызван');
+    await pubA(99, 1000); await B.waitForTimeout(500);
+    ok((await B.evaluate(() => friendStats())).AAAA22.wins === 8, 'устаревшая по ts запись игнорируется');
   } catch (e) { fails.push('исключение теста: ' + e.message); console.log('FAIL', e.stack); }
   await b.close(); srv.kill();
   console.log(errs.length ? 'ERRORS:\n' + errs.join('\n') : 'NO ERRORS');

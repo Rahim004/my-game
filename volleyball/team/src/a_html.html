@@ -341,10 +341,41 @@ body[data-tut="act"] .ctl.act, body[data-tut="hit"] .ctl.hit { animation: tutp .
   .flist { max-height: 150px; }
   .field { min-height: 40px; }
 }
+
+/* ежедневный вызов и рейтинг */
+.dly-dot { font-style: normal; color: var(--orange); margin-left: 4px; }
+.dly-open { white-space: nowrap; }
+.tabs { grid-auto-flow: column; grid-template-columns: none; grid-auto-columns: 1fr; max-width: 420px; }
+.tabs button { padding: 0 6px; font-size: 14px; letter-spacing: .05em; }
+.pane.one { grid-template-columns: 1fr; }
+.rsort { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+.rsort button { min-height: 44px; border-radius: 9px; border: 1px solid var(--line); background: var(--panel); font-family: var(--display); font-weight: 600; font-size: 13px; letter-spacing: .04em; color: var(--muted); padding: 0 2px; }
+.rsort button[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.rlist { display: flex; flex-direction: column; gap: 5px; max-height: 210px; overflow-y: auto; touch-action: pan-y; }
+.rr { display: flex; align-items: center; gap: 8px; background: var(--bg); border-radius: 10px; padding: 4px 10px; min-height: 44px; border: 2px solid transparent; }
+.rr.me { border-color: var(--orange); background: #2b2118; }
+.rr .rn { font-family: var(--display); font-weight: 700; font-size: 18px; width: 26px; color: var(--muted); text-align: center; flex: none; }
+.rr:nth-child(-n+3) .rn { color: var(--gold); }
+.rr .ri { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.rr .ri b { font-weight: 500; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rr .ri small { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rr .rv { font-family: var(--display); font-weight: 700; font-size: 22px; color: var(--ink); flex: none; }
+.dly .dcond { margin: 0; font-family: var(--display); font-weight: 600; font-size: 24px; line-height: 1.15; color: var(--ink); }
+.dchips { display: flex; flex-wrap: wrap; gap: 6px; }
+.dchips span { background: var(--bg); border-radius: 8px; padding: 4px 9px; font-size: 13px; color: var(--muted); }
+.dreward { margin: 0; font-family: var(--display); font-weight: 600; font-size: 18px; color: var(--gold); }
+.dstat { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.dstat div { background: var(--bg); border-radius: 8px; padding: 5px 8px; display: flex; flex-direction: column; }
+.dstat b { font-family: var(--display); font-weight: 700; font-size: 24px; line-height: 1.1; }
+.dstat small { font-size: 10.5px; color: var(--muted); }
+.dstate { margin: 0; font-size: 14px; line-height: 1.3; color: var(--muted); }
+.dstate.ok { color: #7bd88f; }
+@media (orientation: landscape) and (max-height: 540px) { .dly .dcond { font-size: 20px; } .rlist { max-height: calc(100vh - 218px); } .rr { min-height: 40px; } .rsort button { min-height: 40px; } }
 .errbox { position: fixed; left: 12px; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); z-index: 20; padding: 10px 12px; border-radius: 10px; background: #3a1414; border: 1px solid #a33; color: #ffd9d9; font-size: 13px; line-height: 1.4; }
 /* прокачка и музыка */
-.row2 { display: grid; grid-template-columns: 1.4fr 1fr; gap: 8px; }
-.row2 .ghost { min-height: 44px; padding: 8px; font-size: 14px; }
+.row2 { display: grid; grid-template-columns: 1.1fr 1.2fr .8fr; gap: 8px; }
+.row2 .ghost { min-height: 44px; padding: 8px 4px; font-size: 14px; }
+@media (max-width: 400px) { .row2 { grid-template-columns: 1fr 1fr; } .row2 #musBtn { grid-column: 1 / -1; } }
 .up-open span { color: var(--orange); }
 .upsh { max-width: 760px; }
 .up-note { margin: 4px 0 10px; font-size: 13px; }
@@ -425,6 +456,7 @@ body[data-tut="act"] .ctl.act, body[data-tut="hit"] .ctl.hit { animation: tutp .
         </div>
         <div class="row2">
           <button class="ghost up-open" id="upBtn" type="button">ПРОКАЧКА <span id="upPts"></span></button>
+          <button class="ghost dly-open" id="dailyBtn" type="button">ВЫЗОВ ДНЯ <i class="dly-dot" id="dailyDot" hidden>●</i></button>
           <button class="ghost" id="musBtn" type="button"></button>
         </div>
         <details class="rules">
@@ -537,6 +569,7 @@ body[data-tut="act"] .ctl.act, body[data-tut="hit"] .ctl.hit { animation: tutp .
         <div class="tabs" role="group" aria-label="Раздел">
           <button id="tabP" aria-pressed="true">ПРОФИЛЬ</button>
           <button id="tabF" aria-pressed="false">ДРУЗЬЯ</button>
+          <button id="tabR" aria-pressed="false">РЕЙТИНГ</button>
         </div>
         <button class="ghost" id="profBack">НАЗАД</button>
       </div>
@@ -553,6 +586,18 @@ body[data-tut="act"] .ctl.act, body[data-tut="hit"] .ctl.hit { animation: tutp .
           <div class="stats" id="stats"></div>
         </section>
       </div>
+      <div class="pane one" id="paneR" hidden>
+        <section class="onl-card">
+          <p class="label">Сортировать по</p>
+          <div class="rsort" id="rSort" role="group" aria-label="Сортировка рейтинга">
+            <button data-k="wins" aria-pressed="true">ПОБЕДЫ</button>
+            <button data-k="onlineWins" aria-pressed="false">ОНЛАЙН</button>
+            <button data-k="colo" aria-pressed="false">КОЛИЗЕЙ</button>
+            <button data-k="streak" aria-pressed="false">ВЫЗОВЫ</button>
+          </div>
+          <div class="rlist" id="rList"></div>
+        </section>
+      </div>
       <div class="pane" id="paneF" hidden>
         <section class="onl-card">
           <p class="label">Добавить друга</p>
@@ -564,6 +609,31 @@ body[data-tut="act"] .ctl.act, body[data-tut="hit"] .ctl.hit { animation: tutp .
         <section class="onl-card">
           <p class="label">Мои друзья</p>
           <div class="flist" id="fList"></div>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="daily" hidden>
+    <div class="sheet dly">
+      <div class="onl-head">
+        <div><p class="kicker">ВЫЗОВ ДНЯ</p><h2 id="dTitle"></h2></div>
+        <button class="ghost" id="dBack">НАЗАД</button>
+      </div>
+      <div class="onl-cols">
+        <section class="onl-card">
+          <p class="label">Условие</p>
+          <p class="dcond" id="dCond"></p>
+          <div class="dchips" id="dChips"></div>
+          <p class="dreward" id="dReward"></p>
+        </section>
+        <section class="onl-card">
+          <div class="dstat">
+            <div><b id="dStreak"></b><small>дней подряд</small></div>
+            <div><b id="dTimer"></b><small>до нового вызова</small></div>
+          </div>
+          <p class="dstate" id="dState"></p>
+          <button class="play" id="dPlay">ПРИНЯТЬ ВЫЗОВ</button>
         </section>
       </div>
     </div>

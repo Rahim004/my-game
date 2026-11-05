@@ -140,6 +140,7 @@ function endAgain() {
   else if (a === 'tourRetry') campMatch(false);
   else if (a === 'tourAgain') { setProg(camp.ch, { stage: 0, done: false }); camp = { kind: 'tour', ch: camp.ch, stage: 0 }; campMatch(true); }
   else if (a === 'chapNext') { const ch = camp.ch + 1; chapPick = ch; lsSet('vb-chap', ch); const pg = getProg(ch), st0 = pg.done ? 0 : pg.stage; if (pg.done) setProg(ch, { stage: 0, done: false }); camp = { kind: 'tour', ch, stage: st0 }; campMatch(true); }   // начатая глава продолжается с сохранённого этапа
+  else if (a === 'dailyAgain') startDaily();
   else if (a === 'coloNext') campMatch(false);
   else if (a === 'coloAgain') { camp = { kind: 'colo', wins: 0 }; campMatch(false); }
 }
@@ -198,7 +199,60 @@ $('stSkip').addEventListener('click', e => { e.stopPropagation(); storyDone(); }
 
 /* ================= screens ================= */
 let pausedFrom = null;
-function show(id) { if (id === 'pause' || id === 'end') { try { syncClipUi(); } catch (e) {} } ['menu', 'pause', 'end', 'online', 'leave', 'story', 'ups', 'prof'].forEach(k => $(k).hidden = k !== id); }
+function show(id) { if (id === 'pause' || id === 'end') { try { syncClipUi(); } catch (e) {} } ['menu', 'pause', 'end', 'online', 'leave', 'story', 'ups', 'prof', 'daily'].forEach(k => $(k).hidden = k !== id); if (id === 'menu') { try { syncDailyDot(); } catch (e) {} } }
+
+/* ================= ежедневный вызов: экран, запуск, итог ================= */
+let dailyRun = null, dailyTm = 0;   // dailyRun: { ch, save: { TARGET, diff, arenaPick } } пока идёт матч вызова
+function syncDailyDot() { const d = $('dailyDot'); if (d) d.hidden = dailyDoneToday(); }
+function renderDaily() {
+  const ch = dailyChallenge(), done = dailyDoneToday(), st = dailyStreak(), b = dailyStreakBonus(st + (done ? 0 : 1));
+  $('dTitle').textContent = ch.title; $('dCond').textContent = ch.desc;
+  const chips = $('dChips'); chips.textContent = '';
+  for (const t of [ch.arena === 'beach' ? 'Пляж' : 'Зал', 'до ' + ch.target, ({ easy: 'Легко', normal: 'Средне', hard: 'Сильно' })[ch.diff] + (ch.boost ? ' +' + ch.boost : '')]) { const s = document.createElement('span'); s.textContent = t; chips.appendChild(s); }
+  $('dReward').textContent = '★ ' + ch.reward + (b ? ' + ' + b + ' за серию' : '') + ' на прокачку';
+  $('dStreak').textContent = st; $('dTimer').textContent = dailyLeft();
+  const ds = $('dState'); ds.className = 'dstate' + (done ? ' ok' : '');
+  ds.textContent = done ? 'Выполнен сегодня ✓ Награда получена. Можно играть ещё, награды не будет.' : 'Награда — один раз в день. Попыток сколько угодно.';
+  $('dPlay').textContent = done ? 'СЫГРАТЬ ЕЩЁ' : 'ПРИНЯТЬ ВЫЗОВ';
+  syncDailyDot();
+}
+function openDaily() {
+  audio(); renderDaily(); show('daily'); clearInterval(dailyTm);
+  dailyTm = setInterval(() => { if ($('daily').hidden) { clearInterval(dailyTm); return; } const t = $('dTimer').textContent; $('dTimer').textContent = dailyLeft(); if (dailyLeft() > t) renderDaily(); }, 1000);   // ночью таймер перескакивает вверх — перерисуем новый вызов
+}
+function startDaily() {
+  if (isOnline()) netLeave();
+  const ch = dailyChallenge(); endCamp();
+  if (!dailyRun) dailyRun = { ch, save: { TARGET, diff, arenaPick } }; else dailyRun.ch = ch;
+  TARGET = ch.target; diff = ch.diff; arenaPick = ch.arena;   // только в памяти: выбор игрока в меню (и в localStorage) не трогаем
+  mode = 'solo'; audio(); setArena(ch.arena); newMatch(); TR.D = boostD(DIFF[ch.diff], ch.boost); TR.name = 'ВЫЗОВ ДНЯ';
+  champ = false; endAct = ''; clearInterval(champTimer); $('end').classList.remove('lite');
+  staticDone = false; show(null); updateCamera(0, true); last = performance.now();
+  banner('ВЫЗОВ ДНЯ · ' + ch.title.toUpperCase(), 'gold', 2, true);
+}
+function endDaily() { if (dailyRun) { const s = dailyRun.save; TARGET = s.TARGET; diff = s.diff; arenaPick = s.arenaPick; dailyRun = null; syncSeg(); } }
+function showDailyEnd(win) {
+  const ch = dailyRun.ch, el = $('end');
+  const ms = typeof matchStats !== 'undefined' && matchStats ? matchStats : null;
+  const res = dailyCheck(ch, win, TL.score, TR.score, ms);
+  champ = false; endAct = 'dailyAgain'; clearInterval(champTimer); el.classList.remove('lite');
+  let sub;
+  if (res.ok) {
+    const c = dailyComplete(ch);
+    if (c.first) { ups.pts += c.reward; upSave(); syncUps(); sub = 'Награда: +' + c.reward + ' ★ · серия: ' + c.streak + ' ' + pluralD(c.streak, 'день', 'дня', 'дней') + '.'; }
+    else sub = 'Награда за сегодня уже получена.';
+    makeConfetti();
+  } else sub = 'Не вышло: ' + res.msg + '. Попробуй ещё раз.';
+  sub += upAward(win);
+  $('endTitle').textContent = res.ok ? 'ВЫЗОВ ВЫПОЛНЕН!' : 'НЕ ВЫШЛО'; $('endTitle').className = res.ok ? 'win' : '';
+  $('endScore').textContent = TL.score + ' : ' + TR.score; $('endSub').textContent = ch.desc + '. ' + sub;
+  $('againBtn').textContent = 'ЕЩЁ РАЗ'; $('menuBtn').textContent = 'В МЕНЮ';
+  syncDailyDot(); show('end');
+}
+$('dailyBtn').addEventListener('click', openDaily);
+$('dBack').addEventListener('click', () => show('menu'));
+$('dPlay').addEventListener('click', startDaily);
+syncDailyDot();
 
 /* ================= прокачка: экран и награда за матч ================= */
 function upAward(win, bonus = 0) {   // очки за матч против компьютера; возвращает строку для экрана итогов
@@ -227,7 +281,7 @@ function syncUps() {
 syncUps();
 $('upBtn').addEventListener('click', () => { audio(); syncUps(); show('ups'); });
 $('upBack').addEventListener('click', () => show('menu'));
-function syncMus() { const t = music.on ? '♪ МУЗЫКА: ВКЛ' : '♪ МУЗЫКА: ВЫКЛ'; $('musBtn').textContent = t; $('musBtn2').textContent = t; }
+function syncMus() { const t = music.on ? '♪ МУЗЫКА: ВКЛ' : '♪ МУЗЫКА: ВЫКЛ'; $('musBtn').textContent = music.on ? '♪ ВКЛ' : '♪ ВЫКЛ'; $('musBtn2').textContent = t; }
 for (const id of ['musBtn', 'musBtn2']) $(id).addEventListener('click', () => { audio(); music.toggle(); syncMus(); });
 syncMus();
 document.addEventListener('pointerdown', () => audio(), { once: true });   // музыка меню — с первого касания (браузер не даёт звук без жеста)
@@ -240,12 +294,13 @@ function startMatch(m) {
   if (m === 'host') { if (netRestart()) return; m = 'solo'; }
   if (m !== 'solo' && m !== 'local2') m = 'solo';
   if (mode === 'host' || mode === 'guest') netLeave();
-  endCamp(); setArena(arenaPick);
+  endDaily(); endCamp(); setArena(arenaPick);
   mode = m; audio(); newMatch(); show(null); updateCamera(0, true);
 }
 function showEnd() {
   const me = myTeam(), win = me.score > other(me).score; if (state !== 'over') recStat(win); state = 'over';
   if (camp && mode === 'solo') { showCampEnd(win); return; }
+  if (dailyRun && mode === 'solo') { showDailyEnd(win); return; }
   champ = false; endAct = ''; clearInterval(champTimer); $('end').classList.remove('lite'); $('againBtn').textContent = 'ЕЩЁ'; $('menuBtn').textContent = 'В МЕНЮ';
   $('endTitle').textContent = mode === 'local2' ? 'ИГРОК ' + (TL.score > TR.score ? 1 : 2) + ' ПОБЕДИЛ' : win ? 'ПОБЕДА!' : 'ПОРАЖЕНИЕ';
   $('endTitle').className = win || mode === 'local2' ? 'win' : '';
@@ -255,7 +310,7 @@ function showEnd() {
 }
 function pauseGame() { if (isOnline()) return; if (!['serve', 'play', 'point'].includes(state)) return; pausedFrom = state; state = 'paused'; show('pause'); }
 function resumeGame() { if (state !== 'paused') return; state = pausedFrom; last = performance.now(); show(null); }
-function toMenu() { if (mode === 'host' || mode === 'guest') netLeave(); mode = 'solo'; state = 'menu'; tut = null; tim = null; stopStory(); champ = false; clearInterval(champTimer); $('end').classList.remove('lite'); endCamp(); setArena(arenaPick); syncMode(); cutin = null; TL = TR = null; active = null; banners = []; confetti = []; show('menu'); updateCamera(0, true); }
+function toMenu() { if (mode === 'host' || mode === 'guest') netLeave(); mode = 'solo'; state = 'menu'; tut = null; tim = null; stopStory(); champ = false; clearInterval(champTimer); $('end').classList.remove('lite'); endDaily(); endCamp(); setArena(arenaPick); syncMode(); cutin = null; TL = TR = null; active = null; banners = []; confetti = []; show('menu'); updateCamera(0, true); }
 function syncSeg() {
   document.querySelectorAll('[data-diff]').forEach(x => x.setAttribute('aria-pressed', String(x.dataset.diff === diff)));
   document.querySelectorAll('[data-target]').forEach(x => x.setAttribute('aria-pressed', String(+x.dataset.target === TARGET)));
@@ -493,6 +548,43 @@ function drawAv(cv, hero, color) {
 }
 function renderChip() { drawAv($('chipAv'), P.hero, P.color); $('chipNick').textContent = P.nick; }
 function profLobby() { $('onlMe').textContent = 'Ты: ' + P.nick + ' · код ' + P.code; }
+/* ================= рейтинг друзей и данные для обмена ================= */
+function getMyStats() { return { nick: P.nick, wins: P.st.w, matches: P.st.m, onlineWins: P.st.ow, colo: coloBest, chapters: chapsDone(), streak: dailyStreak() }; }
+window.getMyStats = getMyStats;
+let ratKey = lsGet('vb-rsort') || 'wins';
+const RAT_COLS = [['wins', 'побед'], ['onlineWins', 'онлайн'], ['colo', 'колизей'], ['streak', 'дней вызова']];
+function ratingRows() {
+  let fs = null; try { fs = typeof friendStats === 'function' ? friendStats() : typeof friendStats === 'object' ? friendStats : null; } catch (e) {}
+  const num = x => Math.max(0, Math.floor(+x || 0));
+  const rows = [Object.assign({ me: true }, getMyStats())]; let others = 0;
+  if (fs && typeof fs === 'object') for (const code of Object.keys(fs)) {
+    const f = fs[code]; if (!f || typeof f !== 'object' || code === P.code) continue;
+    const fr = P.friends.find(x => x.code === code);
+    rows.push({ nick: cleanNick(f.nick) || (fr && fr.name) || 'Друг', wins: f.wins, matches: f.matches, onlineWins: f.onlineWins, colo: f.colo, chapters: f.chapters, streak: f.streak }); others++;
+  }
+  rows.forEach(r => { for (const k of ['wins', 'matches', 'onlineWins', 'colo', 'chapters', 'streak']) r[k] = num(r[k]); });
+  return { rows, others };
+}
+function renderRating() {
+  const el = $('rList'); if (!el) return; el.textContent = '';
+  document.querySelectorAll('#rSort button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.k === ratKey)));
+  const { rows, others } = ratingRows();
+  rows.sort((a, b) => b[ratKey] - a[ratKey] || b.wins - a.wins || (b.me ? 1 : 0) - (a.me ? 1 : 0));
+  rows.forEach((r, i) => {
+    const d = document.createElement('div'); d.className = 'rr' + (r.me ? ' me' : '');
+    const n = document.createElement('span'); n.className = 'rn'; n.textContent = i + 1;
+    const inf = document.createElement('div'); inf.className = 'ri';
+    const b = document.createElement('b'); b.textContent = r.nick + (r.me ? ' (ты)' : '');
+    const sm = document.createElement('small'); sm.textContent = RAT_COLS.filter(c => c[0] !== ratKey).map(c => r[c[0]] + ' ' + c[1]).join(' · ');
+    inf.append(b, sm);
+    const v = document.createElement('span'); v.className = 'rv'; v.textContent = r[ratKey];
+    d.append(n, inf, v); el.appendChild(d);
+  });
+  if (!others) { const p = document.createElement('p'); p.className = 'fempty'; p.textContent = 'Друзья появятся здесь, когда зайдут в игру'; el.appendChild(p); }
+}
+function onFriendStats() { try { if (!$('prof').hidden && profT === 'r') renderRating(); } catch (e) {} }
+window.onFriendStats = onFriendStats;
+document.querySelectorAll('#rSort button').forEach(b => b.addEventListener('click', () => { ratKey = b.dataset.k; lsSet('vb-rsort', ratKey); renderRating(); }));
 function chapsDone() { let n = 0; for (let i = 0; i < CHS.length; i++) { try { if (getProg(i).done) n++; } catch (e) {} } return n; }
 function renderProf() {
   const hr = $('heroRow'), cr = $('colRow');
@@ -506,7 +598,7 @@ function renderProf() {
   $('myCode').textContent = P.code;
   const S = P.st, cell = (v, t) => '<div><b>' + v + '</b><small>' + t + '</small></div>';
   $('stats').innerHTML = cell(S.w + ' / ' + S.m, 'с компьютером: победы / матчи') + cell(S.ow + ' / ' + S.om, 'онлайн: победы / матчи') + cell(coloBest, 'лучшая серия колизея') + cell(chapsDone() + ' / ' + CHS.length, 'глав турнира пройдено');
-  renderChip(); renderFriends();
+  renderChip(); renderFriends(); if (profT === 'r') renderRating();
 }
 function renderFriends() {
   const el = $('fList'); el.textContent = '';
@@ -522,9 +614,12 @@ function renderFriends() {
     r.append(i, inv, del); el.appendChild(r);
   });
 }
+let profT = 'p';
 function profTab(t) {
-  $('paneP').hidden = t !== 'p'; $('paneF').hidden = t !== 'f';
-  $('tabP').setAttribute('aria-pressed', String(t === 'p')); $('tabF').setAttribute('aria-pressed', String(t === 'f'));
+  profT = t;
+  $('paneP').hidden = t !== 'p'; $('paneF').hidden = t !== 'f'; $('paneR').hidden = t !== 'r';
+  $('tabP').setAttribute('aria-pressed', String(t === 'p')); $('tabF').setAttribute('aria-pressed', String(t === 'f')); $('tabR').setAttribute('aria-pressed', String(t === 'r'));
+  if (t === 'r') renderRating();
 }
 function openProf(t) { audio(); profTab(t || 'p'); renderProf(); show('prof'); }
 function addFriend(code, name) {
@@ -688,6 +783,7 @@ $('profBtn').addEventListener('click', () => openProf('p'));
 $('profBack').addEventListener('click', () => show('menu'));
 $('tabP').addEventListener('click', () => profTab('p'));
 $('tabF').addEventListener('click', () => profTab('f'));
+$('tabR').addEventListener('click', () => profTab('r'));
 $('nickIn').addEventListener('input', () => { const v = cleanNick($('nickIn').value); if (v) { P.nick = v; saveProf(); renderChip(); } });
 $('nickIn').addEventListener('blur', () => { $('nickIn').value = P.nick; });
 $('codeCopy').addEventListener('click', async () => flashBtn($('codeCopy'), (await copyText(P.code)) ? 'СКОПИРОВАНО' : 'НЕ ВЫШЛО'));
@@ -751,6 +847,7 @@ addEventListener('keydown', e => {
   if (e.code === 'KeyP' || e.code === 'Escape') {
     if (!ovOnline.hidden) { if (e.code === 'Escape') closeOnline(); return; }
     if (!$('prof').hidden) { if (e.code === 'Escape') show('menu'); return; }
+    if (!$('daily').hidden) { if (e.code === 'Escape') show('menu'); return; }
     if (isOnline()) { toggleLeave(); return; }
     state === 'paused' ? resumeGame() : pauseGame(); return;
   }

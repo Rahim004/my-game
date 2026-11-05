@@ -365,10 +365,41 @@ body[data-tut="act"] .ctl.act, body[data-tut="hit"] .ctl.hit { animation: tutp .
   .flist { max-height: 150px; }
   .field { min-height: 40px; }
 }
+
+/* ежедневный вызов и рейтинг */
+.dly-dot { font-style: normal; color: var(--orange); margin-left: 4px; }
+.dly-open { white-space: nowrap; }
+.tabs { grid-auto-flow: column; grid-template-columns: none; grid-auto-columns: 1fr; max-width: 420px; }
+.tabs button { padding: 0 6px; font-size: 14px; letter-spacing: .05em; }
+.pane.one { grid-template-columns: 1fr; }
+.rsort { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+.rsort button { min-height: 44px; border-radius: 9px; border: 1px solid var(--line); background: var(--panel); font-family: var(--display); font-weight: 600; font-size: 13px; letter-spacing: .04em; color: var(--muted); padding: 0 2px; }
+.rsort button[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.rlist { display: flex; flex-direction: column; gap: 5px; max-height: 210px; overflow-y: auto; touch-action: pan-y; }
+.rr { display: flex; align-items: center; gap: 8px; background: var(--bg); border-radius: 10px; padding: 4px 10px; min-height: 44px; border: 2px solid transparent; }
+.rr.me { border-color: var(--orange); background: #2b2118; }
+.rr .rn { font-family: var(--display); font-weight: 700; font-size: 18px; width: 26px; color: var(--muted); text-align: center; flex: none; }
+.rr:nth-child(-n+3) .rn { color: var(--gold); }
+.rr .ri { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.rr .ri b { font-weight: 500; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rr .ri small { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rr .rv { font-family: var(--display); font-weight: 700; font-size: 22px; color: var(--ink); flex: none; }
+.dly .dcond { margin: 0; font-family: var(--display); font-weight: 600; font-size: 24px; line-height: 1.15; color: var(--ink); }
+.dchips { display: flex; flex-wrap: wrap; gap: 6px; }
+.dchips span { background: var(--bg); border-radius: 8px; padding: 4px 9px; font-size: 13px; color: var(--muted); }
+.dreward { margin: 0; font-family: var(--display); font-weight: 600; font-size: 18px; color: var(--gold); }
+.dstat { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.dstat div { background: var(--bg); border-radius: 8px; padding: 5px 8px; display: flex; flex-direction: column; }
+.dstat b { font-family: var(--display); font-weight: 700; font-size: 24px; line-height: 1.1; }
+.dstat small { font-size: 10.5px; color: var(--muted); }
+.dstate { margin: 0; font-size: 14px; line-height: 1.3; color: var(--muted); }
+.dstate.ok { color: #7bd88f; }
+@media (orientation: landscape) and (max-height: 540px) { .dly .dcond { font-size: 20px; } .rlist { max-height: calc(100vh - 218px); } .rr { min-height: 40px; } .rsort button { min-height: 40px; } }
 .errbox { position: fixed; left: 12px; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); z-index: 20; padding: 10px 12px; border-radius: 10px; background: #3a1414; border: 1px solid #a33; color: #ffd9d9; font-size: 13px; line-height: 1.4; }
 /* прокачка и музыка */
-.row2 { display: grid; grid-template-columns: 1.4fr 1fr; gap: 8px; }
-.row2 .ghost { min-height: 44px; padding: 8px; font-size: 14px; }
+.row2 { display: grid; grid-template-columns: 1.1fr 1.2fr .8fr; gap: 8px; }
+.row2 .ghost { min-height: 44px; padding: 8px 4px; font-size: 14px; }
+@media (max-width: 400px) { .row2 { grid-template-columns: 1fr 1fr; } .row2 #musBtn { grid-column: 1 / -1; } }
 .up-open span { color: var(--orange); }
 .upsh { max-width: 760px; }
 .up-note { margin: 4px 0 10px; font-size: 13px; }
@@ -449,6 +480,7 @@ body[data-tut="act"] .ctl.act, body[data-tut="hit"] .ctl.hit { animation: tutp .
         </div>
         <div class="row2">
           <button class="ghost up-open" id="upBtn" type="button">ПРОКАЧКА <span id="upPts"></span></button>
+          <button class="ghost dly-open" id="dailyBtn" type="button">ВЫЗОВ ДНЯ <i class="dly-dot" id="dailyDot" hidden>●</i></button>
           <button class="ghost" id="musBtn" type="button"></button>
         </div>
         <details class="rules">
@@ -561,6 +593,7 @@ body[data-tut="act"] .ctl.act, body[data-tut="hit"] .ctl.hit { animation: tutp .
         <div class="tabs" role="group" aria-label="Раздел">
           <button id="tabP" aria-pressed="true">ПРОФИЛЬ</button>
           <button id="tabF" aria-pressed="false">ДРУЗЬЯ</button>
+          <button id="tabR" aria-pressed="false">РЕЙТИНГ</button>
         </div>
         <button class="ghost" id="profBack">НАЗАД</button>
       </div>
@@ -577,6 +610,18 @@ body[data-tut="act"] .ctl.act, body[data-tut="hit"] .ctl.hit { animation: tutp .
           <div class="stats" id="stats"></div>
         </section>
       </div>
+      <div class="pane one" id="paneR" hidden>
+        <section class="onl-card">
+          <p class="label">Сортировать по</p>
+          <div class="rsort" id="rSort" role="group" aria-label="Сортировка рейтинга">
+            <button data-k="wins" aria-pressed="true">ПОБЕДЫ</button>
+            <button data-k="onlineWins" aria-pressed="false">ОНЛАЙН</button>
+            <button data-k="colo" aria-pressed="false">КОЛИЗЕЙ</button>
+            <button data-k="streak" aria-pressed="false">ВЫЗОВЫ</button>
+          </div>
+          <div class="rlist" id="rList"></div>
+        </section>
+      </div>
       <div class="pane" id="paneF" hidden>
         <section class="onl-card">
           <p class="label">Добавить друга</p>
@@ -588,6 +633,31 @@ body[data-tut="act"] .ctl.act, body[data-tut="hit"] .ctl.hit { animation: tutp .
         <section class="onl-card">
           <p class="label">Мои друзья</p>
           <div class="flist" id="fList"></div>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="daily" hidden>
+    <div class="sheet dly">
+      <div class="onl-head">
+        <div><p class="kicker">ВЫЗОВ ДНЯ</p><h2 id="dTitle"></h2></div>
+        <button class="ghost" id="dBack">НАЗАД</button>
+      </div>
+      <div class="onl-cols">
+        <section class="onl-card">
+          <p class="label">Условие</p>
+          <p class="dcond" id="dCond"></p>
+          <div class="dchips" id="dChips"></div>
+          <p class="dreward" id="dReward"></p>
+        </section>
+        <section class="onl-card">
+          <div class="dstat">
+            <div><b id="dStreak"></b><small>дней подряд</small></div>
+            <div><b id="dTimer"></b><small>до нового вызова</small></div>
+          </div>
+          <p class="dstate" id="dState"></p>
+          <button class="play" id="dPlay">ПРИНЯТЬ ВЫЗОВ</button>
         </section>
       </div>
     </div>
@@ -715,6 +785,11 @@ const KIT = {
   rvB: { jersey: '#1f3f9a', shade: '#142a6b', trim: '#b9c4d6', shorts: '#142a6b', shortsTrim: '#b9c4d6', num: '#ffffff', numEdge: '#142a6b', sock: '#b9c4d6', sockBand: '#1f3f9a', pad: '#14193a', shoe: '#e8edf5', sole: '#1f3f9a' },
   rvC: { jersey: '#7a4cc2', shade: '#573391', trim: '#7fe3c4', shorts: '#3b2a63', shortsTrim: '#7fe3c4', num: '#ffffff', numEdge: '#3b2a63', sock: '#e9e4f5', sockBand: '#7a4cc2', pad: '#2a2040', shoe: '#e9e4f5', sole: '#7fe3c4' },
   rvD: { jersey: '#1f6b4a', shade: '#144a33', trim: '#c9d1c4', shorts: '#2e3a40', shortsTrim: '#c9d1c4', num: '#ffffff', numEdge: '#144a33', sock: '#c9d1c4', sockBand: '#1f6b4a', pad: '#1d262b', shoe: '#c9d1c4', sole: '#2e3a40' },
+  // глава 3: соперники «Национального» (см. docs/characters.md)
+  nt1: { jersey: '#8cc63f', shade: '#628f24', trim: '#2a2f33', shorts: '#2a2f33', shortsTrim: '#8cc63f', num: '#1b1a20', numEdge: '#f1f7e0', sock: '#f1f7e0', sockBand: '#8cc63f', pad: '#1f2326', shoe: '#2a2f33', sole: '#8cc63f' },
+  nt2: { jersey: '#a85a2c', shade: '#7a3d18', trim: '#f0e0c4', shorts: '#4a2a18', shortsTrim: '#f0e0c4', num: '#ffffff', numEdge: '#4a2a18', sock: '#f0e0c4', sockBand: '#a85a2c', pad: '#3a2216', shoe: '#f0e0c4', sole: '#a85a2c' },
+  nt3: { jersey: '#4a5663', shade: '#2f3944', trim: '#6fd3f2', shorts: '#2f3944', shortsTrim: '#6fd3f2', num: '#ffffff', numEdge: '#2f3944', sock: '#dff4fb', sockBand: '#6fd3f2', pad: '#222a33', shoe: '#dff4fb', sole: '#6fd3f2' },
+  nt4: { jersey: '#5a1230', shade: '#3a0a1f', trim: '#e8b4a0', shorts: '#3a0a1f', shortsTrim: '#e8b4a0', num: '#f6dccf', numEdge: '#3a0a1f', sock: '#e8b4a0', sockBand: '#5a1230', pad: '#2a0715', shoe: '#e8b4a0', sole: '#5a1230' },
 };
 const LOOKS = {
   // style — что умеет d_chars.js сейчас; styleNew — целевой стиль из docs/characters.md (пока рисуется как style); acc — аксессуар
@@ -979,7 +1054,14 @@ function mkPlayer(team, idx, num, kitName) {
     slide: 0, slideDir: team.side < 0 ? 1 : -1, rise: 0, slideHit: 0, aiSlide: 0, fxT: 0 };   // slide/rise — сек до конца скольжения / подъёма с пола
   p.x = homeOf(p); p.goal = p.x; return p;
 }
+/* ================= счётчики матча (хост / одиночная игра) ================= */
+const mkSide = () => ({ points: 0, aces: 0, powerServes: 0, spikes: 0, spikeTypes: { quick: 0, tempo: 0, open: 0, pipe: 0 }, kills: 0, killTypes: { quick: 0, tempo: 0, open: 0, pipe: 0 },
+  tipKills: 0, blocks: 0, tips: 0, digs: 0, errs: 0, maxStreak: 0, streak: 0, longestRally: 0, maxDef: 0, comeback: false });   // errs — собственные ошибки (очко соперника); kills включает очки обманом, killTypes — только ударами
+let matchStats = { L: mkSide(), R: mkSide(), byNum: {} }, rallyN = 0;
+const msOf = T => matchStats[T.side < 0 ? 'L' : 'R'];
+const msNum = p => matchStats.byNum[p.num] || (matchStats.byNum[p.num] = { kills: 0, blocks: 0, digs: 0, aces: 0 });
 function newMatch() {
+  matchStats = { L: mkSide(), R: mkSide(), byNum: {} }; rallyN = 0;
   const twoHumans = mode !== 'solo'; tut = null; tim = null;
   TL = mkTeam(-1, HUMAN_D, mode === 'local2' ? 'ИГРОК 1' : '№4 · №10');
   TR = mkTeam(1, twoHumans ? HUMAN_D : DIFF[diff], mode === 'local2' ? 'ИГРОК 2' : twoHumans ? 'ДРУГ' : 'ГОСТИ');
@@ -1005,7 +1087,7 @@ function resetServe() {
     T.slideChk = false;
   }
   server.x = servingTeam.side < 0 ? 8 : VW - 8; server.goal = server.x;
-  state = 'serve'; serveT = 0; lastToucher = null; lastTeam = null; blockDone = false; netHitThisRally = false; pointWinner = null;
+  state = 'serve'; serveT = 0; lastToucher = null; lastTeam = null; blockDone = false; netHitThisRally = false; pointWinner = null; rallyN = 0;
   ball.spiked = false; ball.trail = []; ball.laneTarget = server; ball.laneTeam = null;
   holdBall();
   const sTxt = mode === 'local2' ? (servingTeam === TL ? 'ПОДАЧА СЛЕВА' : 'ПОДАЧА СПРАВА')
@@ -1072,7 +1154,7 @@ function dustRaw(x, lane, n) {   // локальная пыль без пере�
 
 /* ================= touches ================= */
 function touch(p, type) {
-  const T = p.team; T.touches++; lastToucher = p; lastTeam = T; ball.spiked = false; T.lastHit = { p, type };
+  const T = p.team; rallyN++; T.touches++; lastToucher = p; lastTeam = T; ball.spiked = false; T.lastHit = { p, type };
   p.swing = SW; p.swingType = type; p.cd = .22; slideReset();
 }
 function slideReset() { for (const T of [TL, TR]) { T.slideChk = false; for (const q of T.players) q.aiSlide = 0; } }   // новое касание — ИИ заново решает про скольжение
@@ -1089,7 +1171,8 @@ function pickHitter(T, p) {   // p — исключаемый (пасующий 
   return p !== st ? st : byJob(T, 'lib');   // Рэй недоступен — Арис, затем Дан
 }
 function receive(p, perfect, em = 1) {   // em — множитель ошибки паса (поздний скользящий приём — 2)
-  const T = p.team, rw = p.recvWin; snapBall(p, 'receive', perfect ? 22 : 16); touch(p, 'receive');
+  const T = p.team, rw = p.recvWin; if (ball.spiked) { msOf(T).digs++; msNum(p).digs++; }
+  snapBall(p, 'receive', perfect ? 22 : 16); touch(p, 'receive');
   timeRecv(p, perfect, rw); tutEvt('recv', p, perfect);
   const setter = pickSetter(T, p);
   T.roles = { setter, hitter: pickHitter(T, setter) };
@@ -1148,7 +1231,7 @@ function freeBall(p) {
   passTo(NETX - T.side * (70 + Math.random() * 100), 0, 1.5); aimLaneTeam(other(T), 1.5); sfx.pass(); ring('w');
 }
 function tip(p, dir = 0) {   // dir: +1 — к сетке (коротко за блок), −1 — от сетки (накат в угол), 0 — обычный обман
-  const T = p.team; snapBall(p, 'spike', 16); touch(p, 'tip');
+  const T = p.team; snapBall(p, 'spike', 16); touch(p, 'tip'); T.lastHit.atk = T.atk; msOf(T).tips++;
   const xt = NETX - T.side * (dir > 0 ? 12 + Math.random() * 16 : dir < 0 ? 170 + Math.random() * 32 : 22 + Math.random() * 45);
   let fl = dir > 0 ? .75 : dir < 0 ? .95 : .85;
   for (; fl < 1.6; fl += .05) {   // время полёта подбираем так, чтобы мяч прошёл над сеткой
@@ -1177,7 +1260,7 @@ function spike(p, human, boost = false) {   // boost — усиленный уд
       if (d > best) { best = d; xt = x; }
     }
   }
-  touch(p, 'spike');
+  touch(p, 'spike'); { T.lastHit.atk = T.atk; const m = msOf(T); m.spikes++; if (m.spikeTypes[T.atk] !== undefined) m.spikeTypes[T.atk]++; }
   let ok = false, flight = .5;
   for (let sp = T.D.power + 12 * upLv(p, 'pow') + (T.atk === 'pipe' ? 30 : 0) + (boost ? 40 : 0); sp >= 160; sp -= 20) {
     const vx = Math.sign(xt - ball.x) * sp, t = (xt - ball.x) / vx, vh = (0 - ball.h + .5 * G * t * t) / t;
@@ -1215,7 +1298,7 @@ function startPowerServe(p) {
 }
 function powerServe(p) {
   const T = p.team, O = other(T), o = -T.side;
-  snapBall(p, 'spike', 22); touch(p, 'spike'); T.touches = 3; p.toss = 0; p.jumpServe = false; T.lastHit = { p, type: 'pserve' };
+  snapBall(p, 'spike', 22); touch(p, 'spike'); T.touches = 3; p.toss = 0; p.jumpServe = false; T.lastHit = { p, type: 'pserve' }; msOf(T).powerServes++;
   const fault = Math.random() < (T === TL ? .1 : .15);
   const xt = NETX + o * (fault ? 224 + Math.random() * 22 : 70 + Math.random() * 140);
   let flight = 1;
@@ -1295,7 +1378,7 @@ function checkBlock() {
     if (b.ground || Math.abs(b.x + sh - NETX) > 22) continue;
     const k = b.look.tall;
     if (ball.h > b.h + 33 * k && ball.h < b.h + 58 * k) {
-      blockDone = true; ball.spiked = false; lastToucher = null; lastTeam = def; def.lastHit = { p: b, type: 'block' }; slideReset();
+      blockDone = true; ball.spiked = false; lastToucher = null; lastTeam = def; def.lastHit = { p: b, type: 'block' }; rallyN++; slideReset();
       b.swing = SW; b.swingType = 'set'; ball.lane = b.lane;
       // человек: блок в верхней точке прыжка (|vh| < 60) — «БЛОК!» в 90%, иначе только касание; ИИ — шанс по сложности (≈ прежние 55%)
       const stuff = hum ? Math.abs(b.vh) < 60 && Math.random() < .9 : Math.random() < .4 + def.D.block * .4;
@@ -1344,7 +1427,7 @@ function land() {
   pointTo(W, out ? 'АУТ' : '');
 }
 function pointTo(W, reason) {
-  state = 'point'; timer = 2.2; pointWinner = W; W.score++; try { music.cheer(); } catch (e) {}
+  state = 'point'; timer = 2.2; pointWinner = W; W.score++; msPoint(W); try { music.cheer(); } catch (e) {}
   scorePop[W === TL ? 0 : 1] = 1;
   if (W !== servingTeam) { do W.serveIdx = (W.serveIdx + 1) % 3; while (W.players[W.serveIdx].lib); servingTeam = W; }
   server = W.players[W.serveIdx];
@@ -1357,6 +1440,22 @@ function pointTo(W, reason) {
   if (reason && lastTeam && lastTeam !== W) act = 'ОШИБКА СОПЕРНИКА';
   cutin = { p: scorer, team: W, act: act + (over ? ' · МАТЧ' : ''), t: 0, life: 1.95 };
   if (W === TL || mode === 'local2') makeConfetti();
+}
+function msPoint(W) {   // учёт очка: кто и чем его принёс (lastTeam !== W — ошибка проигравшего)
+  const O = other(W), mw = msOf(W), mo = msOf(O), lh = W.lastHit;
+  mw.points++; mw.streak++; mo.streak = 0; if (mw.streak > mw.maxStreak) mw.maxStreak = mw.streak;
+  mw.longestRally = Math.max(mw.longestRally, rallyN); mo.longestRally = Math.max(mo.longestRally, rallyN);
+  if (lastTeam && lastTeam !== W) mo.errs++;
+  else if (lh && lastTeam === W) {
+    const t = lh.type;
+    if (rallyN <= 1 && (t === 'serve' || t === 'pserve')) { mw.aces++; msNum(lh.p).aces++; }
+    else if (t === 'spike' || t === 'tip') {
+      mw.kills++; msNum(lh.p).kills++;
+      if (t === 'tip') mw.tipKills++; else if (mw.killTypes[lh.atk] !== undefined) mw.killTypes[lh.atk]++;
+    } else if (t === 'block') { mw.blocks++; msNum(lh.p).blocks++; }
+  }
+  mo.maxDef = Math.max(mo.maxDef, W.score - O.score);
+  if (W.score >= TARGET && mw.maxDef >= 3) mw.comeback = true;
 }
 function makeConfetti() {
   for (let i = 0; i < 70; i++) confetti.push({ x: Math.random(), y: -.05 - Math.random() * .3, vx: (Math.random() - .5) * .08, vy: .12 + Math.random() * .2, rot: Math.random() * 6, vr: (Math.random() - .5) * 12, t: 0, life: 2.6, col: ['#f07a22', '#ffffff', '#25232c', '#f2c230'][i % 4] });
@@ -3970,7 +4069,48 @@ function frPush() {   // сообщить интерфейсу, кто в сет
   } catch (e) {}
 }
 function frPublish(topic, o) { for (const c of PR.cs) { try { c.publish(topic, JSON.stringify(o), { qos: 0 }); } catch (e) {} } }
+/* рейтинг друзей: своя статистика — retained в vb4x10/s/<код>, статистика друзей — оттуда же (кэш vb-fstats) */
+const FS_NUM = ['wins', 'matches', 'onlineWins', 'colo', 'chapters', 'streak'];
+let FS = {}; try { const o = JSON.parse(localStorage.getItem('vb-fstats') || '{}'); if (o && typeof o === 'object') for (const c in o) { const v = frStatOk(o[c]); if (FR_CODE.test(c) && v) FS[c] = v; } } catch (e) {}
+function frStatOk(m) {   // → чистая запись | null
+  if (!m || typeof m !== 'object' || typeof m.nick !== 'string' || m.nick.length > 14) return null;
+  const o = { nick: m.nick, ts: 0 };
+  for (const k of FS_NUM) { const v = m[k]; if (typeof v !== 'number' || !isFinite(v) || v < 0 || v > 1e6) return null; o[k] = v; }
+  if (typeof m.ts === 'number' && isFinite(m.ts) && m.ts >= 0 && m.ts < 1e14) o.ts = m.ts;
+  return o;
+}
+function friendStats() {   // { КОД: { nick, wins, matches, onlineWins, colo, chapters, streak, ts } } — только текущие друзья
+  const p = frProfile(), o = {}; if (p) for (const c of p.friends) if (FS[c]) o[c] = Object.assign({}, FS[c]);
+  return o;
+}
+function frStatMsg(topic, buf, p) {
+  const code = topic.slice(9); if (!p.friends.has(code)) return;
+  let m; try { m = JSON.parse(typeof buf === 'string' ? buf : new TextDecoder().decode(buf)); } catch (e) { return; }
+  const v = frStatOk(m); if (!v) return;
+  const old = FS[code]; if (old && v.ts < old.ts) return;
+  if (old && JSON.stringify(old) === JSON.stringify(v)) return;
+  FS[code] = v;
+  try { localStorage.setItem('vb-fstats', JSON.stringify(FS)); } catch (e) {}
+  try { if (typeof onFriendStats === 'function') onFriendStats(friendStats()); } catch (e) {}
+  try { if (typeof window.__onFriendStats === 'function') window.__onFriendStats(friendStats()); } catch (e) {}   // подставка для автотестов
+}
+function frMyStats() {
+  try {
+    if (typeof getMyStats !== 'function') return null;
+    const g = getMyStats(), p = frProfile(), v = frStatOk(g); if (!v || !p) return null;
+    v.nick = v.nick || p.nick; delete v.ts; return v;
+  } catch (e) { return null; }
+}
+let frStAt = -9e9;
+function frStatsPub() {   // новое подключение — сразу; изменения (после матча) — не чаще раза в 10 с
+  const p = frProfile(), v = frMyStats(); if (!p || !v || !PR.cs.length) return;
+  const key = JSON.stringify(v), now = performance.now(), fresh = PR.cs.filter(c => c.__st === undefined), stale = PR.cs.filter(c => c.__st !== undefined && c.__st !== key);
+  const to = fresh.concat(now - frStAt >= 10000 ? stale : []); if (!to.length) return;
+  v.ts = Date.now(); const msg = JSON.stringify(v); frStAt = now;
+  for (const c of to) { c.__st = key; try { c.publish('vb4x10/s/' + p.me, msg, { qos: 0, retain: true }); } catch (e) {} }
+}
 function frMsg(topic, buf, me) {
+  if (topic.startsWith('vb4x10/s/')) { const p0 = frProfile(); if (p0 && p0.me === me) frStatMsg(topic, buf, p0); return; }
   let m; try { m = JSON.parse(typeof buf === 'string' ? buf : new TextDecoder().decode(buf)); } catch (e) { return; }
   const p = frProfile(); if (!m || typeof m !== 'object' || !p || p.me !== me || typeof m.from !== 'string' || !FR_CODE.test(m.from) || !p.friends.has(m.from)) return;
   if (topic === 'vb4x10/p/' + m.from) { if (m.t === 'here') { const now = performance.now(), fresh = PR.seen[m.from] && now - PR.seen[m.from] < 30000; PR.seen[m.from] = now; if (!fresh) frHere(); frPush(); } return; }   // друг только что появился — отвечаем сразу, не ждём 20 с
@@ -3983,7 +4123,7 @@ function frMsg(topic, buf, me) {
 }
 function frSubscribe() {
   const p = frProfile(); if (!p) return;
-  const topics = ['vb4x10/u/' + p.me, ...[...p.friends].map(c => 'vb4x10/p/' + c)];
+  const topics = ['vb4x10/u/' + p.me, ...[...p.friends].map(c => 'vb4x10/p/' + c), ...[...p.friends].map(c => 'vb4x10/s/' + c)];
   for (const c of PR.cs) for (const t of topics) { try { c.subscribe(t, { qos: 0 }); } catch (e) {} }
 }
 function frHere() { const p = frProfile(); if (p && PR.cs.length) frPublish('vb4x10/p/' + p.me, { t: 'here', from: p.me, ts: Date.now() }); PR.hbAt = performance.now(); }
@@ -3998,7 +4138,7 @@ async function frConnect() {
       mine.push(c);
       c.on('message', (t, b) => { const p = frProfile(); if (p) frMsg(t, b, p.me); });
       c.on('connect', () => frSubscribe());
-      frSubscribe(); frHere();
+      frSubscribe(); frHere(); frStatsPub();
     }));
   } catch (e) {} finally { PR.busy = false; }
 }
@@ -4009,7 +4149,7 @@ function frTick() {
     const p = frProfile(), menu = typeof state !== 'undefined' && state === 'menu' && !(net && net.connected);
     if (!PR.want || !p || !p.friends.size || !menu) { if (PR.cs.length) frClose(); return; }
     if (!PR.cs.length) frConnect();
-    else { frSubscribe(); if (performance.now() - PR.hbAt >= 20000) frHere(); }
+    else { frSubscribe(); frStatsPub(); if (performance.now() - PR.hbAt >= 20000) frHere(); }
   } catch (e) {}
 }
 function presenceStart() { PR.want = true; frTick(); }
@@ -4027,7 +4167,8 @@ async function netInvite(friendCode) {   // создать комнату и п�
   return room;
 }
 setInterval(frTick, 2000);
-try { window.__fr = { PR, presenceStart, presenceStop, netInvite, friendOnline, netHost, netJoin, netLeave }; } catch (e) {}   // для автотестов
+try { window.friendStats = friendStats; } catch (e) {}
+try { window.__fr = { PR, friendStats, frStatsPub, presenceStart, presenceStop, netInvite, friendOnline, netHost, netJoin, netLeave }; } catch (e) {}   // для автотестов
 
 /* ---------- сессия: общее ---------- */
 function netBeat() {
@@ -4475,7 +4616,135 @@ const CHAPTERS_NEXT = [
         ['10', 'Национальный! Узел, готовь узлы потуже, мы едем дальше!', 'joy'],
       ]},
     ]},
+  { id: 3, title: 'НАЦИОНАЛЬНЫЙ',
+    intro: 'Здесь нет своих трибун и знакомых лиц. Только лучшие со всей страны и страх оказаться не из них.',
+    stages: [
+      { name: 'Лаймовый Шквал', team: 'ЛАЙМОВЫЙ ШКВАЛ', kit: 'nt1', arena: 'hall', target: 9, diff: 'normal', boost: 2, talk: [
+        ['c', 'Зал на три тысячи мест. Смотрите на мяч, а не на трибуны.', 'calm'],
+        ['10', 'Три тысячи! Вот это я понимаю, зритель. Громче, не слышу!', 'joy'],
+        ['o', 'Руслан Быстров, «Шквал». Мы подаём первыми и бегаем быстрее всех.', 'focus'],
+        ['9', 'Они играют в темпе. Если замешкаемся, нас сметут.', 'focus'],
+        ['4', 'Я встану ближе к линии. Пусть бегают, я успею.', 'calm'],
+        ['10', 'Арис, пас мне. Хочу, чтобы страна услышала первый удар.', 'joy'],
+      ]},
+      { name: 'Медный Квартал', team: 'МЕДНЫЙ КВАРТАЛ', kit: 'nt2', arena: 'beach', target: 9, diff: 'normal', boost: 2, talk: [
+        ['o', 'Савва Медников, «Кузнец». Мы куём очки из ваших ошибок. Подача!', 'calm'],
+        ['4', 'Мяч крутится как юла. Не понимаю, куда он упадёт. Мимо.', 'sad'],
+        ['10', 'Дан? Ты же всегда берёшь всё!', 'angry'],
+        ['4', 'Я подниму. Сейчас подниму. Я просто... не успел.', 'sad'],
+        ['9', 'Эй. Это песок и чужая подача. Давай вместе, я встану рядом.', 'calm'],
+        ['c', 'Якорь тоже иногда срывается с цепи. Главное, вернуться на дно.', 'calm'],
+      ]},
+      { name: 'Ледяной Вектор', team: 'ЛЕДЯНОЙ ВЕКТОР', kit: 'nt3', arena: 'hall', target: 11, diff: 'hard', boost: 3, talk: [
+        ['10', 'В газете написано: «Кадзама хорош, но до Вьюгина ему далеко».', 'sad'],
+        ['o', 'Ярослав Вьюгин, «Вектор». Говорят, ты громкий. Покажи, чем лучше меня.', 'calm'],
+        ['10', 'Арис, только мне. Весь матч. Я докажу им всем.', 'angry'],
+        ['9', 'Они читают нас. Бить одному против их блока нельзя.', 'focus'],
+        ['10', 'Пасуй! Или я сам возьму мяч и сам ударю!', 'angry'],
+        ['4', 'Рэй, ты не слышишь пас. Опять не слышишь.', 'sad'],
+      ]},
+      { name: 'Шквал в плей-офф', team: 'ЛАЙМОВЫЙ ШКВАЛ', kit: 'nt1', arena: 'beach', target: 9, diff: 'hard', boost: 3, talk: [
+        ['c', 'Сегодня вы выбираете: играть за себя или друг за друга. Решайте.', 'calm'],
+        ['o', 'Быстров. Любопытно: полтрибуны орёт за вас. Кто эти люди?', 'calm'],
+        ['9', 'Глеб, Ян и Нина в первом ряду, с плакатом «ВЕРФЬ». Нас не забыли.', 'joy'],
+        ['10', 'Прости, Арис. Мне нужен был не рекорд, а твой пас.', 'sad'],
+        ['9', 'Новый приём. Длинный квик через всю площадку. Прыгай на вдох.', 'focus'],
+        ['4', 'Я прошу: прикройте меня на приёме. Теперь можно, я научился.', 'calm'],
+      ]},
+      { name: 'Вектор: ответ', team: 'ЛЕДЯНОЙ ВЕКТОР', kit: 'nt3', arena: 'hall', target: 11, diff: 'hard', boost: 4, talk: [
+        ['o', 'Снова вы. В прошлый раз Гром бил в одиночку. Сегодня как?', 'calm'],
+        ['10', 'Сегодня нас трое. Я не твоя копия. Я Кадзама, мой гром другой.', 'focus'],
+        ['9', 'Длинный квик по готовности. Пасую на слух. Не бойся, Рэй.', 'focus'],
+        ['4', 'Блок отскочит влево. Я там. Бейте, я вытащу всё.', 'focus'],
+        ['c', 'Спорили долго. Теперь играйте вместе.', 'calm'],
+      ]},
+      { name: 'Багровая Корона', team: 'БАГРОВАЯ КОРОНА', kit: 'nt4', arena: 'hall', target: 11, diff: 'hard', boost: 5, talk: [
+        ['c', 'Финал национального. Победишь, поедешь дальше. Проиграешь, останешься командой.', 'calm'],
+        ['9', 'Я боюсь. Если пас выйдет кривым, проиграем все. Мне страшно.', 'sad'],
+        ['10', 'Ты шесть недель писал нам расписание. Пас будет ровный. Я верю.', 'joy'],
+        ['4', 'А если упадёт, я рядом. Никто тебя не оставит одного.', 'calm'],
+        ['o', 'Марта Вольская, «Корона». Мы не проигрываем. Вера Стрижова смотрит с трибуны.', 'focus'],
+        ['9', 'Вера? Ястребы пришли смотреть? Тогда дирижируем по-настоящему!', 'joy'],
+        ['10', 'Мы не лучшие в стране. Мы лучшие вместе. Погнали!', 'joy'],
+      ]},
+    ]},
 ];
+
+
+/* ================= ежедневный вызов (i_daily.js, владелец — ui-hud-designer) =================
+   dailyChallenge(day) → { id: 'YYYY-MM-DD', title, desc, arena, target, diff, boost, rule, goal, reward }
+   Один и тот же вызов у всех игроков в один день (детерминированно от даты).
+   Проверка правила — по счётчикам матча matchStats (b_core.js, владелец — gameplay-engineer). */
+
+const DAILY_KEY = 'vb-daily';   // { last: 'YYYY-MM-DD' — день последнего выполнения, streak, best, total }
+const pad2 = n => (n < 10 ? '0' : '') + n;
+const dayKey = d => { d = d instanceof Date ? d : new Date(); return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()); };   // местный день игрока
+const dayNum = key => { const [y, m, d] = key.split('-').map(Number); return Math.round(Date.UTC(y, m - 1, d) / 864e5); };
+const dayShift = (key, k) => { const [y, m, d] = key.split('-').map(Number); return dayKey(new Date(y, m - 1, d + k)); };
+function dRng(seed) { let a = seed >>> 0; return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ t >>> 15, t | 1); t ^= t + Math.imul(t ^ t >>> 7, t | 61); return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+const dNum = (o, k) => Math.max(0, +(o && o[k]) || 0);
+/* шаблоны правил. build(r, rnd) → параметры; test(ctx) → true/false.
+   ctx = { win, my, opp (итоговый счёт), me, op (matchStats.L / .R — свои и соперника; null, если matchStats нет), g (цель) }.
+   Без matchStats правило проверяется только по победе (и по счёту, где он важен). */
+const DAILY_RULES = [
+  { id: 'killQuick', par: r => ({ g: 2 + (r() < .5 ? 1 : 0) }), cfg: { target: 11, diff: 'normal' }, desc: g => 'Выиграй, забив ' + g + ' ' + pluralD(g, 'очко', 'очка', 'очков') + ' квиком', test: c => c.win && (!c.me || dNum(c.me.killTypes, 'quick') >= c.g), fail: (c, g) => 'квиком забито ' + dNum(c.me && c.me.killTypes, 'quick') + ' из ' + g },
+  { id: 'beachHard', par: () => ({ g: 1 }), cfg: { arena: 'beach', target: 7, diff: 'hard' }, desc: () => 'Победи на пляже на сложном', test: c => c.win, fail: () => 'победа не дана' },
+  { id: 'aces', par: r => ({ g: 2 + (r() < .4 ? 1 : 0) }), cfg: { target: 11, diff: 'normal' }, desc: g => 'Выиграй и сделай ' + g + ' ' + pluralD(g, 'эйс', 'эйса', 'эйсов'), test: c => c.win && (!c.me || dNum(c.me, 'aces') >= c.g), fail: (c, g) => 'эйсов ' + dNum(c.me, 'aces') + ' из ' + g },
+  { id: 'margin', par: r => ({ g: 4 + (r() < .5 ? 1 : 0) }), cfg: { target: 11, diff: 'normal' }, desc: g => 'Выиграй с отрывом ' + g + '+ очка', test: c => c.win && c.my - c.opp >= c.g, fail: (c, g) => 'отрыв ' + (c.my - c.opp) + ', нужен ' + g },
+  { id: 'noStreak', par: () => ({ g: 3 }), cfg: { target: 11, diff: 'normal' }, desc: () => 'Победа без проигранных 3 очков подряд', test: c => c.win && (!c.op || dNum(c.op, 'maxStreak') < 3), fail: c => 'соперник взял ' + dNum(c.op, 'maxStreak') + ' подряд' },
+  { id: 'rally', par: r => ({ g: 8 + (r() < .5 ? 2 : 0) }), cfg: { target: 11, diff: 'normal' }, desc: g => 'Выиграй и проведи розыгрыш длиннее ' + g + ' касаний', test: c => c.win && (!c.me || Math.max(dNum(c.me, 'longestRally'), dNum(c.op, 'longestRally')) > c.g), fail: (c, g) => 'самый длинный розыгрыш ' + Math.max(dNum(c.me, 'longestRally'), dNum(c.op, 'longestRally')) + ', нужно больше ' + g },
+  { id: 'blocks', par: r => ({ g: 3 }), cfg: { target: 11, diff: 'normal' }, desc: g => 'Выиграй и поставь ' + g + ' блока за матч', test: c => c.win && (!c.me || dNum(c.me, 'blocks') >= c.g), fail: (c, g) => 'блоков ' + dNum(c.me, 'blocks') + ' из ' + g },
+  { id: 'comeback', par: () => ({ g: 3 }), cfg: { target: 11, diff: 'normal' }, desc: g => 'Камбэк: выиграй, уступая 0:' + g, test: c => c.win && (!c.me || c.me.comeback === true || +c.me.comeback >= c.g), fail: () => 'камбэка не было' },
+  { id: 'pipe', par: () => ({ g: 2 }), cfg: { target: 11, diff: 'normal' }, desc: g => 'Выиграй: пайп-атака принесла ' + g + ' очка', test: c => c.win && (!c.me || dNum(c.me.killTypes, 'pipe') >= c.g), fail: (c, g) => 'очков с пайпа ' + dNum(c.me && c.me.killTypes, 'pipe') + ' из ' + g },
+  { id: 'powerServe', par: r => ({ g: 2 + (r() < .5 ? 1 : 0) }), cfg: { target: 11, diff: 'normal' }, desc: g => 'Выиграй и проведи ' + g + ' ' + pluralD(g, 'силовую подачу', 'силовые подачи', 'силовых подач'), test: c => c.win && (!c.me || dNum(c.me, 'powerServes') >= c.g), fail: (c, g) => 'силовых подач ' + dNum(c.me, 'powerServes') + ' из ' + g },
+  { id: 'tempo', par: () => ({ g: 2 }), cfg: { target: 11, diff: 'normal' }, desc: g => 'Выиграй: быстрый темп принёс ' + g + ' очка', test: c => c.win && (!c.me || dNum(c.me.killTypes, 'tempo') >= c.g), fail: (c, g) => 'очков с темпа ' + dNum(c.me && c.me.killTypes, 'tempo') + ' из ' + g },
+  { id: 'digs', par: r => ({ g: 6 + (r() < .5 ? 2 : 0) }), cfg: { target: 11, diff: 'normal' }, desc: g => 'Выиграй и подними ' + g + ' ' + pluralD(g, 'мяч', 'мяча', 'мячей') + ' в защите', test: c => c.win && (!c.me || dNum(c.me, 'digs') >= c.g), fail: (c, g) => 'подъёмов ' + dNum(c.me, 'digs') + ' из ' + g },
+  { id: 'tips', par: r => ({ g: 2 + (r() < .5 ? 1 : 0) }), cfg: { target: 11, diff: 'normal' }, desc: g => 'Выиграй и обыграй блок ' + g + ' ' + pluralD(g, 'скидкой', 'скидками', 'скидками'), test: c => c.win && (!c.me || dNum(c.me, 'tips') >= c.g), fail: (c, g) => 'скидок ' + dNum(c.me, 'tips') + ' из ' + g },
+  { id: 'myStreak', par: r => ({ g: 4 + (r() < .5 ? 1 : 0) }), cfg: { target: 11, diff: 'normal' }, desc: g => 'Выиграй, взяв ' + g + ' ' + pluralD(g, 'очко', 'очка', 'очков') + ' подряд', test: c => c.win && (!c.me || dNum(c.me, 'maxStreak') >= c.g), fail: (c, g) => 'лучшая серия ' + dNum(c.me, 'maxStreak') + ' из ' + g },
+  { id: 'hardFinal', par: () => ({ g: 1 }), cfg: { target: 11, diff: 'hard', boost: 2 }, desc: () => 'Победи сильных гостей до 11', test: c => c.win, fail: () => 'победа не дана' },
+  { id: 'spikes', par: r => ({ g: 8 + (r() < .5 ? 2 : 0) }), cfg: { target: 11, diff: 'normal' }, desc: g => 'Выиграй и нанеси ' + g + ' ' + pluralD(g, 'удар', 'удара', 'ударов') + ' в атаке', test: c => c.win && (!c.me || dNum(c.me, 'spikes') >= c.g), fail: (c, g) => 'ударов ' + dNum(c.me, 'spikes') + ' из ' + g },
+];
+function pluralD(n, a, b, c) { return n % 10 === 1 && n % 100 !== 11 ? a : [2, 3, 4].includes(n % 10) && ![12, 13, 14].includes(n % 100) ? b : c; }
+const DAILY_TITLES = { killQuick: 'Быстрый мяч', beachHard: 'Песок и жара', aces: 'Эйсы', margin: 'Уверенная победа', noStreak: 'Без провалов', rally: 'Долгий розыгрыш', blocks: 'Стена', comeback: 'Камбэк', pipe: 'Пайп', powerServe: 'Силовая подача', tempo: 'Темп', digs: 'Несгибаемые', tips: 'Скидки', myStreak: 'Серия', hardFinal: 'Сильные гости', spikes: 'Атака' };
+function dailyChallenge(day) {
+  const id = typeof day === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(day) ? day : dayKey(day instanceof Date ? day : undefined);
+  const n = dayNum(id), N = DAILY_RULES.length;
+  let st = 7; while (st > 1 && N % st === 0) st -= 2;   // шаг, взаимно простой с N: за N дней перебираются все правила
+  const R = DAILY_RULES[((n * st) % N + N) % N], r = dRng(n * 2654435761 + 12345), par = R.par(r), g = par.g;
+  const cfg = Object.assign({ arena: r() < .6 ? 'hall' : 'beach', target: 11, diff: 'normal', boost: 0 }, R.cfg);
+  const reward = (cfg.diff === 'hard' ? 5 : cfg.diff === 'easy' ? 3 : 4) + (cfg.boost ? 1 : 0) + (R.id === 'comeback' ? 1 : 0);
+  return { id, title: DAILY_TITLES[R.id] || 'Вызов', desc: R.desc(g), arena: cfg.arena, target: cfg.target, diff: cfg.diff, boost: cfg.boost, rule: R.id, goal: g, reward };
+}
+/* итог матча: { ok, msg }. ms — matchStats (может не быть), my/opp — итоговый счёт */
+function dailyCheck(ch, win, my, opp, ms) {
+  const R = DAILY_RULES.find(x => x.id === ch.rule); if (!R) return { ok: win, msg: win ? '' : 'победа не дана' };
+  const c = { win, my, opp, me: ms && ms.L || null, op: ms && ms.R || null, g: ch.goal };
+  if (!win) return { ok: false, msg: 'матч проигран' };
+  const ok = !!R.test(c);
+  return { ok, msg: ok ? '' : R.fail(c, ch.goal) };
+}
+function dailyLoad() {
+  let v = null; try { v = JSON.parse(localStorage.getItem(DAILY_KEY) || 'null'); } catch (e) {}
+  v = v && typeof v === 'object' ? v : {};
+  const n = x => Math.max(0, Math.floor(+x || 0));
+  return { last: typeof v.last === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v.last) ? v.last : '', streak: n(v.streak), best: n(v.best), total: n(v.total) };
+}
+function dailySave(v) { try { localStorage.setItem(DAILY_KEY, JSON.stringify(v)); } catch (e) {} }
+const dailyDoneToday = () => dailyLoad().last === dayKey();
+function dailyStreak() {   // текущая серия: жива, если выполнен сегодняшний или вчерашний вызов
+  const v = dailyLoad(), t = dayKey();
+  return v.last === t || v.last === dayShift(t, -1) ? v.streak : 0;
+}
+function dailyStreakBonus(streak) { return Math.min(3, Math.floor(streak / 3)); }
+/* награда один раз в день: возвращает { first, reward, streak } */
+function dailyComplete(ch) {
+  const v = dailyLoad(), t = dayKey();
+  if (v.last === t) return { first: false, reward: 0, streak: v.streak };
+  const streak = v.last === dayShift(t, -1) ? v.streak + 1 : 1;
+  dailySave({ last: t, streak, best: Math.max(v.best, streak), total: v.total + 1 });
+  return { first: true, reward: ch.reward + dailyStreakBonus(streak), streak };
+}
+const dailyLeft = () => { const d = new Date(), e = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1); const s = Math.max(0, Math.floor((e - d) / 1000)); return pad2(Math.floor(s / 3600)) + ':' + pad2(Math.floor(s / 60) % 60) + ':' + pad2(s % 60); };
 
 
 /* ================= menu preview ================= */
@@ -4619,6 +4888,7 @@ function endAgain() {
   else if (a === 'tourRetry') campMatch(false);
   else if (a === 'tourAgain') { setProg(camp.ch, { stage: 0, done: false }); camp = { kind: 'tour', ch: camp.ch, stage: 0 }; campMatch(true); }
   else if (a === 'chapNext') { const ch = camp.ch + 1; chapPick = ch; lsSet('vb-chap', ch); const pg = getProg(ch), st0 = pg.done ? 0 : pg.stage; if (pg.done) setProg(ch, { stage: 0, done: false }); camp = { kind: 'tour', ch, stage: st0 }; campMatch(true); }   // начатая глава продолжается с сохранённого этапа
+  else if (a === 'dailyAgain') startDaily();
   else if (a === 'coloNext') campMatch(false);
   else if (a === 'coloAgain') { camp = { kind: 'colo', wins: 0 }; campMatch(false); }
 }
@@ -4677,7 +4947,60 @@ $('stSkip').addEventListener('click', e => { e.stopPropagation(); storyDone(); }
 
 /* ================= screens ================= */
 let pausedFrom = null;
-function show(id) { if (id === 'pause' || id === 'end') { try { syncClipUi(); } catch (e) {} } ['menu', 'pause', 'end', 'online', 'leave', 'story', 'ups', 'prof'].forEach(k => $(k).hidden = k !== id); }
+function show(id) { if (id === 'pause' || id === 'end') { try { syncClipUi(); } catch (e) {} } ['menu', 'pause', 'end', 'online', 'leave', 'story', 'ups', 'prof', 'daily'].forEach(k => $(k).hidden = k !== id); if (id === 'menu') { try { syncDailyDot(); } catch (e) {} } }
+
+/* ================= ежедневный вызов: экран, запуск, итог ================= */
+let dailyRun = null, dailyTm = 0;   // dailyRun: { ch, save: { TARGET, diff, arenaPick } } пока идёт матч вызова
+function syncDailyDot() { const d = $('dailyDot'); if (d) d.hidden = dailyDoneToday(); }
+function renderDaily() {
+  const ch = dailyChallenge(), done = dailyDoneToday(), st = dailyStreak(), b = dailyStreakBonus(st + (done ? 0 : 1));
+  $('dTitle').textContent = ch.title; $('dCond').textContent = ch.desc;
+  const chips = $('dChips'); chips.textContent = '';
+  for (const t of [ch.arena === 'beach' ? 'Пляж' : 'Зал', 'до ' + ch.target, ({ easy: 'Легко', normal: 'Средне', hard: 'Сильно' })[ch.diff] + (ch.boost ? ' +' + ch.boost : '')]) { const s = document.createElement('span'); s.textContent = t; chips.appendChild(s); }
+  $('dReward').textContent = '★ ' + ch.reward + (b ? ' + ' + b + ' за серию' : '') + ' на прокачку';
+  $('dStreak').textContent = st; $('dTimer').textContent = dailyLeft();
+  const ds = $('dState'); ds.className = 'dstate' + (done ? ' ok' : '');
+  ds.textContent = done ? 'Выполнен сегодня ✓ Награда получена. Можно играть ещё, награды не будет.' : 'Награда — один раз в день. Попыток сколько угодно.';
+  $('dPlay').textContent = done ? 'СЫГРАТЬ ЕЩЁ' : 'ПРИНЯТЬ ВЫЗОВ';
+  syncDailyDot();
+}
+function openDaily() {
+  audio(); renderDaily(); show('daily'); clearInterval(dailyTm);
+  dailyTm = setInterval(() => { if ($('daily').hidden) { clearInterval(dailyTm); return; } const t = $('dTimer').textContent; $('dTimer').textContent = dailyLeft(); if (dailyLeft() > t) renderDaily(); }, 1000);   // ночью таймер перескакивает вверх — перерисуем новый вызов
+}
+function startDaily() {
+  if (isOnline()) netLeave();
+  const ch = dailyChallenge(); endCamp();
+  if (!dailyRun) dailyRun = { ch, save: { TARGET, diff, arenaPick } }; else dailyRun.ch = ch;
+  TARGET = ch.target; diff = ch.diff; arenaPick = ch.arena;   // только в памяти: выбор игрока в меню (и в localStorage) не трогаем
+  mode = 'solo'; audio(); setArena(ch.arena); newMatch(); TR.D = boostD(DIFF[ch.diff], ch.boost); TR.name = 'ВЫЗОВ ДНЯ';
+  champ = false; endAct = ''; clearInterval(champTimer); $('end').classList.remove('lite');
+  staticDone = false; show(null); updateCamera(0, true); last = performance.now();
+  banner('ВЫЗОВ ДНЯ · ' + ch.title.toUpperCase(), 'gold', 2, true);
+}
+function endDaily() { if (dailyRun) { const s = dailyRun.save; TARGET = s.TARGET; diff = s.diff; arenaPick = s.arenaPick; dailyRun = null; syncSeg(); } }
+function showDailyEnd(win) {
+  const ch = dailyRun.ch, el = $('end');
+  const ms = typeof matchStats !== 'undefined' && matchStats ? matchStats : null;
+  const res = dailyCheck(ch, win, TL.score, TR.score, ms);
+  champ = false; endAct = 'dailyAgain'; clearInterval(champTimer); el.classList.remove('lite');
+  let sub;
+  if (res.ok) {
+    const c = dailyComplete(ch);
+    if (c.first) { ups.pts += c.reward; upSave(); syncUps(); sub = 'Награда: +' + c.reward + ' ★ · серия: ' + c.streak + ' ' + pluralD(c.streak, 'день', 'дня', 'дней') + '.'; }
+    else sub = 'Награда за сегодня уже получена.';
+    makeConfetti();
+  } else sub = 'Не вышло: ' + res.msg + '. Попробуй ещё раз.';
+  sub += upAward(win);
+  $('endTitle').textContent = res.ok ? 'ВЫЗОВ ВЫПОЛНЕН!' : 'НЕ ВЫШЛО'; $('endTitle').className = res.ok ? 'win' : '';
+  $('endScore').textContent = TL.score + ' : ' + TR.score; $('endSub').textContent = ch.desc + '. ' + sub;
+  $('againBtn').textContent = 'ЕЩЁ РАЗ'; $('menuBtn').textContent = 'В МЕНЮ';
+  syncDailyDot(); show('end');
+}
+$('dailyBtn').addEventListener('click', openDaily);
+$('dBack').addEventListener('click', () => show('menu'));
+$('dPlay').addEventListener('click', startDaily);
+syncDailyDot();
 
 /* ================= прокачка: экран и награда за матч ================= */
 function upAward(win, bonus = 0) {   // очки за матч против компьютера; возвращает строку для экрана итогов
@@ -4706,7 +5029,7 @@ function syncUps() {
 syncUps();
 $('upBtn').addEventListener('click', () => { audio(); syncUps(); show('ups'); });
 $('upBack').addEventListener('click', () => show('menu'));
-function syncMus() { const t = music.on ? '♪ МУЗЫКА: ВКЛ' : '♪ МУЗЫКА: ВЫКЛ'; $('musBtn').textContent = t; $('musBtn2').textContent = t; }
+function syncMus() { const t = music.on ? '♪ МУЗЫКА: ВКЛ' : '♪ МУЗЫКА: ВЫКЛ'; $('musBtn').textContent = music.on ? '♪ ВКЛ' : '♪ ВЫКЛ'; $('musBtn2').textContent = t; }
 for (const id of ['musBtn', 'musBtn2']) $(id).addEventListener('click', () => { audio(); music.toggle(); syncMus(); });
 syncMus();
 document.addEventListener('pointerdown', () => audio(), { once: true });   // музыка меню — с первого касания (браузер не даёт звук без жеста)
@@ -4719,12 +5042,13 @@ function startMatch(m) {
   if (m === 'host') { if (netRestart()) return; m = 'solo'; }
   if (m !== 'solo' && m !== 'local2') m = 'solo';
   if (mode === 'host' || mode === 'guest') netLeave();
-  endCamp(); setArena(arenaPick);
+  endDaily(); endCamp(); setArena(arenaPick);
   mode = m; audio(); newMatch(); show(null); updateCamera(0, true);
 }
 function showEnd() {
   const me = myTeam(), win = me.score > other(me).score; if (state !== 'over') recStat(win); state = 'over';
   if (camp && mode === 'solo') { showCampEnd(win); return; }
+  if (dailyRun && mode === 'solo') { showDailyEnd(win); return; }
   champ = false; endAct = ''; clearInterval(champTimer); $('end').classList.remove('lite'); $('againBtn').textContent = 'ЕЩЁ'; $('menuBtn').textContent = 'В МЕНЮ';
   $('endTitle').textContent = mode === 'local2' ? 'ИГРОК ' + (TL.score > TR.score ? 1 : 2) + ' ПОБЕДИЛ' : win ? 'ПОБЕДА!' : 'ПОРАЖЕНИЕ';
   $('endTitle').className = win || mode === 'local2' ? 'win' : '';
@@ -4734,7 +5058,7 @@ function showEnd() {
 }
 function pauseGame() { if (isOnline()) return; if (!['serve', 'play', 'point'].includes(state)) return; pausedFrom = state; state = 'paused'; show('pause'); }
 function resumeGame() { if (state !== 'paused') return; state = pausedFrom; last = performance.now(); show(null); }
-function toMenu() { if (mode === 'host' || mode === 'guest') netLeave(); mode = 'solo'; state = 'menu'; tut = null; tim = null; stopStory(); champ = false; clearInterval(champTimer); $('end').classList.remove('lite'); endCamp(); setArena(arenaPick); syncMode(); cutin = null; TL = TR = null; active = null; banners = []; confetti = []; show('menu'); updateCamera(0, true); }
+function toMenu() { if (mode === 'host' || mode === 'guest') netLeave(); mode = 'solo'; state = 'menu'; tut = null; tim = null; stopStory(); champ = false; clearInterval(champTimer); $('end').classList.remove('lite'); endDaily(); endCamp(); setArena(arenaPick); syncMode(); cutin = null; TL = TR = null; active = null; banners = []; confetti = []; show('menu'); updateCamera(0, true); }
 function syncSeg() {
   document.querySelectorAll('[data-diff]').forEach(x => x.setAttribute('aria-pressed', String(x.dataset.diff === diff)));
   document.querySelectorAll('[data-target]').forEach(x => x.setAttribute('aria-pressed', String(+x.dataset.target === TARGET)));
@@ -4972,6 +5296,43 @@ function drawAv(cv, hero, color) {
 }
 function renderChip() { drawAv($('chipAv'), P.hero, P.color); $('chipNick').textContent = P.nick; }
 function profLobby() { $('onlMe').textContent = 'Ты: ' + P.nick + ' · код ' + P.code; }
+/* ================= рейтинг друзей и данные для обмена ================= */
+function getMyStats() { return { nick: P.nick, wins: P.st.w, matches: P.st.m, onlineWins: P.st.ow, colo: coloBest, chapters: chapsDone(), streak: dailyStreak() }; }
+window.getMyStats = getMyStats;
+let ratKey = lsGet('vb-rsort') || 'wins';
+const RAT_COLS = [['wins', 'побед'], ['onlineWins', 'онлайн'], ['colo', 'колизей'], ['streak', 'дней вызова']];
+function ratingRows() {
+  let fs = null; try { fs = typeof friendStats === 'function' ? friendStats() : typeof friendStats === 'object' ? friendStats : null; } catch (e) {}
+  const num = x => Math.max(0, Math.floor(+x || 0));
+  const rows = [Object.assign({ me: true }, getMyStats())]; let others = 0;
+  if (fs && typeof fs === 'object') for (const code of Object.keys(fs)) {
+    const f = fs[code]; if (!f || typeof f !== 'object' || code === P.code) continue;
+    const fr = P.friends.find(x => x.code === code);
+    rows.push({ nick: cleanNick(f.nick) || (fr && fr.name) || 'Друг', wins: f.wins, matches: f.matches, onlineWins: f.onlineWins, colo: f.colo, chapters: f.chapters, streak: f.streak }); others++;
+  }
+  rows.forEach(r => { for (const k of ['wins', 'matches', 'onlineWins', 'colo', 'chapters', 'streak']) r[k] = num(r[k]); });
+  return { rows, others };
+}
+function renderRating() {
+  const el = $('rList'); if (!el) return; el.textContent = '';
+  document.querySelectorAll('#rSort button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.k === ratKey)));
+  const { rows, others } = ratingRows();
+  rows.sort((a, b) => b[ratKey] - a[ratKey] || b.wins - a.wins || (b.me ? 1 : 0) - (a.me ? 1 : 0));
+  rows.forEach((r, i) => {
+    const d = document.createElement('div'); d.className = 'rr' + (r.me ? ' me' : '');
+    const n = document.createElement('span'); n.className = 'rn'; n.textContent = i + 1;
+    const inf = document.createElement('div'); inf.className = 'ri';
+    const b = document.createElement('b'); b.textContent = r.nick + (r.me ? ' (ты)' : '');
+    const sm = document.createElement('small'); sm.textContent = RAT_COLS.filter(c => c[0] !== ratKey).map(c => r[c[0]] + ' ' + c[1]).join(' · ');
+    inf.append(b, sm);
+    const v = document.createElement('span'); v.className = 'rv'; v.textContent = r[ratKey];
+    d.append(n, inf, v); el.appendChild(d);
+  });
+  if (!others) { const p = document.createElement('p'); p.className = 'fempty'; p.textContent = 'Друзья появятся здесь, когда зайдут в игру'; el.appendChild(p); }
+}
+function onFriendStats() { try { if (!$('prof').hidden && profT === 'r') renderRating(); } catch (e) {} }
+window.onFriendStats = onFriendStats;
+document.querySelectorAll('#rSort button').forEach(b => b.addEventListener('click', () => { ratKey = b.dataset.k; lsSet('vb-rsort', ratKey); renderRating(); }));
 function chapsDone() { let n = 0; for (let i = 0; i < CHS.length; i++) { try { if (getProg(i).done) n++; } catch (e) {} } return n; }
 function renderProf() {
   const hr = $('heroRow'), cr = $('colRow');
@@ -4985,7 +5346,7 @@ function renderProf() {
   $('myCode').textContent = P.code;
   const S = P.st, cell = (v, t) => '<div><b>' + v + '</b><small>' + t + '</small></div>';
   $('stats').innerHTML = cell(S.w + ' / ' + S.m, 'с компьютером: победы / матчи') + cell(S.ow + ' / ' + S.om, 'онлайн: победы / матчи') + cell(coloBest, 'лучшая серия колизея') + cell(chapsDone() + ' / ' + CHS.length, 'глав турнира пройдено');
-  renderChip(); renderFriends();
+  renderChip(); renderFriends(); if (profT === 'r') renderRating();
 }
 function renderFriends() {
   const el = $('fList'); el.textContent = '';
@@ -5001,9 +5362,12 @@ function renderFriends() {
     r.append(i, inv, del); el.appendChild(r);
   });
 }
+let profT = 'p';
 function profTab(t) {
-  $('paneP').hidden = t !== 'p'; $('paneF').hidden = t !== 'f';
-  $('tabP').setAttribute('aria-pressed', String(t === 'p')); $('tabF').setAttribute('aria-pressed', String(t === 'f'));
+  profT = t;
+  $('paneP').hidden = t !== 'p'; $('paneF').hidden = t !== 'f'; $('paneR').hidden = t !== 'r';
+  $('tabP').setAttribute('aria-pressed', String(t === 'p')); $('tabF').setAttribute('aria-pressed', String(t === 'f')); $('tabR').setAttribute('aria-pressed', String(t === 'r'));
+  if (t === 'r') renderRating();
 }
 function openProf(t) { audio(); profTab(t || 'p'); renderProf(); show('prof'); }
 function addFriend(code, name) {
@@ -5167,6 +5531,7 @@ $('profBtn').addEventListener('click', () => openProf('p'));
 $('profBack').addEventListener('click', () => show('menu'));
 $('tabP').addEventListener('click', () => profTab('p'));
 $('tabF').addEventListener('click', () => profTab('f'));
+$('tabR').addEventListener('click', () => profTab('r'));
 $('nickIn').addEventListener('input', () => { const v = cleanNick($('nickIn').value); if (v) { P.nick = v; saveProf(); renderChip(); } });
 $('nickIn').addEventListener('blur', () => { $('nickIn').value = P.nick; });
 $('codeCopy').addEventListener('click', async () => flashBtn($('codeCopy'), (await copyText(P.code)) ? 'СКОПИРОВАНО' : 'НЕ ВЫШЛО'));
@@ -5230,6 +5595,7 @@ addEventListener('keydown', e => {
   if (e.code === 'KeyP' || e.code === 'Escape') {
     if (!ovOnline.hidden) { if (e.code === 'Escape') closeOnline(); return; }
     if (!$('prof').hidden) { if (e.code === 'Escape') show('menu'); return; }
+    if (!$('daily').hidden) { if (e.code === 'Escape') show('menu'); return; }
     if (isOnline()) { toggleLeave(); return; }
     state === 'paused' ? resumeGame() : pauseGame(); return;
   }

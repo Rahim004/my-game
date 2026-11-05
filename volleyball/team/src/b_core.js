@@ -48,6 +48,11 @@ const KIT = {
   rvB: { jersey: '#1f3f9a', shade: '#142a6b', trim: '#b9c4d6', shorts: '#142a6b', shortsTrim: '#b9c4d6', num: '#ffffff', numEdge: '#142a6b', sock: '#b9c4d6', sockBand: '#1f3f9a', pad: '#14193a', shoe: '#e8edf5', sole: '#1f3f9a' },
   rvC: { jersey: '#7a4cc2', shade: '#573391', trim: '#7fe3c4', shorts: '#3b2a63', shortsTrim: '#7fe3c4', num: '#ffffff', numEdge: '#3b2a63', sock: '#e9e4f5', sockBand: '#7a4cc2', pad: '#2a2040', shoe: '#e9e4f5', sole: '#7fe3c4' },
   rvD: { jersey: '#1f6b4a', shade: '#144a33', trim: '#c9d1c4', shorts: '#2e3a40', shortsTrim: '#c9d1c4', num: '#ffffff', numEdge: '#144a33', sock: '#c9d1c4', sockBand: '#1f6b4a', pad: '#1d262b', shoe: '#c9d1c4', sole: '#2e3a40' },
+  // глава 3: соперники «Национального» (см. docs/characters.md)
+  nt1: { jersey: '#8cc63f', shade: '#628f24', trim: '#2a2f33', shorts: '#2a2f33', shortsTrim: '#8cc63f', num: '#1b1a20', numEdge: '#f1f7e0', sock: '#f1f7e0', sockBand: '#8cc63f', pad: '#1f2326', shoe: '#2a2f33', sole: '#8cc63f' },
+  nt2: { jersey: '#a85a2c', shade: '#7a3d18', trim: '#f0e0c4', shorts: '#4a2a18', shortsTrim: '#f0e0c4', num: '#ffffff', numEdge: '#4a2a18', sock: '#f0e0c4', sockBand: '#a85a2c', pad: '#3a2216', shoe: '#f0e0c4', sole: '#a85a2c' },
+  nt3: { jersey: '#4a5663', shade: '#2f3944', trim: '#6fd3f2', shorts: '#2f3944', shortsTrim: '#6fd3f2', num: '#ffffff', numEdge: '#2f3944', sock: '#dff4fb', sockBand: '#6fd3f2', pad: '#222a33', shoe: '#dff4fb', sole: '#6fd3f2' },
+  nt4: { jersey: '#5a1230', shade: '#3a0a1f', trim: '#e8b4a0', shorts: '#3a0a1f', shortsTrim: '#e8b4a0', num: '#f6dccf', numEdge: '#3a0a1f', sock: '#e8b4a0', sockBand: '#5a1230', pad: '#2a0715', shoe: '#e8b4a0', sole: '#5a1230' },
 };
 const LOOKS = {
   // style — что умеет d_chars.js сейчас; styleNew — целевой стиль из docs/characters.md (пока рисуется как style); acc — аксессуар
@@ -312,7 +317,14 @@ function mkPlayer(team, idx, num, kitName) {
     slide: 0, slideDir: team.side < 0 ? 1 : -1, rise: 0, slideHit: 0, aiSlide: 0, fxT: 0 };   // slide/rise — сек до конца скольжения / подъёма с пола
   p.x = homeOf(p); p.goal = p.x; return p;
 }
+/* ================= счётчики матча (хост / одиночная игра) ================= */
+const mkSide = () => ({ points: 0, aces: 0, powerServes: 0, spikes: 0, spikeTypes: { quick: 0, tempo: 0, open: 0, pipe: 0 }, kills: 0, killTypes: { quick: 0, tempo: 0, open: 0, pipe: 0 },
+  tipKills: 0, blocks: 0, tips: 0, digs: 0, errs: 0, maxStreak: 0, streak: 0, longestRally: 0, maxDef: 0, comeback: false });   // errs — собственные ошибки (очко соперника); kills включает очки обманом, killTypes — только ударами
+let matchStats = { L: mkSide(), R: mkSide(), byNum: {} }, rallyN = 0;
+const msOf = T => matchStats[T.side < 0 ? 'L' : 'R'];
+const msNum = p => matchStats.byNum[p.num] || (matchStats.byNum[p.num] = { kills: 0, blocks: 0, digs: 0, aces: 0 });
 function newMatch() {
+  matchStats = { L: mkSide(), R: mkSide(), byNum: {} }; rallyN = 0;
   const twoHumans = mode !== 'solo'; tut = null; tim = null;
   TL = mkTeam(-1, HUMAN_D, mode === 'local2' ? 'ИГРОК 1' : '№4 · №10');
   TR = mkTeam(1, twoHumans ? HUMAN_D : DIFF[diff], mode === 'local2' ? 'ИГРОК 2' : twoHumans ? 'ДРУГ' : 'ГОСТИ');
@@ -338,7 +350,7 @@ function resetServe() {
     T.slideChk = false;
   }
   server.x = servingTeam.side < 0 ? 8 : VW - 8; server.goal = server.x;
-  state = 'serve'; serveT = 0; lastToucher = null; lastTeam = null; blockDone = false; netHitThisRally = false; pointWinner = null;
+  state = 'serve'; serveT = 0; lastToucher = null; lastTeam = null; blockDone = false; netHitThisRally = false; pointWinner = null; rallyN = 0;
   ball.spiked = false; ball.trail = []; ball.laneTarget = server; ball.laneTeam = null;
   holdBall();
   const sTxt = mode === 'local2' ? (servingTeam === TL ? 'ПОДАЧА СЛЕВА' : 'ПОДАЧА СПРАВА')
@@ -405,7 +417,7 @@ function dustRaw(x, lane, n) {   // локальная пыль без пере�
 
 /* ================= touches ================= */
 function touch(p, type) {
-  const T = p.team; T.touches++; lastToucher = p; lastTeam = T; ball.spiked = false; T.lastHit = { p, type };
+  const T = p.team; rallyN++; T.touches++; lastToucher = p; lastTeam = T; ball.spiked = false; T.lastHit = { p, type };
   p.swing = SW; p.swingType = type; p.cd = .22; slideReset();
 }
 function slideReset() { for (const T of [TL, TR]) { T.slideChk = false; for (const q of T.players) q.aiSlide = 0; } }   // новое касание — ИИ заново решает про скольжение
@@ -422,7 +434,8 @@ function pickHitter(T, p) {   // p — исключаемый (пасующий 
   return p !== st ? st : byJob(T, 'lib');   // Рэй недоступен — Арис, затем Дан
 }
 function receive(p, perfect, em = 1) {   // em — множитель ошибки паса (поздний скользящий приём — 2)
-  const T = p.team, rw = p.recvWin; snapBall(p, 'receive', perfect ? 22 : 16); touch(p, 'receive');
+  const T = p.team, rw = p.recvWin; if (ball.spiked) { msOf(T).digs++; msNum(p).digs++; }
+  snapBall(p, 'receive', perfect ? 22 : 16); touch(p, 'receive');
   timeRecv(p, perfect, rw); tutEvt('recv', p, perfect);
   const setter = pickSetter(T, p);
   T.roles = { setter, hitter: pickHitter(T, setter) };
@@ -481,7 +494,7 @@ function freeBall(p) {
   passTo(NETX - T.side * (70 + Math.random() * 100), 0, 1.5); aimLaneTeam(other(T), 1.5); sfx.pass(); ring('w');
 }
 function tip(p, dir = 0) {   // dir: +1 — к сетке (коротко за блок), −1 — от сетки (накат в угол), 0 — обычный обман
-  const T = p.team; snapBall(p, 'spike', 16); touch(p, 'tip');
+  const T = p.team; snapBall(p, 'spike', 16); touch(p, 'tip'); T.lastHit.atk = T.atk; msOf(T).tips++;
   const xt = NETX - T.side * (dir > 0 ? 12 + Math.random() * 16 : dir < 0 ? 170 + Math.random() * 32 : 22 + Math.random() * 45);
   let fl = dir > 0 ? .75 : dir < 0 ? .95 : .85;
   for (; fl < 1.6; fl += .05) {   // время полёта подбираем так, чтобы мяч прошёл над сеткой
@@ -510,7 +523,7 @@ function spike(p, human, boost = false) {   // boost — усиленный уд
       if (d > best) { best = d; xt = x; }
     }
   }
-  touch(p, 'spike');
+  touch(p, 'spike'); { T.lastHit.atk = T.atk; const m = msOf(T); m.spikes++; if (m.spikeTypes[T.atk] !== undefined) m.spikeTypes[T.atk]++; }
   let ok = false, flight = .5;
   for (let sp = T.D.power + 12 * upLv(p, 'pow') + (T.atk === 'pipe' ? 30 : 0) + (boost ? 40 : 0); sp >= 160; sp -= 20) {
     const vx = Math.sign(xt - ball.x) * sp, t = (xt - ball.x) / vx, vh = (0 - ball.h + .5 * G * t * t) / t;
@@ -548,7 +561,7 @@ function startPowerServe(p) {
 }
 function powerServe(p) {
   const T = p.team, O = other(T), o = -T.side;
-  snapBall(p, 'spike', 22); touch(p, 'spike'); T.touches = 3; p.toss = 0; p.jumpServe = false; T.lastHit = { p, type: 'pserve' };
+  snapBall(p, 'spike', 22); touch(p, 'spike'); T.touches = 3; p.toss = 0; p.jumpServe = false; T.lastHit = { p, type: 'pserve' }; msOf(T).powerServes++;
   const fault = Math.random() < (T === TL ? .1 : .15);
   const xt = NETX + o * (fault ? 224 + Math.random() * 22 : 70 + Math.random() * 140);
   let flight = 1;
@@ -628,7 +641,7 @@ function checkBlock() {
     if (b.ground || Math.abs(b.x + sh - NETX) > 22) continue;
     const k = b.look.tall;
     if (ball.h > b.h + 33 * k && ball.h < b.h + 58 * k) {
-      blockDone = true; ball.spiked = false; lastToucher = null; lastTeam = def; def.lastHit = { p: b, type: 'block' }; slideReset();
+      blockDone = true; ball.spiked = false; lastToucher = null; lastTeam = def; def.lastHit = { p: b, type: 'block' }; rallyN++; slideReset();
       b.swing = SW; b.swingType = 'set'; ball.lane = b.lane;
       // человек: блок в верхней точке прыжка (|vh| < 60) — «БЛОК!» в 90%, иначе только касание; ИИ — шанс по сложности (≈ прежние 55%)
       const stuff = hum ? Math.abs(b.vh) < 60 && Math.random() < .9 : Math.random() < .4 + def.D.block * .4;
@@ -677,7 +690,7 @@ function land() {
   pointTo(W, out ? 'АУТ' : '');
 }
 function pointTo(W, reason) {
-  state = 'point'; timer = 2.2; pointWinner = W; W.score++; try { music.cheer(); } catch (e) {}
+  state = 'point'; timer = 2.2; pointWinner = W; W.score++; msPoint(W); try { music.cheer(); } catch (e) {}
   scorePop[W === TL ? 0 : 1] = 1;
   if (W !== servingTeam) { do W.serveIdx = (W.serveIdx + 1) % 3; while (W.players[W.serveIdx].lib); servingTeam = W; }
   server = W.players[W.serveIdx];
@@ -690,6 +703,22 @@ function pointTo(W, reason) {
   if (reason && lastTeam && lastTeam !== W) act = 'ОШИБКА СОПЕРНИКА';
   cutin = { p: scorer, team: W, act: act + (over ? ' · МАТЧ' : ''), t: 0, life: 1.95 };
   if (W === TL || mode === 'local2') makeConfetti();
+}
+function msPoint(W) {   // учёт очка: кто и чем его принёс (lastTeam !== W — ошибка проигравшего)
+  const O = other(W), mw = msOf(W), mo = msOf(O), lh = W.lastHit;
+  mw.points++; mw.streak++; mo.streak = 0; if (mw.streak > mw.maxStreak) mw.maxStreak = mw.streak;
+  mw.longestRally = Math.max(mw.longestRally, rallyN); mo.longestRally = Math.max(mo.longestRally, rallyN);
+  if (lastTeam && lastTeam !== W) mo.errs++;
+  else if (lh && lastTeam === W) {
+    const t = lh.type;
+    if (rallyN <= 1 && (t === 'serve' || t === 'pserve')) { mw.aces++; msNum(lh.p).aces++; }
+    else if (t === 'spike' || t === 'tip') {
+      mw.kills++; msNum(lh.p).kills++;
+      if (t === 'tip') mw.tipKills++; else if (mw.killTypes[lh.atk] !== undefined) mw.killTypes[lh.atk]++;
+    } else if (t === 'block') { mw.blocks++; msNum(lh.p).blocks++; }
+  }
+  mo.maxDef = Math.max(mo.maxDef, W.score - O.score);
+  if (W.score >= TARGET && mw.maxDef >= 3) mw.comeback = true;
 }
 function makeConfetti() {
   for (let i = 0; i < 70; i++) confetti.push({ x: Math.random(), y: -.05 - Math.random() * .3, vx: (Math.random() - .5) * .08, vy: .12 + Math.random() * .2, rot: Math.random() * 6, vr: (Math.random() - .5) * 12, t: 0, life: 2.6, col: ['#f07a22', '#ffffff', '#25232c', '#f2c230'][i % 4] });
