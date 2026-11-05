@@ -198,7 +198,7 @@ $('stSkip').addEventListener('click', e => { e.stopPropagation(); storyDone(); }
 
 /* ================= screens ================= */
 let pausedFrom = null;
-function show(id) { ['menu', 'pause', 'end', 'online', 'leave', 'story', 'ups', 'prof'].forEach(k => $(k).hidden = k !== id); }
+function show(id) { if (id === 'pause' || id === 'end') { try { syncClipUi(); } catch (e) {} } ['menu', 'pause', 'end', 'online', 'leave', 'story', 'ups', 'prof'].forEach(k => $(k).hidden = k !== id); }
 
 /* ================= прокачка: экран и награда за матч ================= */
 function upAward(win, bonus = 0) {   // очки за матч против компьютера; возвращает строку для экрана итогов
@@ -542,7 +542,7 @@ async function inviteFriend(code) {
   if (seq !== opSeq) return;
   setBusy(false); const rc = typeof r === 'string' ? r : r && typeof r.code === 'string' ? r.code : ''; if (rc) showRoom(rc);
 }
-const gameLink = () => { try { return location.href.split('#')[0].split('?')[0] + '?friend=' + P.code; } catch (e) { return '?friend=' + P.code; } };
+const gameLink = () => 'https://rahim004.github.io/my-game/volleyball/?friend=' + P.code;
 function copyText(t) {
   return new Promise(res => {
     try { if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(t).then(() => res(true), () => res(oldCopy(t))); return; } } catch (e) {}
@@ -550,6 +550,122 @@ function copyText(t) {
   });
 }
 function oldCopy(t) { try { const a = document.createElement('textarea'); a.value = t; a.style.cssText = 'position:fixed;opacity:0;top:0'; document.body.appendChild(a); a.select(); const ok = document.execCommand('copy'); a.remove(); return ok; } catch (e) { return false; } }
+
+/* ================= «поделиться»: карточка итога и клип момента ================= */
+const SHARE_URL = 'https://rahim004.github.io/my-game/volleyball/';
+const shareLink = () => SHARE_URL + '?friend=' + P.code;
+const mvpW = { 4: 0, 9: 0, 10: 0 };
+function mvpTick() {   // кто чаще всех касался мяча в своей команде (удары и блоки весят больше)
+  if (!TL || !TR) return;
+  if (TL.score + TR.score === 0 && !lastToucher) mvpW[4] = mvpW[9] = mvpW[10] = 0;
+  if (lastToucher === mvpTick.prev) return; mvpTick.prev = lastToucher;
+  const p = lastToucher; if (!p || !(p.num in mvpW)) return;
+  const t = p.team.lastHit && p.team.lastHit.p === p ? p.team.lastHit.type : '';
+  mvpW[p.num] += t === 'spike' || t === 'block' || t === 'pserve' ? 3 : 1;
+}
+function shareInfo() {
+  const me = myTeam(), win = me.score > other(me).score, l2 = mode === 'local2';
+  const t = l2 ? 'ИГРОК ' + (TL.score > TR.score ? 1 : 2) + ' ПОБЕДИЛ' : win ? 'ПОБЕДА!' : 'ПОРАЖЕНИЕ';
+  let line = 'Против компьютера';
+  if (isOnline()) line = 'Онлайн против друга';
+  else if (l2) line = 'Вдвоём на одном экране';
+  else if (camp && camp.kind === 'tour') { const st = CHS[camp.ch].stages[camp.stage]; line = 'Турнир · ' + (st ? st.name + ' · «' + st.team + '»' : 'глава ' + (camp.ch + 1)); }
+  else if (camp && camp.kind === 'colo') line = 'Колизей · серия ' + camp.wins + ' ' + pluralWins(camp.wins);
+  let best = 10, bw = -1; for (const n of [10, 9, 4]) if (mvpW[n] > bw) { bw = mvpW[n]; best = n; }
+  return { win: win || l2, title: t, score: me.score + ' : ' + other(me).score, line, mvp: best };
+}
+function roundRect(c, x, y, w, h, r) { c.beginPath(); c.moveTo(x + r, y); c.arcTo(x + w, y, x + w, y + h, r); c.arcTo(x + w, y + h, x, y + h, r); c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r); c.closePath(); }
+function shFit(c, s, x, y, maxW, px, font) { let f = px; do { c.font = font.replace('#', f); f -= 2; } while (c.measureText(s).width > maxW && f > 14); c.fillText(s, x, y); }
+function makeCard() {
+  const I = shareInfo(), W = 1080, H = 1350, cv2 = document.createElement('canvas'); cv2.width = W; cv2.height = H;
+  const c = cv2.getContext('2d'), css = getComputedStyle(document.documentElement), tok = (k, d) => (css.getPropertyValue(k) || '').trim() || d;
+  const gold = tok('--gold', '#f2c230'), orange = tok('--orange', '#f07a22'), teal = tok('--teal', '#138f97'), ink = tok('--ink', '#f5f2eb'), muted = tok('--muted', '#a8a8b0');
+  const D = 'Oswald, "Arial Narrow", sans-serif', B = 'Rubik, system-ui, sans-serif';
+  let g = c.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#1d2030'); g.addColorStop(1, '#0b0c10'); c.fillStyle = g; c.fillRect(0, 0, W, H);
+  g = c.createRadialGradient(W / 2, 640, 40, W / 2, 640, 640); g.addColorStop(0, I.win ? 'rgba(242,194,48,.30)' : 'rgba(19,143,151,.30)'); g.addColorStop(1, 'rgba(0,0,0,0)'); c.fillStyle = g; c.fillRect(0, 0, W, H);
+  c.fillStyle = orange; c.fillRect(0, 0, W, 14); c.fillRect(0, H - 14, W, 14);
+  c.textAlign = 'center'; c.textBaseline = 'alphabetic';
+  c.fillStyle = gold; shFit(c, '№4 × №10', W / 2, 150, 900, 120, '700 #px ' + D);
+  c.fillStyle = muted; c.font = '500 36px ' + D; if ('letterSpacing' in c) c.letterSpacing = '8px'; c.fillText('ВОЛЕЙБОЛ 3 НА 3', W / 2, 205); if ('letterSpacing' in c) c.letterSpacing = '0px';
+  c.fillStyle = I.win ? gold : ink; shFit(c, I.title, W / 2, 360, 940, 130, '700 #px ' + D);
+  c.fillStyle = ink; shFit(c, I.score, W / 2, 595, 900, 220, '700 #px ' + D);
+  c.fillStyle = teal; shFit(c, I.line, W / 2, 648, 940, 40, '500 #px ' + B);
+  let port = false;
+  if (typeof drawPortrait === 'function') {
+    try { c.save(); c.beginPath(); c.arc(W / 2, 860, 190, 0, 6.2832); c.fillStyle = 'rgba(255,255,255,.07)'; c.fill(); c.lineWidth = 6; c.strokeStyle = gold; c.stroke(); c.clip(); drawPortrait(c, I.mvp, I.win ? 'joy' : 'calm', W / 2, 870, 440); c.restore(); port = true; } catch (e) { c.restore(); }
+  }
+  c.fillStyle = gold; c.font = '700 40px ' + D; c.fillText('MVP' + (port ? '' : ' №' + I.mvp), W / 2, 1100);
+  c.fillStyle = ink; shFit(c, (HERO[I.mvp] ? HERO[I.mvp].full : nameOf(I.mvp)), W / 2, 1144, 900, 44, '500 #px ' + B);
+  roundRect(c, 60, 1186, 960, 134, 28); c.fillStyle = orange; c.fill();
+  c.fillStyle = '#16120a'; c.font = '700 54px ' + D; c.fillText('СЫГРАЙ СО МНОЙ', W / 2, 1238);
+  shFit(c, shareLink().replace('https://', ''), W / 2, 1277, 900, 34, '500 #px ' + B);
+  c.fillStyle = '#16120a'; c.font = '500 26px ' + B; c.fillText('Код друга: ' + P.code, W / 2, 1306);
+  return new Promise(res => { try { cv2.toBlob(b => res(b), 'image/png'); } catch (e) { res(null); } });
+}
+function dlBlob(b, name) { const u = URL.createObjectURL(b), a = document.createElement('a'); a.href = u; a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(u), 8000); }
+async function shareFile(blob, name, type, text) {   // → 'shared' | 'saved' | 'cancel'
+  const url = shareLink();
+  try {
+    const f = new File([blob], name, { type });
+    if (navigator.share && navigator.canShare && navigator.canShare({ files: [f] })) { try { await navigator.share({ files: [f], text: text + ' ' + url, url }); return 'shared'; } catch (e) { if (e && e.name === 'AbortError') return 'cancel'; } }
+  } catch (e) {}
+  dlBlob(blob, name); await copyText(url); return 'saved';
+}
+function flashBtn(b, t) { const o = b.dataset.t || (b.dataset.t = b.textContent); b.textContent = t; clearTimeout(b._ft); b._ft = setTimeout(() => { b.textContent = o; }, 2200); }
+let shareBusy = false;
+$('shareBtn').addEventListener('click', async () => {
+  if (shareBusy) return; shareBusy = true; const b = $('shareBtn');
+  try {
+    const blob = await makeCard(); if (!blob) { flashBtn(b, 'НЕ ВЫШЛО'); return; }
+    const I = shareInfo(), r = await shareFile(blob, 'volleyball-4x10.png', 'image/png', (I.win ? 'Я выиграл ' : 'Я сыграл ') + I.score + ' в «№4 × №10». Сыграй со мной!');
+    if (r === 'saved') flashBtn(b, 'КАРТИНКА СОХРАНЕНА, ССЫЛКА СКОПИРОВАНА');
+  } catch (e) { flashBtn(b, 'НЕ ВЫШЛО'); } finally { shareBusy = false; }
+});
+
+/* клип: кольцевая запись холста; сегменты по 8 с, хранятся два (прошлый и текущий). Включается только кнопкой в паузе. */
+const CLIP_MS = 8000;
+const clipOk = (() => { try { return typeof MediaRecorder === 'function' && typeof cv.captureStream === 'function'; } catch (e) { return false; } })();
+const clipMime = (() => { if (!clipOk) return ''; for (const m of ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm', 'video/mp4']) { try { if (MediaRecorder.isTypeSupported(m)) return m; } catch (e) {} } return ''; })();
+let clipOn = clipOk && lsGet('vb-clip') === 1, clipRec = null, clipPrev = null, clipCur = null, clipPend = null, clipStream = null;
+function clipStart() {
+  if (clipRec || !clipOn) return;
+  try {
+    if (!clipStream) clipStream = cv.captureStream(30);
+    const ch = [], mr = new MediaRecorder(clipStream, clipMime ? { mimeType: clipMime, videoBitsPerSecond: 2000000 } : { videoBitsPerSecond: 2000000 });
+    const r = { mr, ch, t0: performance.now(), rot: false, done: null };
+    mr.ondataavailable = e => { if (e.data && e.data.size) ch.push(e.data); };
+    r.done = new Promise(res => { mr.onstop = () => { const d = performance.now() - r.t0, b = ch.length ? new Blob(ch, { type: mr.mimeType || clipMime || 'video/webm' }) : null; if (b) { if (r.rot) { clipPrev = { b, d }; clipCur = null; } else clipCur = { b, d }; } res(); }; });
+    mr.start(); clipRec = r;
+  } catch (e) { clipOn = false; clipRec = null; }
+}
+function clipStop(rot) { const r = clipRec; if (!r) return; clipRec = null; r.rot = !!rot; clipPend = r.done; try { r.mr.stop(); } catch (e) { clipPend = null; } }
+function clipTick(on) {   // on — идёт игра без оверлеев
+  if (!clipOk) return;
+  if (!clipOn || !on) { if (clipRec) clipStop(false); return; }
+  if (!clipRec) clipStart();
+  else if (performance.now() - clipRec.t0 > CLIP_MS) { clipStop(true); clipStart(); }
+}
+async function clipGet() {
+  if (clipRec) clipStop(false); if (clipPend) { try { await clipPend; } catch (e) {} }
+  return clipCur && clipCur.d >= 4000 ? clipCur : clipPrev || clipCur;
+}
+function clipReset() { clipPrev = clipCur = null; }
+function syncClipUi() {
+  const has = !!(clipCur || clipPrev || clipRec);
+  $('clipRow').hidden = !clipOk; $('clipTgl').textContent = 'ЗАПИСЬ КЛИПОВ: ' + (clipOn ? 'ВКЛ' : 'ВЫКЛ'); $('clipBtn2').hidden = !(clipOn && has);
+  $('clipBtn').hidden = !(clipOk && clipOn && has);
+}
+const clipShow = () => syncClipUi();
+$('clipTgl').addEventListener('click', () => { clipOn = !clipOn; lsSet('vb-clip', clipOn ? 1 : 0); if (!clipOn) { clipStop(false); clipReset(); } syncClipUi(); });
+for (const id of ['clipBtn', 'clipBtn2']) $(id).addEventListener('click', async () => {
+  const b = $(id); if (shareBusy) return; shareBusy = true;
+  try {
+    const k = await clipGet(); if (!k || !k.b.size) { flashBtn(b, 'КЛИПА НЕТ'); return; }
+    const ext = /mp4/.test(k.b.type) ? 'mp4' : 'webm', r = await shareFile(k.b, 'volleyball-moment.' + ext, k.b.type.split(';')[0], 'Мой лучший момент в «№4 × №10»!');
+    if (r === 'saved') flashBtn(b, 'ВИДЕО СОХРАНЕНО');
+  } catch (e) { flashBtn(b, 'НЕ ВЫШЛО'); } finally { shareBusy = false; }
+});
+try { window.vbShare = { makeCard, clipGet, clipInfo: () => ({ ok: clipOk, mime: clipMime, on: clipOn, rec: !!clipRec, prev: clipPrev && clipPrev.b.size, cur: clipCur && clipCur.b.size }), setClip: v => { clipOn = !!v; syncClipUi(); }, link: shareLink }; } catch (e) {}
 function flashBtn(btn, txt) { const o = btn.dataset.o || btn.textContent; btn.dataset.o = o; btn.textContent = txt; clearTimeout(btn._t); btn._t = setTimeout(() => { btn.textContent = o; }, 2000); }
 let plateTm = 0, plateOk = null;
 function showPlate(txt, okLabel, noLabel, okFn) {
@@ -693,6 +809,7 @@ function frame(now) {
     if (mode === 'guest') netGuestFrame(dt);   // гость не считает игру: показывает снимки хоста
     else if (live) { if (freeze > 0) freeze -= dt; else update(dt); }
     updateFx(dt);
+    mvpTick();
     if (TL && state !== 'paused' && mode !== 'guest') for (const T of [TL, TR]) for (const p of T.players) blendPose(p, dt);
     if (mode === 'host') netHostFrame(dt); else if (mode === 'guest') netGuestSend(dt);
     updateCamera(dt, false);
@@ -703,6 +820,7 @@ function frame(now) {
     const am2 = state === 'serve' && TR && servingTeam === TR && mode === 'local2' ? 'serve' : 'recv';   // подача второго игрока (только local2: в онлайне вторая кнопка не нужна)
     if (am2 !== actMode2) { actMode2 = am2; setActLabel(actBtns2, am2 === 'serve'); }
     const overlay = !ovMenu.hidden || !ovPause.hidden || (!ovEnd.hidden && !champ) || !ovOnline.hidden || !$('story').hidden;
+    clipTick(live && !overlay);
     if (!overlay) { render(); staticDone = false; out.setTransform(dpr, 0, 0, dpr, 0, 0); timingFx(out); syncHud(out); if (tut) drawTutorial(out); }
     else if (!staticDone && TL) { render(); staticDone = true; }
     if (!ovMenu.hidden) drawPreview(dt);

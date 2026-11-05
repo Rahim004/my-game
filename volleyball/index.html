@@ -12,6 +12,14 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="№4×№10">
+<title>№4 × №10 — волейбол 3 на 3 с друзьями</title>
+<meta name="description" content="Аниме-волейбол 3 на 3 в браузере: турнир с историей, колизей и онлайн с друзьями. Бесплатно, без установки.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="№4 × №10 — волейбол 3 на 3">
+<meta property="og:description" content="Сыграй со мной: турнир с историей, колизей и онлайн с друзьями прямо в браузере.">
+<meta property="og:image" content="https://rahim004.github.io/my-game/volleyball/og.png">
+<meta property="og:url" content="https://rahim004.github.io/my-game/volleyball/">
+<meta name="twitter:card" content="summary_large_image">
 </head>
 <body>
 <title>№4 против №10</title>
@@ -163,6 +171,10 @@ h1 .x { color: var(--gold); }
 .result .final { font-family: var(--display); font-weight: 600; font-size: 30px; font-variant-numeric: tabular-nums; }
 .result .polaroid { width: 140px; transform: rotate(3deg); margin-block: 4px; }
 .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+#endShare .ghost, #clipRow .ghost { min-height: 56px; padding: 8px; font-size: 15px; }
+#endShare .shr { border-color: var(--gold); color: var(--gold); }
+#endShare:has(#clipBtn[hidden]) { grid-template-columns: 1fr; }
+#clipRow:has(#clipBtn2[hidden]) { grid-template-columns: 1fr; }
 @media (max-height: 520px) {
   .overlay.dim .sheet { gap: 10px; }
   .result { gap: 6px; }
@@ -622,6 +634,10 @@ body[data-tut="act"] .ctl.act, body[data-tut="hit"] .ctl.hit { animation: tutp .
       <div class="result"><h2>ПАУЗА</h2></div>
       <button class="play" id="resumeBtn">ПРОДОЛЖИТЬ</button>
       <button class="ghost" id="musBtn2" type="button"></button>
+      <div class="row" id="clipRow" hidden>
+        <button class="ghost" id="clipTgl" type="button">ЗАПИСЬ КЛИПОВ: ВЫКЛ</button>
+        <button class="ghost" id="clipBtn2" type="button" hidden>КЛИП</button>
+      </div>
       <button class="ghost" id="quitBtn">В МЕНЮ</button>
     </div>
   </div>
@@ -633,6 +649,10 @@ body[data-tut="act"] .ctl.act, body[data-tut="hit"] .ctl.hit { animation: tutp .
         <div class="final" id="endScore">11 : 7</div>
         
         <p class="sub" id="endSub"></p>
+      </div>
+      <div class="row" id="endShare">
+        <button class="ghost shr" id="shareBtn" type="button">ПОДЕЛИТЬСЯ</button>
+        <button class="ghost shr" id="clipBtn" type="button" hidden>КЛИП</button>
       </div>
       <div class="row">
         <button class="ghost" id="menuBtn">В МЕНЮ</button>
@@ -791,56 +811,130 @@ const sfx = {
   },
   crowd(v = .14) { noise(v, 1.8, 1100); },
 };
-/* ================= музыка: синтез в коде, без файлов. Меню — спокойная тема (ля минор), матч — бодрая (ре минор) ================= */
+/* ================= музыка: синтез в коде, без файлов. До мажор, общая гармония: матч — бодрый спорт-трек (136 BPM), меню — спокойный пэд+арпеджио (96 BPM). 32 такта: A (16) + B (16) ================= */
 const music = (() => {
   let on = (() => { try { return localStorage.getItem('vb-music') !== '0'; } catch (e) { return true; } })();
-  let mg = null, nb = null, timer = 0, next = 0, step = 0, song = '';
-  const SONGS = {   // prog — аккорды по тактам (MIDI-ноты)
-    menu: { bpm: 92, prog: [[57, 60, 64], [53, 57, 60], [48, 52, 55], [55, 59, 62]] },
-    match: { bpm: 128, prog: [[50, 53, 57], [46, 50, 53], [48, 52, 55], [45, 49, 52]] },
-  };
+  let mg = null, mm = null, cg = null, hum = null, hb = null, cheerN = 0, nb = null, bassF = null, leadF = null, timer = 0, next = 0, step = 0, song = '';
+  const SONGS = { menu: { bpm: 96 }, match: { bpm: 136 } };
+  const ROOT = { C: 36, G: 43, Am: 45, F: 41, Em: 40 };   // басовые ноты (MIDI)
+  const MIN = { Am: 1, Em: 1 };
+  const A8 = ['C', 'G', 'Am', 'F', 'C', 'G', 'F', 'G'], B8 = ['F', 'G', 'Em', 'Am', 'F', 'G', 'C', 'G'];
+  const PROG = [...A8, ...A8, ...B8, ...B8];   // аккорд на каждый из 32 тактов
+  // хук: [шаг 1/16, нота MIDI, длина в шагах]; 8 тактов на секцию, в 5–8-м тактах вариация
+  const HA = [
+    [[0, 76, 2], [3, 79, 2], [6, 81, 2], [8, 79, 3], [12, 76, 2], [14, 74, 2]],
+    [[0, 74, 3], [4, 79, 2], [6, 78, 2], [8, 79, 4], [14, 83, 2]],
+    [[0, 76, 2], [3, 81, 2], [6, 84, 2], [8, 81, 3], [12, 79, 2], [14, 76, 2]],
+    [[0, 77, 3], [4, 81, 2], [6, 79, 2], [8, 77, 4], [14, 72, 2]],
+    [[0, 79, 2], [3, 84, 2], [6, 81, 2], [8, 79, 3], [12, 76, 4]],
+    [[0, 74, 2], [2, 79, 2], [4, 83, 2], [6, 81, 2], [8, 79, 6]],
+    [[0, 81, 2], [3, 77, 2], [6, 81, 2], [8, 84, 3], [12, 81, 2], [14, 79, 2]],
+    [[0, 83, 2], [3, 79, 2], [6, 74, 2], [8, 79, 2], [10, 83, 2], [12, 86, 4]],
+  ];
+  const HB = [
+    [[0, 81, 3], [4, 84, 2], [6, 81, 2], [8, 79, 3], [12, 77, 4]],
+    [[0, 79, 3], [4, 83, 2], [6, 86, 2], [8, 83, 4], [14, 81, 2]],
+    [[0, 79, 2], [3, 83, 2], [6, 88, 2], [8, 86, 3], [12, 83, 4]],
+    [[0, 81, 2], [3, 84, 2], [6, 81, 2], [8, 76, 4], [12, 79, 2], [14, 81, 2]],
+    [[0, 84, 3], [4, 81, 2], [6, 84, 2], [8, 86, 3], [12, 84, 4]],
+    [[0, 83, 2], [2, 86, 2], [4, 83, 2], [6, 79, 2], [8, 83, 4], [12, 81, 2], [14, 79, 2]],
+    [[0, 84, 4], [6, 79, 2], [8, 76, 3], [12, 79, 2], [14, 84, 2]],
+    [[0, 83, 3], [4, 81, 2], [6, 79, 2], [8, 74, 4], [14, 71, 2]],
+  ];
+  const HOOK = [HA, HA, HB, HB];
+  const BASS_A = [[0, 0], [3, 0], [6, 1], [8, 0], [11, 1], [14, 0]];   // [шаг, октава вверх?]
+  const RIFF = [[[0, 0, 1], [2, 1, 1], [4, 2, 2], [8, 1, 1], [10, 0, 1], [12, 1, 2]], [[0, 2, 1], [2, 2, 1], [4, 1, 2], [8, 0, 1], [10, 1, 1], [12, 2, 3]]];   // органный рифф: индексы звуков аккорда
+  const STOMP = [0, 3, 6], CLAPS = [0, 4, 8, 10, 11, 13];   // арена: топот-топот-топот + хлопок на 8; пауза: хлопки трибун «раз-два-три-ра-ра»
   const hz = m => 440 * Math.pow(2, (m - 69) / 12);
-  function note(m, t, d, v, type) {
+  const tri = c => (MIN[c] ? [0, 3, 7] : [0, 4, 7]).map(i => i + ROOT[c] % 12 + 60);
+  function note(m, t, d, v, type, dst) {
     const o = ac.createOscillator(), g = ac.createGain(); o.type = type; o.frequency.value = hz(m);
-    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(v, t + .015); g.gain.exponentialRampToValueAtTime(.0005, t + d);
-    o.connect(g).connect(mg); o.start(t); o.stop(t + d + .02);
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(v, t + .012); g.gain.exponentialRampToValueAtTime(.0005, t + d);
+    o.connect(g).connect(dst || mm); o.start(t); o.stop(t + d + .02);
+    o.onended = () => { try { o.disconnect(); g.disconnect(); } catch (e) {} };
   }
-  function kick(t) {
-    const o = ac.createOscillator(), g = ac.createGain(); o.frequency.setValueAtTime(130, t); o.frequency.exponentialRampToValueAtTime(42, t + .12);
-    g.gain.setValueAtTime(.28, t); g.gain.exponentialRampToValueAtTime(.001, t + .16); o.connect(g).connect(mg); o.start(t); o.stop(t + .17);
+  function kick(t, v) {
+    const o = ac.createOscillator(), g = ac.createGain(); o.frequency.setValueAtTime(140, t); o.frequency.exponentialRampToValueAtTime(44, t + .1);
+    g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(.001, t + .17); o.connect(g).connect(mm); o.start(t); o.stop(t + .18);
+    o.onended = () => { try { o.disconnect(); g.disconnect(); } catch (e) {} };
   }
   function hiss(t, v, d, f, type) {
     if (!nb) { const len = ac.sampleRate * .3 | 0; nb = ac.createBuffer(1, len, ac.sampleRate); const x = nb.getChannelData(0); for (let i = 0; i < len; i++) x[i] = Math.random() * 2 - 1; }
     const s = ac.createBufferSource(), fl = ac.createBiquadFilter(), g = ac.createGain(); s.buffer = nb; fl.type = type; fl.frequency.value = f;
-    g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(.001, t + d); s.connect(fl).connect(g).connect(mg); s.start(t); s.stop(t + d);
+    g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(.001, t + d); s.connect(fl).connect(g).connect(mm); s.start(t); s.stop(t + d);
+    s.onended = () => { try { s.disconnect(); fl.disconnect(); g.disconnect(); } catch (e) {} };
   }
-  function sched(S, st, t, sp) {
-    const s = st % 16, ch = S.prog[(st >> 4) % 4];
+  function clap(t, v) { hiss(t, v, .07, 1500, 'bandpass'); hiss(t + .013, v * .7, .06, 2300, 'bandpass'); }
+  function stomp(t, v) {
+    const o = ac.createOscillator(), g = ac.createGain(); o.frequency.setValueAtTime(95, t); o.frequency.exponentialRampToValueAtTime(55, t + .08);
+    g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(.001, t + .12); o.connect(g).connect(mm); o.start(t); o.stop(t + .13);
+    o.onended = () => { try { o.disconnect(); g.disconnect(); } catch (e) {} };
+    hiss(t, v * .5, .05, 400, 'lowpass');
+  }
+  function swell(t, v, d) {   // всплеск толпы
+    if (!hb) return; const s = ac.createBufferSource(), fl = ac.createBiquadFilter(), g = ac.createGain(); s.buffer = hb; fl.type = 'bandpass'; fl.frequency.value = 1000; fl.Q.value = .5;
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(v, t + .12); g.gain.exponentialRampToValueAtTime(.001, t + d); s.connect(fl).connect(g).connect(cg); s.start(t); s.stop(t + d + .05);
+    s.onended = () => { try { s.disconnect(); fl.disconnect(); g.disconnect(); } catch (e) {} };
+  }
+  function sched(st, t, sp) {
+    const bar = (st >> 4) % 32, s = st % 16, ch = PROG[bar], sec = bar >> 4 & 1, rep = bar >> 3 & 1, hk = HOOK[bar >> 3][bar & 7], tr = tri(ch), r = ROOT[ch];
     if (song === 'menu') {
-      if (s === 0) ch.forEach(m => note(m + 12, t, sp * 15, .035, 'triangle'));
-      if (s % 2 === 0) note(ch[(s >> 1) % 3] + 24, t, sp * 3, .025, 'sine');
-      if (s === 0 || s === 10) note(ch[0] - 12, t, sp * 6, .07, 'triangle');
-    } else {
-      if (s % 4 === 0) kick(t);
-      if (s % 4 === 2) hiss(t, .03, .05, 7000, 'highpass');
-      if (s === 4 || s === 12) hiss(t, .09, .14, 1800, 'bandpass');
-      if (s % 2 === 0) note(ch[0] - 12 + (s === 6 || s === 14 ? 12 : 0), t, sp * 1.8, .07, 'triangle');
-      note(ch[[0, 1, 2, 1][s % 4]] + 24, t, sp * .9, .014, 'square');
-      if (s === 0 && (st >> 4) % 2 === 0) ch.forEach(m => note(m + 12, t, sp * 30, .02, 'sawtooth'));
+      if (s === 0) { tr.forEach(m => note(m - 12, t, sp * 15, .03, 'triangle')); note(r, t, sp * 14, .06, 'sine'); }   // пэд + бас
+      if (s === 8) note(r + 12, t, sp * 6, .035, 'sine');
+      if (s % 2 === 0) note(tr[[0, 1, 2, 1, 2, 1, 0, 1][s >> 1]] + (s % 8 === 6 ? 24 : 12), t, sp * 3.5, .02, 'sine');   // арпеджио
+      if (s === 0 && (bar & 7) < 2) hk.forEach(n => note(n[1], t + n[0] * sp, sp * n[2] * 1.6, .016, 'sine'));   // хук в колокольчиках
+      if (s === 4 || s === 12) hiss(t, .008, .06, 8000, 'highpass');
+      return;
     }
+    // бит: секция A синкопированная, B — четыре четверти
+    if (sec ? s % 4 === 0 : (s === 0 || s === 6 || s === 8 || s === 11 || (bar % 8 === 7 && s === 14))) kick(t, s === 0 ? .24 : .19);
+    if (s === 4 || s === 12) { hiss(t, .08, .13, 1900, 'bandpass'); hiss(t, .03, .05, 5000, 'highpass'); }
+    if (s % 2 === 0) hiss(t, s % 4 === 2 ? .03 : .014, s === 14 && sec ? .12 : .035, 7500, 'highpass');
+    else if (sec) hiss(t, .008, .02, 9000, 'highpass');
+    // бас
+    if (!sec) { for (const b of BASS_A) if (b[0] === s) note(r + b[1] * 12, t, sp * 2.2, .1, 'sawtooth', bassF); }
+    else if (s % 2 === 0) note(r + (s % 4 === 2 ? 12 : 0), t, sp * 1.7, .1, 'sawtooth', bassF);
+    // органный рифф (A) и стабы (B)
+    // без мелодии (владелец: «как тетрис»): if (!sec) { for (const n of RIFF[(bar & 3) === 3 ? 1 : 0]) if (n[0] === s) { const m = tr[n[1]] + ((bar & 3) === 3 && n[1] === 2 ? 12 : 0); note(m, t, sp * n[2] * 1.5, .02, 'sawtooth', leadF); note(m + 12, t, sp * n[2] * 1.3, .008, 'square', leadF); } }
+    // без мелодии (владелец: «как тетрис»): else if (s % 4 === 2) tr.forEach(m => note(m, t, sp * 1.3, .011, 'square', leadF));
+    // трибуны
+    const pause = state === 'serve' || state === 'point';
+    if (pause) { if (CLAPS.includes(s)) clap(t, bar & 1 ? .1 : .12); }
+    else if (STOMP.includes(s) && state === 'play') stomp(t, .07); else if (s === 8 && state === 'play') clap(t, .04);
+    if (cheerN > 0 && s % 4 === 0) { clap(t, .12); cheerN--; }
+    // хук (в повторе — дублируем октавой выше мягкой синусоидой)
+    // без мелодии (владелец: «как тетрис»): hk.forEach(n => { if (n[0] === s) { note(n[1], t, sp * n[2] * .95, .03, 'square', leadF); if (rep) note(n[1] + 12, t, sp * n[2] * .9, .012, 'sine', leadF); } });
   }
   function tick() {
     if (!ac || !mg) return;
     const want = ['menu', 'story', 'over'].includes(state) ? 'menu' : 'match';
     if (want !== song) { song = want; step = 0; next = Math.max(next, ac.currentTime + .05); }
+    const now = ac.currentTime, duck = song === 'match' && state === 'play';
+    mm.gain.setTargetAtTime(duck ? .55 : 1, now, .2); cg.gain.setTargetAtTime(song === 'match' ? (duck ? .022 : .045) : 0, now, .4);
     if (!on) { next = ac.currentTime + .05; return; }
-    const S = SONGS[song], sp = 60 / S.bpm / 4;
+    const sp = 60 / SONGS[song].bpm / 4;
     if (next < ac.currentTime - .5) next = ac.currentTime + .05;   // вкладка спала — не догоняем пропущенное
-    while (next < ac.currentTime + .3) { sched(S, step, next, sp); next += sp; step = (step + 1) % 64; }
+    while (next < ac.currentTime + .3) { sched(step, next, sp); next += sp; step = (step + 1) % 512; }
   }
   return {
-    start() { if (!ac) return; if (!mg) { mg = ac.createGain(); mg.gain.value = on ? .6 : 0; mg.connect(ac.destination); } if (!timer) timer = setInterval(() => { try { tick(); } catch (e) {} }, 90); },
+    start() {
+      if (!ac) return;
+      if (!mg) {
+        mg = ac.createGain(); mg.gain.value = on ? .6 : 0; mg.connect(ac.destination);
+        mm = ac.createGain(); mm.connect(mg); cg = ac.createGain(); cg.gain.value = 0; cg.connect(mg);
+        const len = ac.sampleRate * 3 | 0; hb = ac.createBuffer(1, len, ac.sampleRate); const x = hb.getChannelData(0); for (let i = 0; i < len; i++) x[i] = Math.random() * 2 - 1;
+        hum = ac.createBufferSource(); hum.buffer = hb; hum.loop = true; const hf = ac.createBiquadFilter(); hf.type = 'bandpass'; hf.frequency.value = 650; hf.Q.value = .6;
+        const hg = ac.createGain(), lf = ac.createOscillator(), lg = ac.createGain(); lf.frequency.value = .13; lg.gain.value = .5; hg.gain.value = 1; lf.connect(lg).connect(hg.gain);   // «дыхание» толпы
+        hum.connect(hf).connect(hg).connect(cg); hum.start(); lf.start();
+        bassF = ac.createBiquadFilter(); bassF.type = 'lowpass'; bassF.frequency.value = 700; bassF.connect(mm);
+        leadF = ac.createBiquadFilter(); leadF.type = 'lowpass'; leadF.frequency.value = 3200; leadF.connect(mm);
+      }
+      if (!timer) timer = setInterval(() => { try { tick(); } catch (e) {} }, 90);
+    },
     toggle() { on = !on; try { localStorage.setItem('vb-music', on ? '1' : '0'); } catch (e) {} if (mg) mg.gain.setTargetAtTime(on ? .6 : 0, ac.currentTime, .05); return on; },
+    cheer() {   // очко: всплеск толпы и хлопки в такт
+      if (!ac || !mg || !on || song !== 'match') return; swell(ac.currentTime + .02, .16, 1.4); cheerN = 6;
+    },
     get on() { return on; },
   };
 })();
@@ -1250,7 +1344,7 @@ function land() {
   pointTo(W, out ? 'АУТ' : '');
 }
 function pointTo(W, reason) {
-  state = 'point'; timer = 2.2; pointWinner = W; W.score++;
+  state = 'point'; timer = 2.2; pointWinner = W; W.score++; try { music.cheer(); } catch (e) {}
   scorePop[W === TL ? 0 : 1] = 1;
   if (W !== servingTeam) { do W.serveIdx = (W.serveIdx + 1) % 3; while (W.players[W.serveIdx].lib); servingTeam = W; }
   server = W.players[W.serveIdx];
@@ -4583,7 +4677,7 @@ $('stSkip').addEventListener('click', e => { e.stopPropagation(); storyDone(); }
 
 /* ================= screens ================= */
 let pausedFrom = null;
-function show(id) { ['menu', 'pause', 'end', 'online', 'leave', 'story', 'ups', 'prof'].forEach(k => $(k).hidden = k !== id); }
+function show(id) { if (id === 'pause' || id === 'end') { try { syncClipUi(); } catch (e) {} } ['menu', 'pause', 'end', 'online', 'leave', 'story', 'ups', 'prof'].forEach(k => $(k).hidden = k !== id); }
 
 /* ================= прокачка: экран и награда за матч ================= */
 function upAward(win, bonus = 0) {   // очки за матч против компьютера; возвращает строку для экрана итогов
@@ -4927,7 +5021,7 @@ async function inviteFriend(code) {
   if (seq !== opSeq) return;
   setBusy(false); const rc = typeof r === 'string' ? r : r && typeof r.code === 'string' ? r.code : ''; if (rc) showRoom(rc);
 }
-const gameLink = () => { try { return location.href.split('#')[0].split('?')[0] + '?friend=' + P.code; } catch (e) { return '?friend=' + P.code; } };
+const gameLink = () => 'https://rahim004.github.io/my-game/volleyball/?friend=' + P.code;
 function copyText(t) {
   return new Promise(res => {
     try { if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(t).then(() => res(true), () => res(oldCopy(t))); return; } } catch (e) {}
@@ -4935,6 +5029,122 @@ function copyText(t) {
   });
 }
 function oldCopy(t) { try { const a = document.createElement('textarea'); a.value = t; a.style.cssText = 'position:fixed;opacity:0;top:0'; document.body.appendChild(a); a.select(); const ok = document.execCommand('copy'); a.remove(); return ok; } catch (e) { return false; } }
+
+/* ================= «поделиться»: карточка итога и клип момента ================= */
+const SHARE_URL = 'https://rahim004.github.io/my-game/volleyball/';
+const shareLink = () => SHARE_URL + '?friend=' + P.code;
+const mvpW = { 4: 0, 9: 0, 10: 0 };
+function mvpTick() {   // кто чаще всех касался мяча в своей команде (удары и блоки весят больше)
+  if (!TL || !TR) return;
+  if (TL.score + TR.score === 0 && !lastToucher) mvpW[4] = mvpW[9] = mvpW[10] = 0;
+  if (lastToucher === mvpTick.prev) return; mvpTick.prev = lastToucher;
+  const p = lastToucher; if (!p || !(p.num in mvpW)) return;
+  const t = p.team.lastHit && p.team.lastHit.p === p ? p.team.lastHit.type : '';
+  mvpW[p.num] += t === 'spike' || t === 'block' || t === 'pserve' ? 3 : 1;
+}
+function shareInfo() {
+  const me = myTeam(), win = me.score > other(me).score, l2 = mode === 'local2';
+  const t = l2 ? 'ИГРОК ' + (TL.score > TR.score ? 1 : 2) + ' ПОБЕДИЛ' : win ? 'ПОБЕДА!' : 'ПОРАЖЕНИЕ';
+  let line = 'Против компьютера';
+  if (isOnline()) line = 'Онлайн против друга';
+  else if (l2) line = 'Вдвоём на одном экране';
+  else if (camp && camp.kind === 'tour') { const st = CHS[camp.ch].stages[camp.stage]; line = 'Турнир · ' + (st ? st.name + ' · «' + st.team + '»' : 'глава ' + (camp.ch + 1)); }
+  else if (camp && camp.kind === 'colo') line = 'Колизей · серия ' + camp.wins + ' ' + pluralWins(camp.wins);
+  let best = 10, bw = -1; for (const n of [10, 9, 4]) if (mvpW[n] > bw) { bw = mvpW[n]; best = n; }
+  return { win: win || l2, title: t, score: me.score + ' : ' + other(me).score, line, mvp: best };
+}
+function roundRect(c, x, y, w, h, r) { c.beginPath(); c.moveTo(x + r, y); c.arcTo(x + w, y, x + w, y + h, r); c.arcTo(x + w, y + h, x, y + h, r); c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r); c.closePath(); }
+function shFit(c, s, x, y, maxW, px, font) { let f = px; do { c.font = font.replace('#', f); f -= 2; } while (c.measureText(s).width > maxW && f > 14); c.fillText(s, x, y); }
+function makeCard() {
+  const I = shareInfo(), W = 1080, H = 1350, cv2 = document.createElement('canvas'); cv2.width = W; cv2.height = H;
+  const c = cv2.getContext('2d'), css = getComputedStyle(document.documentElement), tok = (k, d) => (css.getPropertyValue(k) || '').trim() || d;
+  const gold = tok('--gold', '#f2c230'), orange = tok('--orange', '#f07a22'), teal = tok('--teal', '#138f97'), ink = tok('--ink', '#f5f2eb'), muted = tok('--muted', '#a8a8b0');
+  const D = 'Oswald, "Arial Narrow", sans-serif', B = 'Rubik, system-ui, sans-serif';
+  let g = c.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#1d2030'); g.addColorStop(1, '#0b0c10'); c.fillStyle = g; c.fillRect(0, 0, W, H);
+  g = c.createRadialGradient(W / 2, 640, 40, W / 2, 640, 640); g.addColorStop(0, I.win ? 'rgba(242,194,48,.30)' : 'rgba(19,143,151,.30)'); g.addColorStop(1, 'rgba(0,0,0,0)'); c.fillStyle = g; c.fillRect(0, 0, W, H);
+  c.fillStyle = orange; c.fillRect(0, 0, W, 14); c.fillRect(0, H - 14, W, 14);
+  c.textAlign = 'center'; c.textBaseline = 'alphabetic';
+  c.fillStyle = gold; shFit(c, '№4 × №10', W / 2, 150, 900, 120, '700 #px ' + D);
+  c.fillStyle = muted; c.font = '500 36px ' + D; if ('letterSpacing' in c) c.letterSpacing = '8px'; c.fillText('ВОЛЕЙБОЛ 3 НА 3', W / 2, 205); if ('letterSpacing' in c) c.letterSpacing = '0px';
+  c.fillStyle = I.win ? gold : ink; shFit(c, I.title, W / 2, 360, 940, 130, '700 #px ' + D);
+  c.fillStyle = ink; shFit(c, I.score, W / 2, 595, 900, 220, '700 #px ' + D);
+  c.fillStyle = teal; shFit(c, I.line, W / 2, 648, 940, 40, '500 #px ' + B);
+  let port = false;
+  if (typeof drawPortrait === 'function') {
+    try { c.save(); c.beginPath(); c.arc(W / 2, 860, 190, 0, 6.2832); c.fillStyle = 'rgba(255,255,255,.07)'; c.fill(); c.lineWidth = 6; c.strokeStyle = gold; c.stroke(); c.clip(); drawPortrait(c, I.mvp, I.win ? 'joy' : 'calm', W / 2, 870, 440); c.restore(); port = true; } catch (e) { c.restore(); }
+  }
+  c.fillStyle = gold; c.font = '700 40px ' + D; c.fillText('MVP' + (port ? '' : ' №' + I.mvp), W / 2, 1100);
+  c.fillStyle = ink; shFit(c, (HERO[I.mvp] ? HERO[I.mvp].full : nameOf(I.mvp)), W / 2, 1144, 900, 44, '500 #px ' + B);
+  roundRect(c, 60, 1186, 960, 134, 28); c.fillStyle = orange; c.fill();
+  c.fillStyle = '#16120a'; c.font = '700 54px ' + D; c.fillText('СЫГРАЙ СО МНОЙ', W / 2, 1238);
+  shFit(c, shareLink().replace('https://', ''), W / 2, 1277, 900, 34, '500 #px ' + B);
+  c.fillStyle = '#16120a'; c.font = '500 26px ' + B; c.fillText('Код друга: ' + P.code, W / 2, 1306);
+  return new Promise(res => { try { cv2.toBlob(b => res(b), 'image/png'); } catch (e) { res(null); } });
+}
+function dlBlob(b, name) { const u = URL.createObjectURL(b), a = document.createElement('a'); a.href = u; a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(u), 8000); }
+async function shareFile(blob, name, type, text) {   // → 'shared' | 'saved' | 'cancel'
+  const url = shareLink();
+  try {
+    const f = new File([blob], name, { type });
+    if (navigator.share && navigator.canShare && navigator.canShare({ files: [f] })) { try { await navigator.share({ files: [f], text: text + ' ' + url, url }); return 'shared'; } catch (e) { if (e && e.name === 'AbortError') return 'cancel'; } }
+  } catch (e) {}
+  dlBlob(blob, name); await copyText(url); return 'saved';
+}
+function flashBtn(b, t) { const o = b.dataset.t || (b.dataset.t = b.textContent); b.textContent = t; clearTimeout(b._ft); b._ft = setTimeout(() => { b.textContent = o; }, 2200); }
+let shareBusy = false;
+$('shareBtn').addEventListener('click', async () => {
+  if (shareBusy) return; shareBusy = true; const b = $('shareBtn');
+  try {
+    const blob = await makeCard(); if (!blob) { flashBtn(b, 'НЕ ВЫШЛО'); return; }
+    const I = shareInfo(), r = await shareFile(blob, 'volleyball-4x10.png', 'image/png', (I.win ? 'Я выиграл ' : 'Я сыграл ') + I.score + ' в «№4 × №10». Сыграй со мной!');
+    if (r === 'saved') flashBtn(b, 'КАРТИНКА СОХРАНЕНА, ССЫЛКА СКОПИРОВАНА');
+  } catch (e) { flashBtn(b, 'НЕ ВЫШЛО'); } finally { shareBusy = false; }
+});
+
+/* клип: кольцевая запись холста; сегменты по 8 с, хранятся два (прошлый и текущий). Включается только кнопкой в паузе. */
+const CLIP_MS = 8000;
+const clipOk = (() => { try { return typeof MediaRecorder === 'function' && typeof cv.captureStream === 'function'; } catch (e) { return false; } })();
+const clipMime = (() => { if (!clipOk) return ''; for (const m of ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm', 'video/mp4']) { try { if (MediaRecorder.isTypeSupported(m)) return m; } catch (e) {} } return ''; })();
+let clipOn = clipOk && lsGet('vb-clip') === 1, clipRec = null, clipPrev = null, clipCur = null, clipPend = null, clipStream = null;
+function clipStart() {
+  if (clipRec || !clipOn) return;
+  try {
+    if (!clipStream) clipStream = cv.captureStream(30);
+    const ch = [], mr = new MediaRecorder(clipStream, clipMime ? { mimeType: clipMime, videoBitsPerSecond: 2000000 } : { videoBitsPerSecond: 2000000 });
+    const r = { mr, ch, t0: performance.now(), rot: false, done: null };
+    mr.ondataavailable = e => { if (e.data && e.data.size) ch.push(e.data); };
+    r.done = new Promise(res => { mr.onstop = () => { const d = performance.now() - r.t0, b = ch.length ? new Blob(ch, { type: mr.mimeType || clipMime || 'video/webm' }) : null; if (b) { if (r.rot) { clipPrev = { b, d }; clipCur = null; } else clipCur = { b, d }; } res(); }; });
+    mr.start(); clipRec = r;
+  } catch (e) { clipOn = false; clipRec = null; }
+}
+function clipStop(rot) { const r = clipRec; if (!r) return; clipRec = null; r.rot = !!rot; clipPend = r.done; try { r.mr.stop(); } catch (e) { clipPend = null; } }
+function clipTick(on) {   // on — идёт игра без оверлеев
+  if (!clipOk) return;
+  if (!clipOn || !on) { if (clipRec) clipStop(false); return; }
+  if (!clipRec) clipStart();
+  else if (performance.now() - clipRec.t0 > CLIP_MS) { clipStop(true); clipStart(); }
+}
+async function clipGet() {
+  if (clipRec) clipStop(false); if (clipPend) { try { await clipPend; } catch (e) {} }
+  return clipCur && clipCur.d >= 4000 ? clipCur : clipPrev || clipCur;
+}
+function clipReset() { clipPrev = clipCur = null; }
+function syncClipUi() {
+  const has = !!(clipCur || clipPrev || clipRec);
+  $('clipRow').hidden = !clipOk; $('clipTgl').textContent = 'ЗАПИСЬ КЛИПОВ: ' + (clipOn ? 'ВКЛ' : 'ВЫКЛ'); $('clipBtn2').hidden = !(clipOn && has);
+  $('clipBtn').hidden = !(clipOk && clipOn && has);
+}
+const clipShow = () => syncClipUi();
+$('clipTgl').addEventListener('click', () => { clipOn = !clipOn; lsSet('vb-clip', clipOn ? 1 : 0); if (!clipOn) { clipStop(false); clipReset(); } syncClipUi(); });
+for (const id of ['clipBtn', 'clipBtn2']) $(id).addEventListener('click', async () => {
+  const b = $(id); if (shareBusy) return; shareBusy = true;
+  try {
+    const k = await clipGet(); if (!k || !k.b.size) { flashBtn(b, 'КЛИПА НЕТ'); return; }
+    const ext = /mp4/.test(k.b.type) ? 'mp4' : 'webm', r = await shareFile(k.b, 'volleyball-moment.' + ext, k.b.type.split(';')[0], 'Мой лучший момент в «№4 × №10»!');
+    if (r === 'saved') flashBtn(b, 'ВИДЕО СОХРАНЕНО');
+  } catch (e) { flashBtn(b, 'НЕ ВЫШЛО'); } finally { shareBusy = false; }
+});
+try { window.vbShare = { makeCard, clipGet, clipInfo: () => ({ ok: clipOk, mime: clipMime, on: clipOn, rec: !!clipRec, prev: clipPrev && clipPrev.b.size, cur: clipCur && clipCur.b.size }), setClip: v => { clipOn = !!v; syncClipUi(); }, link: shareLink }; } catch (e) {}
 function flashBtn(btn, txt) { const o = btn.dataset.o || btn.textContent; btn.dataset.o = o; btn.textContent = txt; clearTimeout(btn._t); btn._t = setTimeout(() => { btn.textContent = o; }, 2000); }
 let plateTm = 0, plateOk = null;
 function showPlate(txt, okLabel, noLabel, okFn) {
@@ -5078,6 +5288,7 @@ function frame(now) {
     if (mode === 'guest') netGuestFrame(dt);   // гость не считает игру: показывает снимки хоста
     else if (live) { if (freeze > 0) freeze -= dt; else update(dt); }
     updateFx(dt);
+    mvpTick();
     if (TL && state !== 'paused' && mode !== 'guest') for (const T of [TL, TR]) for (const p of T.players) blendPose(p, dt);
     if (mode === 'host') netHostFrame(dt); else if (mode === 'guest') netGuestSend(dt);
     updateCamera(dt, false);
@@ -5088,6 +5299,7 @@ function frame(now) {
     const am2 = state === 'serve' && TR && servingTeam === TR && mode === 'local2' ? 'serve' : 'recv';   // подача второго игрока (только local2: в онлайне вторая кнопка не нужна)
     if (am2 !== actMode2) { actMode2 = am2; setActLabel(actBtns2, am2 === 'serve'); }
     const overlay = !ovMenu.hidden || !ovPause.hidden || (!ovEnd.hidden && !champ) || !ovOnline.hidden || !$('story').hidden;
+    clipTick(live && !overlay);
     if (!overlay) { render(); staticDone = false; out.setTransform(dpr, 0, 0, dpr, 0, 0); timingFx(out); syncHud(out); if (tut) drawTutorial(out); }
     else if (!staticDone && TL) { render(); staticDone = true; }
     if (!ovMenu.hidden) drawPreview(dt);
