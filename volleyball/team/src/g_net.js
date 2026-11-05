@@ -373,7 +373,48 @@ function frPush() {   // сообщить интерфейсу, кто в сет
   } catch (e) {}
 }
 function frPublish(topic, o) { for (const c of PR.cs) { try { c.publish(topic, JSON.stringify(o), { qos: 0 }); } catch (e) {} } }
+/* рейтинг друзей: своя статистика — retained в vb4x10/s/<код>, статистика друзей — оттуда же (кэш vb-fstats) */
+const FS_NUM = ['wins', 'matches', 'onlineWins', 'colo', 'chapters', 'streak'];
+let FS = {}; try { const o = JSON.parse(localStorage.getItem('vb-fstats') || '{}'); if (o && typeof o === 'object') for (const c in o) { const v = frStatOk(o[c]); if (FR_CODE.test(c) && v) FS[c] = v; } } catch (e) {}
+function frStatOk(m) {   // → чистая запись | null
+  if (!m || typeof m !== 'object' || typeof m.nick !== 'string' || m.nick.length > 14) return null;
+  const o = { nick: m.nick, ts: 0 };
+  for (const k of FS_NUM) { const v = m[k]; if (typeof v !== 'number' || !isFinite(v) || v < 0 || v > 1e6) return null; o[k] = v; }
+  if (typeof m.ts === 'number' && isFinite(m.ts) && m.ts >= 0 && m.ts < 1e14) o.ts = m.ts;
+  return o;
+}
+function friendStats() {   // { КОД: { nick, wins, matches, onlineWins, colo, chapters, streak, ts } } — только текущие друзья
+  const p = frProfile(), o = {}; if (p) for (const c of p.friends) if (FS[c]) o[c] = Object.assign({}, FS[c]);
+  return o;
+}
+function frStatMsg(topic, buf, p) {
+  const code = topic.slice(9); if (!p.friends.has(code)) return;
+  let m; try { m = JSON.parse(typeof buf === 'string' ? buf : new TextDecoder().decode(buf)); } catch (e) { return; }
+  const v = frStatOk(m); if (!v) return;
+  const old = FS[code]; if (old && v.ts < old.ts) return;
+  if (old && JSON.stringify(old) === JSON.stringify(v)) return;
+  FS[code] = v;
+  try { localStorage.setItem('vb-fstats', JSON.stringify(FS)); } catch (e) {}
+  try { if (typeof onFriendStats === 'function') onFriendStats(friendStats()); } catch (e) {}
+  try { if (typeof window.__onFriendStats === 'function') window.__onFriendStats(friendStats()); } catch (e) {}   // подставка для автотестов
+}
+function frMyStats() {
+  try {
+    if (typeof getMyStats !== 'function') return null;
+    const g = getMyStats(), p = frProfile(), v = frStatOk(g); if (!v || !p) return null;
+    v.nick = v.nick || p.nick; delete v.ts; return v;
+  } catch (e) { return null; }
+}
+let frStAt = -9e9;
+function frStatsPub() {   // новое подключение — сразу; изменения (после матча) — не чаще раза в 10 с
+  const p = frProfile(), v = frMyStats(); if (!p || !v || !PR.cs.length) return;
+  const key = JSON.stringify(v), now = performance.now(), fresh = PR.cs.filter(c => c.__st === undefined), stale = PR.cs.filter(c => c.__st !== undefined && c.__st !== key);
+  const to = fresh.concat(now - frStAt >= 10000 ? stale : []); if (!to.length) return;
+  v.ts = Date.now(); const msg = JSON.stringify(v); frStAt = now;
+  for (const c of to) { c.__st = key; try { c.publish('vb4x10/s/' + p.me, msg, { qos: 0, retain: true }); } catch (e) {} }
+}
 function frMsg(topic, buf, me) {
+  if (topic.startsWith('vb4x10/s/')) { const p0 = frProfile(); if (p0 && p0.me === me) frStatMsg(topic, buf, p0); return; }
   let m; try { m = JSON.parse(typeof buf === 'string' ? buf : new TextDecoder().decode(buf)); } catch (e) { return; }
   const p = frProfile(); if (!m || typeof m !== 'object' || !p || p.me !== me || typeof m.from !== 'string' || !FR_CODE.test(m.from) || !p.friends.has(m.from)) return;
   if (topic === 'vb4x10/p/' + m.from) { if (m.t === 'here') { const now = performance.now(), fresh = PR.seen[m.from] && now - PR.seen[m.from] < 30000; PR.seen[m.from] = now; if (!fresh) frHere(); frPush(); } return; }   // друг только что появился — отвечаем сразу, не ждём 20 с
@@ -386,7 +427,7 @@ function frMsg(topic, buf, me) {
 }
 function frSubscribe() {
   const p = frProfile(); if (!p) return;
-  const topics = ['vb4x10/u/' + p.me, ...[...p.friends].map(c => 'vb4x10/p/' + c)];
+  const topics = ['vb4x10/u/' + p.me, ...[...p.friends].map(c => 'vb4x10/p/' + c), ...[...p.friends].map(c => 'vb4x10/s/' + c)];
   for (const c of PR.cs) for (const t of topics) { try { c.subscribe(t, { qos: 0 }); } catch (e) {} }
 }
 function frHere() { const p = frProfile(); if (p && PR.cs.length) frPublish('vb4x10/p/' + p.me, { t: 'here', from: p.me, ts: Date.now() }); PR.hbAt = performance.now(); }
@@ -401,7 +442,7 @@ async function frConnect() {
       mine.push(c);
       c.on('message', (t, b) => { const p = frProfile(); if (p) frMsg(t, b, p.me); });
       c.on('connect', () => frSubscribe());
-      frSubscribe(); frHere();
+      frSubscribe(); frHere(); frStatsPub();
     }));
   } catch (e) {} finally { PR.busy = false; }
 }
@@ -412,7 +453,7 @@ function frTick() {
     const p = frProfile(), menu = typeof state !== 'undefined' && state === 'menu' && !(net && net.connected);
     if (!PR.want || !p || !p.friends.size || !menu) { if (PR.cs.length) frClose(); return; }
     if (!PR.cs.length) frConnect();
-    else { frSubscribe(); if (performance.now() - PR.hbAt >= 20000) frHere(); }
+    else { frSubscribe(); frStatsPub(); if (performance.now() - PR.hbAt >= 20000) frHere(); }
   } catch (e) {}
 }
 function presenceStart() { PR.want = true; frTick(); }
@@ -430,7 +471,8 @@ async function netInvite(friendCode) {   // создать комнату и п�
   return room;
 }
 setInterval(frTick, 2000);
-try { window.__fr = { PR, presenceStart, presenceStop, netInvite, friendOnline, netHost, netJoin, netLeave }; } catch (e) {}   // для автотестов
+try { window.friendStats = friendStats; } catch (e) {}
+try { window.__fr = { PR, friendStats, frStatsPub, presenceStart, presenceStop, netInvite, friendOnline, netHost, netJoin, netLeave }; } catch (e) {}   // для автотестов
 
 /* ---------- сессия: общее ---------- */
 function netBeat() {
