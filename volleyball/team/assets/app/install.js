@@ -14,14 +14,17 @@
   const btn = document.createElement('button');
   btn.className = 'vb-inst'; btn.type = 'button'; btn.textContent = '⬇ УСТАНОВИТЬ'; btn.hidden = true;
   const tip = document.createElement('div'); tip.className = 'vb-tip'; tip.hidden = true;
-  tip.textContent = 'iPhone: нажмите «Поделиться» внизу Safari, затем «На экран „Домой“». Игра появится иконкой и будет открываться на весь экран.';
+  const andr = /android/i.test(navigator.userAgent);
+  tip.textContent = ios ? 'iPhone: нажмите «Поделиться» внизу Safari, затем «На экран „Домой“». Игра появится иконкой и будет открываться на весь экран.'
+    : andr ? 'Откройте меню браузера ⋮ (вверху справа) и выберите «Установить приложение» или «Добавить на главный экран». Если пункта нет — откройте эту страницу в Chrome.'
+    : 'В адресной строке нажмите значок установки (монитор со стрелкой) или в меню браузера ⋮ выберите «Установить приложение».';
   const menu = () => document.getElementById('menu');
-  const sync = () => { const m = menu(); btn.hidden = !(m && !m.hidden && (deferred || ios)); if (btn.hidden) tip.hidden = true; };
+  const sync = () => { const m = menu(); btn.hidden = !(m && !m.hidden); if (btn.hidden) tip.hidden = true; };   // кнопка видна всегда: нет системного окна — покажем, как установить вручную
   window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); deferred = e; sync(); });
   window.addEventListener('appinstalled', () => { deferred = null; btn.remove(); tip.remove(); });
   btn.addEventListener('click', async () => {
     if (deferred) { deferred.prompt(); try { await deferred.userChoice; } catch (e) {} deferred = null; sync(); }
-    else if (ios) tip.hidden = !tip.hidden;
+    else tip.hidden = !tip.hidden;
   });
   const mount = () => { document.body.appendChild(btn); document.body.appendChild(tip); sync(); const m = menu(); if (m) new MutationObserver(sync).observe(m, { attributes: true, attributeFilter: ['hidden'] }); };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mount); else mount();

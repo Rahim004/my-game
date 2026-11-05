@@ -1,5 +1,5 @@
 /* Сервис-воркер «№4 × №10»: игра открывается без интернета (кроме онлайн-матчей), обновления подтягиваются в фоне. */
-const CACHE = 'vb4x10-d0b0f57352';
+const CACHE = 'vb4x10-52d7094084';
 const FILES = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './icon-maskable-512.png', './apple-touch-icon.png'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)).then(() => self.skipWaiting())); });
 self.addEventListener('activate', e => {
