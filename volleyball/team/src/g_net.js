@@ -364,11 +364,19 @@ function friendOnline(code) {   // true / false / null (неизвестно: п
   if (t && now - t < 45000) return true;
   return now - PR.since < 25000 ? null : false;
 }
+let frLastPush = '';
+function frPush() {   // сообщить интерфейсу, кто в сети (только при изменении)
+  try {
+    const p = frProfile(), o = {}; if (p) for (const c of p.friends) o[c] = friendOnline(c) === true;
+    const k = JSON.stringify(o); if (k === frLastPush) return; frLastPush = k;
+    if (typeof setFriendPresence === 'function') setFriendPresence(o);
+  } catch (e) {}
+}
 function frPublish(topic, o) { for (const c of PR.cs) { try { c.publish(topic, JSON.stringify(o), { qos: 0 }); } catch (e) {} } }
 function frMsg(topic, buf, me) {
   let m; try { m = JSON.parse(typeof buf === 'string' ? buf : new TextDecoder().decode(buf)); } catch (e) { return; }
   const p = frProfile(); if (!m || typeof m !== 'object' || !p || p.me !== me || typeof m.from !== 'string' || !FR_CODE.test(m.from) || !p.friends.has(m.from)) return;
-  if (topic === 'vb4x10/p/' + m.from) { if (m.t === 'here') PR.seen[m.from] = performance.now(); return; }
+  if (topic === 'vb4x10/p/' + m.from) { if (m.t === 'here') { const now = performance.now(), fresh = PR.seen[m.from] && now - PR.seen[m.from] < 30000; PR.seen[m.from] = now; if (!fresh) frHere(); frPush(); } return; }   // друг только что появился — отвечаем сразу, не ждём 20 с
   if (topic !== 'vb4x10/u/' + me || m.t !== 'inv' || typeof m.room !== 'string' || !FR_ROOM.test(m.room)) return;
   if (typeof m.id !== 'string' || m.id.length > 40 || PR.ids.has(m.id)) return;
   PR.ids.add(m.id); if (PR.ids.size > 200) PR.ids.delete(PR.ids.values().next().value);
@@ -397,8 +405,9 @@ async function frConnect() {
     }));
   } catch (e) {} finally { PR.busy = false; }
 }
-function frClose() { const cs = PR.cs; PR.cs = []; PR.tryAt = -9e9; PR.seen = {}; for (const c of cs) { try { c.end(true); } catch (e) {} } }
+function frClose() { const cs = PR.cs; PR.cs = []; setTimeout(frPush, 0); PR.tryAt = -9e9; PR.seen = {}; for (const c of cs) { try { c.end(true); } catch (e) {} } }
 function frTick() {
+  try { frPush(); } catch (e) {}
   try {
     const p = frProfile(), menu = typeof state !== 'undefined' && state === 'menu' && !(net && net.connected);
     if (!PR.want || !p || !p.friends.size || !menu) { if (PR.cs.length) frClose(); return; }

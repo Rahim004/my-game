@@ -26,31 +26,34 @@ const PROF = (me, nick, friends) => `window.__prof = { nick: ${JSON.stringify(ni
   try {
     const ctx = await b.newContext({ viewport: { width: 844, height: 390 } });
     await ctx.addInitScript(STUB);
-    const mk = async (name, me, nick, friends) => {
+    const mk = async (name, me, nick, friends) => {   // профиль — настоящий, из localStorage ('vb-profile'), как его читает интерфейс
       const p = await ctx.newPage(); p.on('pageerror', e => errs.push(name + ': ' + e.message));
+      await p.addInitScript(prof => { try { localStorage.setItem('vb-profile', JSON.stringify(prof)); } catch (e) {} }, { code: me, nick, hero: 10, color: '#f07a22', friends, st: {} });
       await p.goto(`http://localhost:${port}/test.html`);
-      await p.evaluate(([prof]) => { window.__prof = prof; window.__inv = []; window.__getProfile = () => window.__prof; window.__onFriendInvite = i => window.__inv.push(i); window.__fr.presenceStart(); }, [JSON.parse(JSON.stringify({ nick, code: me, avatar: 0, friends }))]);
       return p;
     };
     const A = await mk('A', 'AAAA22', 'Аня', [{ code: 'BBBB33', name: 'Боря' }]);
     const B = await mk('B', 'BBBB33', 'Боря', [{ code: 'AAAA22', name: 'Аня' }]);
     const E = await mk('E', 'EEEE44', 'Чужой', [{ code: 'BBBB33', name: 'Боря' }]);   // B его в друзьях не имеет
-    await A.waitForTimeout(1500);
+    const plate = p => p.evaluate(() => ({ shown: !document.getElementById('plate').hidden, txt: document.getElementById('plateTxt').textContent }));
+    await A.waitForTimeout(3500);
     ok(await A.evaluate(() => window.__fr.friendOnline('BBBB33')) === true && await B.evaluate(() => window.__fr.friendOnline('AAAA22')) === true, 'A и B видят друг друга «в сети»');
     ok(await A.evaluate(() => window.__fr.friendOnline('ZZZZ99')) === null, 'не друг: статус неизвестен (null)');
     // приглашение от не-друга игнорируется
     const roomE = await E.evaluate(() => window.__fr.netInvite('BBBB33'));
     await B.waitForTimeout(1500);
-    ok(typeof roomE === 'string' && (await B.evaluate(() => window.__inv.length)) === 0, 'приглашение от не-друга проигнорировано', { roomE });
+    ok(typeof roomE === 'string' && !(await plate(B)).shown, 'приглашение от не-друга проигнорировано', { roomE });
     await E.evaluate(() => window.__fr.netLeave());
     // приглашение друга
     const room = await A.evaluate(() => window.__fr.netInvite('BBBB33'));
     await B.waitForTimeout(1500);
-    const inv = await B.evaluate(() => window.__inv);
-    ok(inv.length === 1 && inv[0].from === 'AAAA22' && inv[0].name === 'Аня' && inv[0].room === room, 'у B сработало приглашение с верной комнатой (без дубликатов)', { inv, room });
+    const pl = await plate(B);
+    ok(pl.shown && /Аня/.test(pl.txt), 'у B показана плашка приглашения от Ани', pl);
+    await B.evaluate(() => { document.getElementById('plate').hidden = true; });
     await B.waitForTimeout(8000);   // повторные отправки A приходят, но отсекаются по id
-    ok((await B.evaluate(() => window.__inv.length)) === 1, 'повторные отправки не дают дубликатов');
-    ok(await B.evaluate(c => window.__fr.netJoin(c, 'auto'), room) === true, 'B присоединился по комнате из приглашения');
+    ok(!(await plate(B)).shown, 'повторные отправки не дают дубликатов');
+    await B.evaluate(() => { document.getElementById('plateOk').click(); });   // приглашение принято, как при нажатии «ИГРАТЬ» (на плашке до ~30 с)
+    await B.waitForTimeout(500);
     await B.waitForTimeout(3000);
     const st = await Promise.all([A, B].map(p => p.evaluate(() => ({ mode: window.__vb.mode, st: window.__vb.state }))));
     ok(st[0].mode === 'host' && st[1].mode === 'guest' && ['serve', 'play', 'point'].includes(st[1].st), 'матч идёт', st);

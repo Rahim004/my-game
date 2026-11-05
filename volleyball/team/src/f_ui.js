@@ -451,7 +451,7 @@ function copyText(t) {
   });
 }
 function oldCopy(t) { try { const a = document.createElement('textarea'); a.value = t; a.style.cssText = 'position:fixed;opacity:0;top:0'; document.body.appendChild(a); a.select(); const ok = document.execCommand('copy'); a.remove(); return ok; } catch (e) { return false; } }
-function flash(btn, txt) { const o = btn.dataset.o || btn.textContent; btn.dataset.o = o; btn.textContent = txt; clearTimeout(btn._t); btn._t = setTimeout(() => { btn.textContent = o; }, 2000); }
+function flashBtn(btn, txt) { const o = btn.dataset.o || btn.textContent; btn.dataset.o = o; btn.textContent = txt; clearTimeout(btn._t); btn._t = setTimeout(() => { btn.textContent = o; }, 2000); }
 let plateTm = 0, plateOk = null;
 function showPlate(txt, okLabel, noLabel, okFn) {
   $('plateTxt').textContent = txt; $('plateOk').textContent = okLabel; $('plateNo').textContent = noLabel; plateOk = okFn; $('plate').hidden = false;
@@ -475,11 +475,11 @@ $('tabP').addEventListener('click', () => profTab('p'));
 $('tabF').addEventListener('click', () => profTab('f'));
 $('nickIn').addEventListener('input', () => { const v = cleanNick($('nickIn').value); if (v) { P.nick = v; saveProf(); renderChip(); } });
 $('nickIn').addEventListener('blur', () => { $('nickIn').value = P.nick; });
-$('codeCopy').addEventListener('click', async () => flash($('codeCopy'), (await copyText(P.code)) ? 'СКОПИРОВАНО' : 'НЕ ВЫШЛО'));
+$('codeCopy').addEventListener('click', async () => flashBtn($('codeCopy'), (await copyText(P.code)) ? 'СКОПИРОВАНО' : 'НЕ ВЫШЛО'));
 $('shareBtn').addEventListener('click', async () => {
   const link = gameLink(), b = $('shareBtn');
   try { if (navigator.share) { await navigator.share({ title: '№4 × №10', text: P.nick + ' зовёт тебя играть в волейбол. Мой код друга: ' + P.code, url: link }); return; } } catch (e) { if (e && e.name === 'AbortError') return; }
-  flash(b, (await copyText(link)) ? 'ССЫЛКА СКОПИРОВАНА' : 'НЕ ВЫШЛО');
+  flashBtn(b, (await copyText(link)) ? 'ССЫЛКА СКОПИРОВАНА' : 'НЕ ВЫШЛО');
 });
 $('fCode').addEventListener('input', () => { const v = normFC($('fCode').value); if ($('fCode').value !== v) $('fCode').value = v; });
 $('fAdd').addEventListener('click', () => {
@@ -497,6 +497,7 @@ $('fAdd').addEventListener('click', () => {
   } catch (e) {}
 })();
 renderChip();
+try { window.onFriendInvite = onFriendInvite; window.getProfile = getProfile; window.setFriendPresence = setFriendPresence; } catch (e) {}
 
 /* ================= input ================= */
 /* Ввод. presses — счётчики нажатий (гость шлёт их хосту: короткие тапы не теряются). */
