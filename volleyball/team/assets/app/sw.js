@@ -8,8 +8,12 @@ self.addEventListener('activate', e => {
 self.addEventListener('fetch', e => {
   const u = new URL(e.request.url);
   if (e.request.method !== 'GET' || u.origin !== self.location.origin) return;   // брокеры, CDN — мимо кэша
-  if (e.request.mode === 'navigate') {   // страница: сначала сеть (свежая версия), без сети — из кэша
-    e.respondWith(fetch(e.request).then(r => { const cp = r.clone(); caches.open(CACHE).then(c => c.put('./index.html', cp)); return r; }).catch(() => caches.match('./index.html')));
+  if (e.request.mode === 'navigate') {   // страница: сразу из кэша (мгновенный запуск даже с медленным VPN), свежая версия — в фоне к следующему запуску
+    const net = fetch(e.request).then(r => { if (r && r.ok) { const cp = r.clone(); caches.open(CACHE).then(c => c.put('./index.html', cp)); } return r; });
+    e.respondWith(caches.match('./index.html').then(hit => {
+      if (hit) { e.waitUntil(net.catch(() => {})); return hit; }
+      return net.catch(() => new Response('<meta charset="utf-8"><body style="background:#10141e;color:#fff;font:16px sans-serif;padding:24px">Нет связи. Откройте игру один раз с интернетом.</body>', { headers: { 'Content-Type': 'text/html; charset=utf-8' } }));
+    }));
     return;
   }
   e.respondWith(caches.match(e.request).then(hit => hit || fetch(e.request)));
