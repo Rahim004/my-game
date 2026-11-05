@@ -144,55 +144,99 @@ const sfx = {
   },
   crowd(v = .14) { noise(v, 1.8, 1100); },
 };
-/* ================= музыка: синтез в коде, без файлов. Меню — спокойная тема (ля минор), матч — бодрая (ре минор) ================= */
+/* ================= музыка: синтез в коде, без файлов. До мажор, общая гармония: матч — бодрый спорт-трек (136 BPM), меню — спокойный пэд+арпеджио (96 BPM). 32 такта: A (16) + B (16) ================= */
 const music = (() => {
   let on = (() => { try { return localStorage.getItem('vb-music') !== '0'; } catch (e) { return true; } })();
-  let mg = null, nb = null, timer = 0, next = 0, step = 0, song = '';
-  const SONGS = {   // prog — аккорды по тактам (MIDI-ноты)
-    menu: { bpm: 92, prog: [[57, 60, 64], [53, 57, 60], [48, 52, 55], [55, 59, 62]] },
-    match: { bpm: 128, prog: [[50, 53, 57], [46, 50, 53], [48, 52, 55], [45, 49, 52]] },
-  };
+  let mg = null, nb = null, bassF = null, leadF = null, timer = 0, next = 0, step = 0, song = '';
+  const SONGS = { menu: { bpm: 96 }, match: { bpm: 136 } };
+  const ROOT = { C: 36, G: 43, Am: 45, F: 41, Em: 40 };   // басовые ноты (MIDI)
+  const MIN = { Am: 1, Em: 1 };
+  const A8 = ['C', 'G', 'Am', 'F', 'C', 'G', 'F', 'G'], B8 = ['F', 'G', 'Em', 'Am', 'F', 'G', 'C', 'G'];
+  const PROG = [...A8, ...A8, ...B8, ...B8];   // аккорд на каждый из 32 тактов
+  // хук: [шаг 1/16, нота MIDI, длина в шагах]; 8 тактов на секцию, в 5–8-м тактах вариация
+  const HA = [
+    [[0, 76, 2], [3, 79, 2], [6, 81, 2], [8, 79, 3], [12, 76, 2], [14, 74, 2]],
+    [[0, 74, 3], [4, 79, 2], [6, 78, 2], [8, 79, 4], [14, 83, 2]],
+    [[0, 76, 2], [3, 81, 2], [6, 84, 2], [8, 81, 3], [12, 79, 2], [14, 76, 2]],
+    [[0, 77, 3], [4, 81, 2], [6, 79, 2], [8, 77, 4], [14, 72, 2]],
+    [[0, 79, 2], [3, 84, 2], [6, 81, 2], [8, 79, 3], [12, 76, 4]],
+    [[0, 74, 2], [2, 79, 2], [4, 83, 2], [6, 81, 2], [8, 79, 6]],
+    [[0, 81, 2], [3, 77, 2], [6, 81, 2], [8, 84, 3], [12, 81, 2], [14, 79, 2]],
+    [[0, 83, 2], [3, 79, 2], [6, 74, 2], [8, 79, 2], [10, 83, 2], [12, 86, 4]],
+  ];
+  const HB = [
+    [[0, 81, 3], [4, 84, 2], [6, 81, 2], [8, 79, 3], [12, 77, 4]],
+    [[0, 79, 3], [4, 83, 2], [6, 86, 2], [8, 83, 4], [14, 81, 2]],
+    [[0, 79, 2], [3, 83, 2], [6, 88, 2], [8, 86, 3], [12, 83, 4]],
+    [[0, 81, 2], [3, 84, 2], [6, 81, 2], [8, 76, 4], [12, 79, 2], [14, 81, 2]],
+    [[0, 84, 3], [4, 81, 2], [6, 84, 2], [8, 86, 3], [12, 84, 4]],
+    [[0, 83, 2], [2, 86, 2], [4, 83, 2], [6, 79, 2], [8, 83, 4], [12, 81, 2], [14, 79, 2]],
+    [[0, 84, 4], [6, 79, 2], [8, 76, 3], [12, 79, 2], [14, 84, 2]],
+    [[0, 83, 3], [4, 81, 2], [6, 79, 2], [8, 74, 4], [14, 71, 2]],
+  ];
+  const HOOK = [HA, HA, HB, HB];
+  const BASS_A = [[0, 0], [3, 0], [6, 1], [8, 0], [11, 1], [14, 0]];   // [шаг, октава вверх?]
   const hz = m => 440 * Math.pow(2, (m - 69) / 12);
-  function note(m, t, d, v, type) {
+  const tri = c => (MIN[c] ? [0, 3, 7] : [0, 4, 7]).map(i => i + ROOT[c] % 12 + 60);
+  function note(m, t, d, v, type, dst) {
     const o = ac.createOscillator(), g = ac.createGain(); o.type = type; o.frequency.value = hz(m);
-    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(v, t + .015); g.gain.exponentialRampToValueAtTime(.0005, t + d);
-    o.connect(g).connect(mg); o.start(t); o.stop(t + d + .02);
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(v, t + .012); g.gain.exponentialRampToValueAtTime(.0005, t + d);
+    o.connect(g).connect(dst || mg); o.start(t); o.stop(t + d + .02);
+    o.onended = () => { try { o.disconnect(); g.disconnect(); } catch (e) {} };
   }
-  function kick(t) {
-    const o = ac.createOscillator(), g = ac.createGain(); o.frequency.setValueAtTime(130, t); o.frequency.exponentialRampToValueAtTime(42, t + .12);
-    g.gain.setValueAtTime(.28, t); g.gain.exponentialRampToValueAtTime(.001, t + .16); o.connect(g).connect(mg); o.start(t); o.stop(t + .17);
+  function kick(t, v) {
+    const o = ac.createOscillator(), g = ac.createGain(); o.frequency.setValueAtTime(140, t); o.frequency.exponentialRampToValueAtTime(44, t + .1);
+    g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(.001, t + .17); o.connect(g).connect(mg); o.start(t); o.stop(t + .18);
+    o.onended = () => { try { o.disconnect(); g.disconnect(); } catch (e) {} };
   }
   function hiss(t, v, d, f, type) {
     if (!nb) { const len = ac.sampleRate * .3 | 0; nb = ac.createBuffer(1, len, ac.sampleRate); const x = nb.getChannelData(0); for (let i = 0; i < len; i++) x[i] = Math.random() * 2 - 1; }
     const s = ac.createBufferSource(), fl = ac.createBiquadFilter(), g = ac.createGain(); s.buffer = nb; fl.type = type; fl.frequency.value = f;
     g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(.001, t + d); s.connect(fl).connect(g).connect(mg); s.start(t); s.stop(t + d);
+    s.onended = () => { try { s.disconnect(); fl.disconnect(); g.disconnect(); } catch (e) {} };
   }
-  function sched(S, st, t, sp) {
-    const s = st % 16, ch = S.prog[(st >> 4) % 4];
+  function sched(st, t, sp) {
+    const bar = (st >> 4) % 32, s = st % 16, ch = PROG[bar], sec = bar >> 4 & 1, rep = bar >> 3 & 1, hk = HOOK[bar >> 3][bar & 7], tr = tri(ch), r = ROOT[ch];
     if (song === 'menu') {
-      if (s === 0) ch.forEach(m => note(m + 12, t, sp * 15, .035, 'triangle'));
-      if (s % 2 === 0) note(ch[(s >> 1) % 3] + 24, t, sp * 3, .025, 'sine');
-      if (s === 0 || s === 10) note(ch[0] - 12, t, sp * 6, .07, 'triangle');
-    } else {
-      if (s % 4 === 0) kick(t);
-      if (s % 4 === 2) hiss(t, .03, .05, 7000, 'highpass');
-      if (s === 4 || s === 12) hiss(t, .09, .14, 1800, 'bandpass');
-      if (s % 2 === 0) note(ch[0] - 12 + (s === 6 || s === 14 ? 12 : 0), t, sp * 1.8, .07, 'triangle');
-      note(ch[[0, 1, 2, 1][s % 4]] + 24, t, sp * .9, .014, 'square');
-      if (s === 0 && (st >> 4) % 2 === 0) ch.forEach(m => note(m + 12, t, sp * 30, .02, 'sawtooth'));
+      if (s === 0) { tr.forEach(m => note(m - 12, t, sp * 15, .03, 'triangle')); note(r, t, sp * 14, .06, 'sine'); }   // пэд + бас
+      if (s === 8) note(r + 12, t, sp * 6, .035, 'sine');
+      if (s % 2 === 0) note(tr[[0, 1, 2, 1, 2, 1, 0, 1][s >> 1]] + (s % 8 === 6 ? 24 : 12), t, sp * 3.5, .02, 'sine');   // арпеджио
+      if (s === 0 && (bar & 7) < 2) hk.forEach(n => note(n[1], t + n[0] * sp, sp * n[2] * 1.6, .016, 'sine'));   // хук в колокольчиках
+      if (s === 4 || s === 12) hiss(t, .008, .06, 8000, 'highpass');
+      return;
     }
+    // бит: секция A синкопированная, B — четыре четверти
+    if (sec ? s % 4 === 0 : (s === 0 || s === 6 || s === 8 || s === 11 || (bar % 8 === 7 && s === 14))) kick(t, s === 0 ? .24 : .19);
+    if (s === 4 || s === 12) { hiss(t, .08, .13, 1900, 'bandpass'); hiss(t, .03, .05, 5000, 'highpass'); }
+    if (s % 2 === 0) hiss(t, s % 4 === 2 ? .03 : .014, s === 14 && sec ? .12 : .035, 7500, 'highpass');
+    else if (sec) hiss(t, .008, .02, 9000, 'highpass');
+    // бас
+    if (!sec) { for (const b of BASS_A) if (b[0] === s) note(r + b[1] * 12, t, sp * 2.2, .1, 'sawtooth', bassF); }
+    else if (s % 2 === 0) note(r + (s % 4 === 2 ? 12 : 0), t, sp * 1.7, .1, 'sawtooth', bassF);
+    // стабы-аккорды: A — на «и» 2 и 4, B — по всем офф-битам
+    if (sec ? s % 4 === 2 : (s === 6 || s === 14)) tr.forEach(m => note(m, t, sp * 1.3, .011, 'square', leadF));
+    // хук (в повторе — дублируем октавой выше мягкой синусоидой)
+    hk.forEach(n => { if (n[0] === s) { note(n[1], t, sp * n[2] * .95, .03, 'square', leadF); if (rep) note(n[1] + 12, t, sp * n[2] * .9, .012, 'sine', leadF); } });
   }
   function tick() {
     if (!ac || !mg) return;
     const want = ['menu', 'story', 'over'].includes(state) ? 'menu' : 'match';
     if (want !== song) { song = want; step = 0; next = Math.max(next, ac.currentTime + .05); }
     if (!on) { next = ac.currentTime + .05; return; }
-    const S = SONGS[song], sp = 60 / S.bpm / 4;
+    const sp = 60 / SONGS[song].bpm / 4;
     if (next < ac.currentTime - .5) next = ac.currentTime + .05;   // вкладка спала — не догоняем пропущенное
-    while (next < ac.currentTime + .3) { sched(S, step, next, sp); next += sp; step = (step + 1) % 64; }
+    while (next < ac.currentTime + .3) { sched(step, next, sp); next += sp; step = (step + 1) % 512; }
   }
   return {
-    start() { if (!ac) return; if (!mg) { mg = ac.createGain(); mg.gain.value = on ? .6 : 0; mg.connect(ac.destination); } if (!timer) timer = setInterval(() => { try { tick(); } catch (e) {} }, 90); },
+    start() {
+      if (!ac) return;
+      if (!mg) {
+        mg = ac.createGain(); mg.gain.value = on ? .6 : 0; mg.connect(ac.destination);
+        bassF = ac.createBiquadFilter(); bassF.type = 'lowpass'; bassF.frequency.value = 700; bassF.connect(mg);
+        leadF = ac.createBiquadFilter(); leadF.type = 'lowpass'; leadF.frequency.value = 3200; leadF.connect(mg);
+      }
+      if (!timer) timer = setInterval(() => { try { tick(); } catch (e) {} }, 90);
+    },
     toggle() { on = !on; try { localStorage.setItem('vb-music', on ? '1' : '0'); } catch (e) {} if (mg) mg.gain.setTargetAtTime(on ? .6 : 0, ac.currentTime, .05); return on; },
     get on() { return on; },
   };
