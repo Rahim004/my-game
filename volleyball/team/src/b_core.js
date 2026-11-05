@@ -53,6 +53,10 @@ const KIT = {
   nt2: { jersey: '#a85a2c', shade: '#7a3d18', trim: '#f0e0c4', shorts: '#4a2a18', shortsTrim: '#f0e0c4', num: '#ffffff', numEdge: '#4a2a18', sock: '#f0e0c4', sockBand: '#a85a2c', pad: '#3a2216', shoe: '#f0e0c4', sole: '#a85a2c' },
   nt3: { jersey: '#4a5663', shade: '#2f3944', trim: '#6fd3f2', shorts: '#2f3944', shortsTrim: '#6fd3f2', num: '#ffffff', numEdge: '#2f3944', sock: '#dff4fb', sockBand: '#6fd3f2', pad: '#222a33', shoe: '#dff4fb', sole: '#6fd3f2' },
   nt4: { jersey: '#5a1230', shade: '#3a0a1f', trim: '#e8b4a0', shorts: '#3a0a1f', shortsTrim: '#e8b4a0', num: '#f6dccf', numEdge: '#3a0a1f', sock: '#e8b4a0', sockBand: '#5a1230', pad: '#2a0715', shoe: '#e8b4a0', sole: '#5a1230' },
+  // глава 4: соперники «Финала страны» (см. docs/characters.md)
+  fn1: { jersey: '#d6338a', shade: '#9e1f63', trim: '#ffe3ef', shorts: '#3a2a35', shortsTrim: '#d6338a', num: '#ffffff', numEdge: '#9e1f63', sock: '#ffe3ef', sockBand: '#d6338a', pad: '#2a1d26', shoe: '#ffe3ef', sole: '#d6338a' },
+  fn2: { jersey: '#19b3a3', shade: '#0f7f74', trim: '#1c2a4a', shorts: '#1c2a4a', shortsTrim: '#19b3a3', num: '#ffffff', numEdge: '#1c2a4a', sock: '#e4f7f4', sockBand: '#19b3a3', pad: '#16213a', shoe: '#e4f7f4', sole: '#1c2a4a' },
+  fn3: { jersey: '#aeb4bd', shade: '#818892', trim: '#e0b13a', shorts: '#2c2f38', shortsTrim: '#e0b13a', num: '#2c2f38', numEdge: '#fff3cf', sock: '#f3f4f6', sockBand: '#e0b13a', pad: '#23262d', shoe: '#2c2f38', sole: '#e0b13a' },
 };
 const LOOKS = {
   // style — что умеет d_chars.js сейчас; styleNew — целевой стиль из docs/characters.md (пока рисуется как style); acc — аксессуар
