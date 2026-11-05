@@ -575,7 +575,7 @@ function shareInfo() {
   return { win: win || l2, title: t, score: me.score + ' : ' + other(me).score, line, mvp: best };
 }
 function roundRect(c, x, y, w, h, r) { c.beginPath(); c.moveTo(x + r, y); c.arcTo(x + w, y, x + w, y + h, r); c.arcTo(x + w, y + h, x, y + h, r); c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r); c.closePath(); }
-function fitText(c, s, x, y, maxW, px, font) { let f = px; do { c.font = font.replace('#', f); f -= 2; } while (c.measureText(s).width > maxW && f > 14); c.fillText(s, x, y); }
+function shFit(c, s, x, y, maxW, px, font) { let f = px; do { c.font = font.replace('#', f); f -= 2; } while (c.measureText(s).width > maxW && f > 14); c.fillText(s, x, y); }
 function makeCard() {
   const I = shareInfo(), W = 1080, H = 1350, cv2 = document.createElement('canvas'); cv2.width = W; cv2.height = H;
   const c = cv2.getContext('2d'), css = getComputedStyle(document.documentElement), tok = (k, d) => (css.getPropertyValue(k) || '').trim() || d;
@@ -585,21 +585,21 @@ function makeCard() {
   g = c.createRadialGradient(W / 2, 640, 40, W / 2, 640, 640); g.addColorStop(0, I.win ? 'rgba(242,194,48,.30)' : 'rgba(19,143,151,.30)'); g.addColorStop(1, 'rgba(0,0,0,0)'); c.fillStyle = g; c.fillRect(0, 0, W, H);
   c.fillStyle = orange; c.fillRect(0, 0, W, 14); c.fillRect(0, H - 14, W, 14);
   c.textAlign = 'center'; c.textBaseline = 'alphabetic';
-  c.fillStyle = gold; fitText(c, '№4 × №10', W / 2, 150, 900, 120, '700 #px ' + D);
+  c.fillStyle = gold; shFit(c, '№4 × №10', W / 2, 150, 900, 120, '700 #px ' + D);
   c.fillStyle = muted; c.font = '500 36px ' + D; if ('letterSpacing' in c) c.letterSpacing = '8px'; c.fillText('ВОЛЕЙБОЛ 3 НА 3', W / 2, 205); if ('letterSpacing' in c) c.letterSpacing = '0px';
-  c.fillStyle = I.win ? gold : ink; fitText(c, I.title, W / 2, 360, 940, 130, '700 #px ' + D);
-  c.fillStyle = ink; fitText(c, I.score, W / 2, 595, 900, 220, '700 #px ' + D);
-  c.fillStyle = teal; fitText(c, I.line, W / 2, 648, 940, 40, '500 #px ' + B);
+  c.fillStyle = I.win ? gold : ink; shFit(c, I.title, W / 2, 360, 940, 130, '700 #px ' + D);
+  c.fillStyle = ink; shFit(c, I.score, W / 2, 595, 900, 220, '700 #px ' + D);
+  c.fillStyle = teal; shFit(c, I.line, W / 2, 648, 940, 40, '500 #px ' + B);
   let port = false;
   if (typeof drawPortrait === 'function') {
     try { c.save(); c.beginPath(); c.arc(W / 2, 860, 190, 0, 6.2832); c.fillStyle = 'rgba(255,255,255,.07)'; c.fill(); c.lineWidth = 6; c.strokeStyle = gold; c.stroke(); c.clip(); drawPortrait(c, I.mvp, I.win ? 'joy' : 'calm', W / 2, 870, 440); c.restore(); port = true; } catch (e) { c.restore(); }
   }
   c.fillStyle = gold; c.font = '700 40px ' + D; c.fillText('MVP' + (port ? '' : ' №' + I.mvp), W / 2, 1100);
-  c.fillStyle = ink; fitText(c, (HERO[I.mvp] ? HERO[I.mvp].full : nameOf(I.mvp)), W / 2, 1148, 900, 46, '500 #px ' + B);
-  roundRect(c, 60, 1170, 960, 140, 28); c.fillStyle = orange; c.fill();
-  c.fillStyle = '#16120a'; c.font = '700 54px ' + D; c.fillText('СЫГРАЙ СО МНОЙ', W / 2, 1224);
-  fitText(c, shareLink().replace('https://', ''), W / 2, 1265, 900, 34, '500 #px ' + B);
-  c.fillStyle = '#16120a'; c.font = '500 26px ' + B; c.fillText('Код друга: ' + P.code, W / 2, 1298);
+  c.fillStyle = ink; shFit(c, (HERO[I.mvp] ? HERO[I.mvp].full : nameOf(I.mvp)), W / 2, 1144, 900, 44, '500 #px ' + B);
+  roundRect(c, 60, 1186, 960, 134, 28); c.fillStyle = orange; c.fill();
+  c.fillStyle = '#16120a'; c.font = '700 54px ' + D; c.fillText('СЫГРАЙ СО МНОЙ', W / 2, 1238);
+  shFit(c, shareLink().replace('https://', ''), W / 2, 1277, 900, 34, '500 #px ' + B);
+  c.fillStyle = '#16120a'; c.font = '500 26px ' + B; c.fillText('Код друга: ' + P.code, W / 2, 1306);
   return new Promise(res => { try { cv2.toBlob(b => res(b), 'image/png'); } catch (e) { res(null); } });
 }
 function dlBlob(b, name) { const u = URL.createObjectURL(b), a = document.createElement('a'); a.href = u; a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(u), 8000); }
