@@ -43,14 +43,19 @@ SKELETON = ('<!doctype html>\n<html lang="ru">\n<head>\n<meta charset="utf-8">\n
 APP_HEAD = ('<link rel="manifest" href="manifest.webmanifest">\n<meta name="theme-color" content="#10141e">\n'
   '<link rel="icon" href="icon-192.png">\n<link rel="apple-touch-icon" href="apple-touch-icon.png">\n'
   '<meta name="apple-mobile-web-app-capable" content="yes">\n<meta name="mobile-web-app-capable" content="yes">\n'
-  '<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">\n<meta name="apple-mobile-web-app-title" content="№4×№10">\n')
+  '<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">\n<meta name="apple-mobile-web-app-title" content="№4×№10">\n'
+  '<title>№4 × №10 — волейбол 3 на 3 с друзьями</title>\n<meta name="description" content="Аниме-волейбол 3 на 3 в браузере: турнир с историей, колизей и онлайн с друзьями. Бесплатно, без установки.">\n'
+  '<meta property="og:type" content="website">\n<meta property="og:title" content="№4 × №10 — волейбол 3 на 3">\n'
+  '<meta property="og:description" content="Сыграй со мной: турнир с историей, колизей и онлайн с друзьями прямо в браузере.">\n'
+  '<meta property="og:image" content="https://rahim004.github.io/my-game/volleyball/og.png">\n<meta property="og:url" content="https://rahim004.github.io/my-game/volleyball/">\n'
+  '<meta name="twitter:card" content="summary_large_image">\n')
 APP_JS = (root / 'assets' / 'app' / 'install.js').read_text(encoding='utf-8')
 page = SKELETON.replace('</head>', APP_HEAD + '</head>') + src.replace('/*__DEBUG__*/', '') + '\n<script>' + APP_JS + '</script>\n</body>\n</html>\n'
 (dist / 'index.html').write_text(page, encoding='utf-8')
 import hashlib, shutil
 ver = hashlib.sha256(page.encode('utf-8')).hexdigest()[:10]
 (dist / 'sw.js').write_text((root / 'assets' / 'app' / 'sw.js').read_text(encoding='utf-8').replace('__VER__', ver), encoding='utf-8')
-for f in ['manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'icon-maskable-512.png', 'apple-touch-icon.png']:
+for f in ['og.png', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'icon-maskable-512.png', 'apple-touch-icon.png']:
     shutil.copyfile(root / 'assets' / 'app' / f, dist / f)
 dbg = src.replace('/*__DEBUG__*/', 'window.__vb = { get state() { return state; }, get TL() { return TL; }, get TR() { return TR; }, get ball() { return ball; }, get active() { return active; }, get active2() { return active2; }, get serveT() { return serveT; }, get server() { return server; }, get servingTeam() { return servingTeam; }, get mode() { return mode; }, get banners() { return banners; }, get input() { return input; }, get input2() { return input2; }, get net() { return net && { role: net.role, kind: net.kind, code: net.code, connected: net.connected, bad: net.bad || 0, seq: net.seq || 0, bufN: net.buf ? net.buf.length : -1, srv: net.srv || \'\', delay: Math.round(NET.delay), tgt: Math.round(net.dTarget || 0), hz: net.hzCur || 0, age: net.lastSnap ? Math.round(performance.now() - net.lastSnap) : -1 }; }, get target() { return TARGET; }, set target(v) { TARGET = v; }, get statuses() { return window.__vbStatus || []; }, get names() { return names; }, get arena() { return ARENA; }, setArena, get diff() { return diff; }, set diff(v) { diff = v; }, netRaw: m => net && net.tr.send(m), netSnap: () => buildSnap(), startMatch, drawPortrait, headSet, netHost, netJoin, netLeave, press, press2, roomFromHash, roomLink };\n{ const ui = onNetStatus; onNetStatus = t => { (window.__vbStatus = window.__vbStatus || []).push(t); ui(t); }; }')
 dbg = dbg.replace('if (!validSnap(m)) { net.bad++; return; }', 'if (!validSnap(m)) { net.bad++; (window.__badSnaps = window.__badSnaps || []).push(JSON.stringify(m)); return; }')
