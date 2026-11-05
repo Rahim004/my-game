@@ -4,6 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <style>:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#10141e">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="№4×№10">
 </head>
 <body>
 <title>№4 против №10</title>
@@ -281,6 +289,66 @@ h1 .x { color: var(--gold); }
   .code { font-size: 46px; }
   .noweb { padding: 10px 14px; }
 }
+
+/* profile and friends */
+.profchip { display: flex; align-items: center; gap: 8px; min-height: 48px; padding: 4px 12px 4px 5px; border-radius: 26px; background: var(--panel); border: 1px solid var(--line); color: var(--ink); font-family: var(--display); font-weight: 500; font-size: 15px; letter-spacing: .04em; max-width: 100%; }
+.profchip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.menu-l { position: relative; }
+.profchip { align-self: flex-start; }
+@media (orientation: landscape) and (min-width: 640px) { .menu-l > .profchip { position: absolute; top: 0; right: 0; max-width: 46%; z-index: 2; } }
+@media (orientation: landscape) and (min-width: 640px) and (max-width: 799px) { .profchip { padding: 4px; } .profchip span { display: none; } .profchip .av.s { width: 40px; height: 40px; } }
+.av { display: block; border-radius: 50%; background: radial-gradient(circle at 50% 35%, #34405a, #1a1e27); border: 3px solid var(--orange); box-sizing: border-box; flex: none; }
+.av.s { width: 38px; height: 38px; border-width: 2px; }
+.av.m { width: 56px; height: 56px; }
+.sheet.prof { max-width: 760px; gap: 8px; }
+.tabs { display: grid; grid-template-columns: 1fr 1fr; background: var(--panel); border: 1px solid var(--line); border-radius: 11px; padding: 3px; gap: 3px; flex: 1; max-width: 340px; }
+.tabs button { border: 0; background: transparent; border-radius: 8px; min-height: 44px; font-family: var(--display); font-weight: 600; font-size: 15px; letter-spacing: .08em; color: var(--muted); }
+.tabs button[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+.prof .onl-head { gap: 10px; }
+.prof .onl-head .ghost { min-height: 48px; }
+.pane { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-items: start; }
+.pane[hidden] { display: none; }
+@media (orientation: portrait), (max-width: 560px) { .pane { grid-template-columns: 1fr; } }
+.avrow { display: flex; align-items: center; gap: 8px; }
+.hbtn { padding: 0; border: 0; background: none; border-radius: 50%; line-height: 0; }
+.hbtn .av { width: 50px; height: 50px; border-color: transparent; opacity: .55; }
+.hbtn[aria-pressed="true"] .av { opacity: 1; border-color: var(--ink); }
+.cols { display: flex; gap: 8px; flex-wrap: wrap; }
+.sw { width: 34px; height: 34px; border-radius: 50%; border: 3px solid transparent; padding: 0; background-clip: padding-box; box-shadow: inset 0 0 0 3px var(--panel); }
+.sw[aria-pressed="true"] { border-color: var(--ink); }
+.field { box-sizing: border-box; width: 100%; min-height: 44px; font: 500 16px var(--body); color: var(--ink); background: var(--bg); border: 2px solid var(--line); border-radius: 10px; outline: none; padding: 0 10px; -webkit-user-select: text; user-select: text; touch-action: auto; }
+.field:focus { border-color: var(--orange); }
+.mycode { font-family: var(--display); font-weight: 700; font-size: 40px; line-height: 1.05; letter-spacing: .2em; text-indent: .2em; text-align: center; color: var(--gold); }
+.btn2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.btn2 .ghost, .prof .ghost.sm { min-height: 48px; padding: 8px; font-size: 14px; }
+.stats { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.stats div { background: var(--bg); border-radius: 8px; padding: 5px 8px; display: flex; flex-direction: column; min-width: 0; }
+.stats b { font-family: var(--display); font-weight: 700; font-size: 20px; line-height: 1.1; color: var(--ink); }
+.stats small { font-size: 10.5px; color: var(--muted); line-height: 1.2; }
+.flist { display: flex; flex-direction: column; gap: 6px; max-height: 190px; overflow-y: auto; touch-action: pan-y; }
+.fr { display: flex; align-items: center; gap: 8px; background: var(--bg); border-radius: 10px; padding: 5px 6px 5px 10px; min-height: 52px; }
+.fr .fi { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.fr b { font-weight: 500; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fr small { font-family: var(--display); letter-spacing: .12em; font-size: 12px; color: var(--muted); }
+.fr small.on { color: #7bd88f; }
+.fr button { min-height: 44px; min-width: 44px; border-radius: 9px; border: 1px solid var(--line); background: var(--panel); font-family: var(--display); font-weight: 600; font-size: 13px; letter-spacing: .06em; padding: 0 10px; }
+.fr button.inv { background: var(--orange); color: #1d0f04; border: 0; }
+.fempty { margin: 0; font-size: 13px; line-height: 1.4; color: var(--muted); }
+.onl-me { margin: 4px 0 0; font-size: 13px; color: var(--muted); }
+.plate { position: fixed; left: 50%; bottom: calc(10px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); z-index: 16; width: min(460px, calc(100% - 32px)); box-sizing: border-box; display: flex; align-items: center; gap: 10px; padding: 8px 8px 8px 14px; border-radius: 12px; background: var(--panel-2); border: 1px solid var(--line); border-left: 3px solid var(--orange); box-shadow: 0 8px 24px rgba(0, 0, 0, .55); }
+.plate[hidden] { display: none; }
+.plate p { margin: 0; flex: 1; min-width: 0; font-size: 14px; line-height: 1.3; }
+.plate button { min-height: 48px; padding: 0 14px; border-radius: 10px; font-family: var(--display); font-weight: 600; font-size: 14px; letter-spacing: .06em; border: 1px solid var(--line); background: var(--panel); }
+.plate button.ok { background: var(--orange); color: #1d0f04; border: 0; }
+@media (orientation: landscape) and (max-height: 540px) {
+  .mycode { font-size: 34px; }
+  .prof .onl-card { padding: 8px 10px; gap: 5px; }
+  .prof .onl-head h2 { font-size: 24px; }
+  .hbtn .av { width: 44px; height: 44px; }
+  .sw { width: 30px; height: 30px; }
+  .flist { max-height: 150px; }
+  .field { min-height: 40px; }
+}
 @media (prefers-reduced-motion: reduce) { .ctl, .play { transition: none; } }
 .errbox { position: fixed; left: 12px; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); z-index: 20; padding: 10px 12px; border-radius: 10px; background: #3a1414; border: 1px solid #a33; color: #ffd9d9; font-size: 13px; line-height: 1.4; }
 </style>
@@ -325,6 +393,7 @@ h1 .x { color: var(--gold); }
   <div class="overlay" id="menu">
     <div class="sheet menu">
       <div class="menu-l">
+        <button class="profchip" id="profBtn" aria-label="Профиль и друзья"><canvas class="av s" id="chipAv" width="76" height="76"></canvas><span id="chipNick">ПРОФИЛЬ</span></button>
         <div class="title">
           
           <div>
@@ -419,6 +488,7 @@ h1 .x { color: var(--gold); }
         <div>
           <p class="kicker">ОНЛАЙН</p>
           <h2>Играем с другом</h2>
+          <p class="onl-me" id="onlMe"></p>
         </div>
         <button class="ghost" id="onlBack">НАЗАД</button>
       </div>
@@ -446,6 +516,46 @@ h1 .x { color: var(--gold); }
       <p class="status" id="netStatus" role="status" aria-live="polite"></p>
     </div>
   </div>
+
+  <div class="overlay" id="prof" hidden>
+    <div class="sheet prof">
+      <div class="onl-head">
+        <div class="tabs" role="group" aria-label="Раздел">
+          <button id="tabP" aria-pressed="true">ПРОФИЛЬ</button>
+          <button id="tabF" aria-pressed="false">ДРУЗЬЯ</button>
+        </div>
+        <button class="ghost" id="profBack">НАЗАД</button>
+      </div>
+      <div class="pane" id="paneP">
+        <section class="onl-card">
+          <input class="field" id="nickIn" maxlength="14" placeholder="Ник" autocomplete="off" aria-label="Ник, до 14 символов">
+          <div class="avrow" id="heroRow"></div>
+          <div class="cols" id="colRow"></div>
+        </section>
+        <section class="onl-card">
+          <p class="label">Твой код друга</p>
+          <div class="mycode" id="myCode"></div>
+          <div class="btn2"><button class="ghost sm" id="codeCopy">КОПИРОВАТЬ</button><button class="ghost sm" id="shareBtn">ПОЗВАТЬ ДРУГА</button></div>
+          <div class="stats" id="stats"></div>
+        </section>
+      </div>
+      <div class="pane" id="paneF" hidden>
+        <section class="onl-card">
+          <p class="label">Добавить друга</p>
+          <input class="field codeadd" id="fCode" maxlength="6" placeholder="КОД ДРУГА" autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false" aria-label="Код друга, 6 символов">
+          <input class="field" id="fName" maxlength="14" placeholder="Как назвать (необязательно)" autocomplete="off" aria-label="Имя друга">
+          <button class="ghost sm" id="fAdd">ДОБАВИТЬ</button>
+          <p class="status" id="fStat"></p>
+        </section>
+        <section class="onl-card">
+          <p class="label">Мои друзья</p>
+          <div class="flist" id="fList"></div>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <div class="plate" id="plate" role="alert" hidden><p id="plateTxt"></p><button id="plateNo">ПОЗЖЕ</button><button class="ok" id="plateOk">ИГРАТЬ</button></div>
 
   <div class="overlay dim lite" id="leave" hidden>
     <div class="sheet small">
@@ -3320,6 +3430,93 @@ async function mqJoin(code, gen) {   // → { tr } | { err, up, n }
   });
 }
 
+/* ---------- друзья: почтовый ящик и статус «в сети» (через те же MQTT-брокеры) ----------
+   Ящик игрока — топик vb4x10/u/<код>, присутствие — vb4x10/p/<код>. Лёгкие подключения живут только в меню (не во время матча). */
+const PR = { want: true, cs: [], me: '', ids: new Set(), seen: {}, lastInv: {}, hbAt: 0, since: 0, busy: false, tryAt: -9e9 };
+const FR_CODE = /^[A-Z2-9]{6}$/, FR_ROOM = /^[A-Z]{5}$/;
+function frProfile() {   // → { me, nick, friends: Set } | null
+  try {
+    const gp = typeof getProfile === 'function' ? getProfile : window.__getProfile;   // window.__getProfile — подставка для автотестов
+    if (typeof gp !== 'function') return null;
+    const p = gp(); if (!p || !FR_CODE.test(p.code)) return null;
+    const fr = new Set(); for (const f of (p.friends || [])) if (f && FR_CODE.test(f.code) && f.code !== p.code) fr.add(f.code);
+    return { me: p.code, nick: String(p.nick || '').slice(0, 14), friends: fr };
+  } catch (e) { return null; }
+}
+function friendOnline(code) {   // true / false / null (неизвестно: подключений нет или ещё не слушали)
+  const p = frProfile(); if (!p || !p.friends.has(code) || !PR.cs.length) return null;
+  const t = PR.seen[code], now = performance.now();
+  if (t && now - t < 45000) return true;
+  return now - PR.since < 25000 ? null : false;
+}
+let frLastPush = '';
+function frPush() {   // сообщить интерфейсу, кто в сети (только при изменении)
+  try {
+    const p = frProfile(), o = {}; if (p) for (const c of p.friends) o[c] = friendOnline(c) === true;
+    const k = JSON.stringify(o); if (k === frLastPush) return; frLastPush = k;
+    if (typeof setFriendPresence === 'function') setFriendPresence(o);
+  } catch (e) {}
+}
+function frPublish(topic, o) { for (const c of PR.cs) { try { c.publish(topic, JSON.stringify(o), { qos: 0 }); } catch (e) {} } }
+function frMsg(topic, buf, me) {
+  let m; try { m = JSON.parse(typeof buf === 'string' ? buf : new TextDecoder().decode(buf)); } catch (e) { return; }
+  const p = frProfile(); if (!m || typeof m !== 'object' || !p || p.me !== me || typeof m.from !== 'string' || !FR_CODE.test(m.from) || !p.friends.has(m.from)) return;
+  if (topic === 'vb4x10/p/' + m.from) { if (m.t === 'here') { const now = performance.now(), fresh = PR.seen[m.from] && now - PR.seen[m.from] < 30000; PR.seen[m.from] = now; if (!fresh) frHere(); frPush(); } return; }   // друг только что появился — отвечаем сразу, не ждём 20 с
+  if (topic !== 'vb4x10/u/' + me || m.t !== 'inv' || typeof m.room !== 'string' || !FR_ROOM.test(m.room)) return;
+  if (typeof m.id !== 'string' || m.id.length > 40 || PR.ids.has(m.id)) return;
+  PR.ids.add(m.id); if (PR.ids.size > 200) PR.ids.delete(PR.ids.values().next().value);
+  const now = performance.now(); if (PR.lastInv[m.from] && now - PR.lastInv[m.from] < 5000) return;
+  PR.lastInv[m.from] = now;
+  try { const cb = typeof onFriendInvite === 'function' ? onFriendInvite : window.__onFriendInvite; if (typeof cb === 'function') cb({ from: m.from, name: typeof m.name === 'string' ? m.name.slice(0, 14) : '', room: m.room }); } catch (e) {}
+}
+function frSubscribe() {
+  const p = frProfile(); if (!p) return;
+  const topics = ['vb4x10/u/' + p.me, ...[...p.friends].map(c => 'vb4x10/p/' + c)];
+  for (const c of PR.cs) for (const t of topics) { try { c.subscribe(t, { qos: 0 }); } catch (e) {} }
+}
+function frHere() { const p = frProfile(); if (p && PR.cs.length) frPublish('vb4x10/p/' + p.me, { t: 'here', from: p.me, ts: Date.now() }); PR.hbAt = performance.now(); }
+async function frConnect() {
+  if (PR.busy || PR.cs.length || performance.now() - PR.tryAt < 8000) return; PR.busy = true; PR.tryAt = performance.now();
+  try {
+    if (await loadMQTT() !== 'ok') return;
+    const mine = []; PR.since = performance.now(); PR.cs = mine;
+    MQ_BROKERS.forEach(br => mqConnect(br).then(c => {
+      if (!c) return;
+      if (PR.cs !== mine) { try { c.end(true); } catch (e) {} return; }   // пока подключались, закрыли
+      mine.push(c);
+      c.on('message', (t, b) => { const p = frProfile(); if (p) frMsg(t, b, p.me); });
+      c.on('connect', () => frSubscribe());
+      frSubscribe(); frHere();
+    }));
+  } catch (e) {} finally { PR.busy = false; }
+}
+function frClose() { const cs = PR.cs; PR.cs = []; setTimeout(frPush, 0); PR.tryAt = -9e9; PR.seen = {}; for (const c of cs) { try { c.end(true); } catch (e) {} } }
+function frTick() {
+  try { frPush(); } catch (e) {}
+  try {
+    const p = frProfile(), menu = typeof state !== 'undefined' && state === 'menu' && !(net && net.connected);
+    if (!PR.want || !p || !p.friends.size || !menu) { if (PR.cs.length) frClose(); return; }
+    if (!PR.cs.length) frConnect();
+    else { frSubscribe(); if (performance.now() - PR.hbAt >= 20000) frHere(); }
+  } catch (e) {}
+}
+function presenceStart() { PR.want = true; frTick(); }
+function presenceStop() { PR.want = false; frClose(); }
+async function netInvite(friendCode) {   // создать комнату и позвать друга → код комнаты | null
+  const p = frProfile(); if (!p || !p.friends.has(friendCode)) return null;
+  const room = await netHost('auto'); if (!room) return null;
+  const msg = { t: 'inv', from: p.me, name: p.nick, room, v: PROTO, id: rid() + rid() };
+  const send = async () => {
+    if (!PR.cs.length) { const w = PR.want; PR.want = true; await frConnect(); PR.want = w; for (let i = 0; i < 30 && !PR.cs.length; i++) await new Promise(r => setTimeout(r, 200)); }
+    frPublish('vb4x10/u/' + friendCode, msg);
+  };
+  await send();
+  [2500, 7000].forEach(ms => setTimeout(() => { if (net && !net.connected && net.code === room) frPublish('vb4x10/u/' + friendCode, msg); }, ms));   // повтор: получатель отсекает дубликаты по id
+  return room;
+}
+setInterval(frTick, 2000);
+try { window.__fr = { PR, presenceStart, presenceStop, netInvite, friendOnline, netHost, netJoin, netLeave }; } catch (e) {}   // для автотестов
+
 /* ---------- сессия: общее ---------- */
 function netBeat() {
   if (!net) return;
@@ -3954,7 +4151,7 @@ $('stSkip').addEventListener('click', e => { e.stopPropagation(); storyDone(); }
 
 /* ================= screens ================= */
 let pausedFrom = null;
-function show(id) { ['menu', 'pause', 'end', 'online', 'leave', 'story'].forEach(k => $(k).hidden = k !== id); }
+function show(id) { ['menu', 'pause', 'end', 'online', 'leave', 'story', 'prof'].forEach(k => $(k).hidden = k !== id); }
 const isOnline = () => mode === 'host' || mode === 'guest';
 /* startMatch(m): m = 'solo' | 'local2' (без сети). Без аргумента (или с событием клика) — повтор текущего режима;
    онлайн: хост перезапускает матч для обоих, гость ждёт хоста. Онлайн-режимы запускаются через netHost/netJoin (g_net.js). */
@@ -3968,7 +4165,7 @@ function startMatch(m) {
   mode = m; audio(); newMatch(); show(null); updateCamera(0, true);
 }
 function showEnd() {
-  const me = myTeam(), win = me.score > other(me).score; state = 'over';
+  const me = myTeam(), win = me.score > other(me).score; if (state !== 'over') recStat(win); state = 'over';
   if (camp && mode === 'solo') { showCampEnd(win); return; }
   champ = false; endAct = ''; clearInterval(champTimer); $('end').classList.remove('lite'); $('againBtn').textContent = 'ЕЩЁ'; $('menuBtn').textContent = 'В МЕНЮ';
   $('endTitle').textContent = mode === 'local2' ? 'ИГРОК ' + (TL.score > TR.score ? 1 : 2) + ' ПОБЕДИЛ' : win ? 'ПОБЕДА!' : 'ПОРАЖЕНИЕ';
@@ -4063,7 +4260,7 @@ function resetOnline() {
   $('copyBtn').textContent = 'СКОПИРОВАТЬ ССЫЛКУ';
 }
 function openOnline(code) {
-  resetOnline(); pick = 'online'; syncMode();
+  resetOnline(); pick = 'online'; syncMode(); profLobby();
   if (code) codeIn.value = fixCode(code);
   show('online');
 }
@@ -4116,6 +4313,146 @@ function checkInvite() { const c = roomFromHash(); if (c && state === 'menu' && 
 addEventListener('hashchange', checkInvite);
 checkInvite();
 
+/* ================= профиль и друзья (всё в localStorage, без сервера) ================= */
+const FC_SET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';   // без 0/O/1/I
+const AV_COLORS = ['#f07a22', '#f2c230', '#138f97', '#4da3ff', '#ff5436'];
+const AV_HEROES = [[10, 'Рэй'], [9, 'Арис'], [4, 'Дан']];
+const newFC = () => { let c = ''; try { const a = new Uint8Array(6); crypto.getRandomValues(a); for (const v of a) c += FC_SET[v % FC_SET.length]; } catch (e) { for (let i = 0; i < 6; i++) c += FC_SET[Math.floor(Math.random() * FC_SET.length)]; } return c; };
+const normFC = v => String(v || '').toLowerCase().replace(/[а-яё]/g, ch => RU2LAT[ch] || '').toUpperCase().split('').filter(ch => FC_SET.includes(ch)).join('').slice(0, 6);
+const cleanNick = v => String(v || '').replace(/[\u0000-\u001f<>]/g, '').trim().slice(0, 14);
+const P = (() => {
+  const v = lsGet('vb-profile') || {}, st = v.st || {};
+  const code = typeof v.code === 'string' && v.code.length === 6 && normFC(v.code) === v.code ? v.code : newFC();
+  const n = x => Math.max(0, Math.floor(+x || 0));
+  const o = {
+    code, nick: cleanNick(v.nick) || 'Игрок-' + code.slice(0, 4),
+    hero: AV_HEROES.some(h => h[0] === v.hero) ? v.hero : 10, color: AV_COLORS.includes(v.color) ? v.color : AV_COLORS[0],
+    friends: (Array.isArray(v.friends) ? v.friends : []).filter(f => f && normFC(f.code) === f.code && f.code.length === 6).slice(0, 40).map(f => ({ code: f.code, name: cleanNick(f.name) || 'Друг' })),
+    st: { m: n(st.m), w: n(st.w), om: n(st.om), ow: n(st.ow) } };
+  lsSet('vb-profile', o); return o;
+})();
+const saveProf = () => lsSet('vb-profile', P);
+function getProfile() { return { nick: P.nick, code: P.code, avatar: { hero: P.hero, color: P.color }, friends: P.friends.map(f => ({ code: f.code, name: f.name })) }; }
+function recStat(win) {   // конец матча: против компьютера (в т.ч. турнир и колизей) или онлайн; «вдвоём» не считаем
+  try {
+    if (mode === 'solo') { P.st.m++; if (win) P.st.w++; } else if (isOnline()) { P.st.om++; if (win) P.st.ow++; } else return;
+    saveProf(); if (!$('prof').hidden) renderProf();
+  } catch (e) {}
+}
+let presence = null;   // { КОД: true } — выставляет сетевой код через setFriendPresence(); пока null, статус не показываем
+function setFriendPresence(map) { presence = map && typeof map === 'object' ? map : null; if (!$('prof').hidden) renderFriends(); }
+function drawAv(cv, hero, color) {
+  const W = cv.width, c = cv.getContext('2d'); c.clearRect(0, 0, W, W); cv.style.borderColor = color;
+  try { if (typeof drawPortrait === 'function') { drawPortrait(c, hero, 'joy', W / 2, W * .54, W * 1.12); return; } } catch (e) { c.clearRect(0, 0, W, W); }
+  c.fillStyle = '#fff'; c.font = '700 ' + Math.round(W * .5) + 'px Oswald, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(hero, W / 2, W / 2);
+}
+function renderChip() { drawAv($('chipAv'), P.hero, P.color); $('chipNick').textContent = P.nick; }
+function profLobby() { $('onlMe').textContent = 'Ты: ' + P.nick + ' · код ' + P.code; }
+function chapsDone() { let n = 0; for (let i = 0; i < CHS.length; i++) { try { if (getProg(i).done) n++; } catch (e) {} } return n; }
+function renderProf() {
+  const hr = $('heroRow'), cr = $('colRow');
+  if (!hr.children.length) {
+    AV_HEROES.forEach(([n, nm]) => { const b = document.createElement('button'); b.className = 'hbtn'; b.dataset.hero = n; b.setAttribute('aria-label', nm); b.innerHTML = '<canvas class="av" width="100" height="100"></canvas>'; b.addEventListener('click', () => { P.hero = n; saveProf(); renderProf(); }); hr.appendChild(b); });
+    AV_COLORS.forEach(col => { const b = document.createElement('button'); b.className = 'sw'; b.dataset.col = col; b.style.background = col; b.setAttribute('aria-label', 'Цвет рамки'); b.addEventListener('click', () => { P.color = col; saveProf(); renderProf(); }); cr.appendChild(b); });
+  }
+  hr.querySelectorAll('.hbtn').forEach(b => { b.setAttribute('aria-pressed', String(+b.dataset.hero === P.hero)); drawAv(b.firstChild, +b.dataset.hero, P.color); });
+  cr.querySelectorAll('.sw').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.col === P.color)));
+  if (document.activeElement !== $('nickIn')) $('nickIn').value = P.nick;
+  $('myCode').textContent = P.code;
+  const S = P.st, cell = (v, t) => '<div><b>' + v + '</b><small>' + t + '</small></div>';
+  $('stats').innerHTML = cell(S.w + ' / ' + S.m, 'с компьютером: победы / матчи') + cell(S.ow + ' / ' + S.om, 'онлайн: победы / матчи') + cell(coloBest, 'лучшая серия колизея') + cell(chapsDone() + ' / ' + CHS.length, 'глав турнира пройдено');
+  renderChip(); renderFriends();
+}
+function renderFriends() {
+  const el = $('fList'); el.textContent = '';
+  if (!P.friends.length) { const p = document.createElement('p'); p.className = 'fempty'; p.textContent = 'Пока никого. Введи код друга или отправь ему свой.'; el.appendChild(p); return; }
+  P.friends.forEach(f => {
+    const r = document.createElement('div'); r.className = 'fr';
+    const i = document.createElement('div'); i.className = 'fi';
+    const b = document.createElement('b'); b.textContent = f.name; const sm = document.createElement('small');
+    sm.textContent = f.code + (presence ? (presence[f.code] ? ' · в сети' : ' · не в сети') : ''); if (presence && presence[f.code]) sm.className = 'on';
+    i.append(b, sm);
+    const inv = document.createElement('button'); inv.className = 'inv'; inv.textContent = 'ПРИГЛАСИТЬ'; inv.addEventListener('click', () => inviteFriend(f.code));
+    const del = document.createElement('button'); del.textContent = '✕'; del.setAttribute('aria-label', 'Удалить друга'); del.addEventListener('click', () => { P.friends = P.friends.filter(x => x.code !== f.code); saveProf(); renderFriends(); });
+    r.append(i, inv, del); el.appendChild(r);
+  });
+}
+function profTab(t) {
+  $('paneP').hidden = t !== 'p'; $('paneF').hidden = t !== 'f';
+  $('tabP').setAttribute('aria-pressed', String(t === 'p')); $('tabF').setAttribute('aria-pressed', String(t === 'f'));
+}
+function openProf(t) { audio(); profTab(t || 'p'); renderProf(); show('prof'); }
+function addFriend(code, name) {
+  code = normFC(code); if (code.length !== 6) return 'Код — 6 символов';
+  if (code === P.code) return 'Это твой собственный код';
+  if (P.friends.some(f => f.code === code)) return 'Этот друг уже в списке';
+  if (P.friends.length >= 40) return 'Список друзей полон';
+  P.friends.push({ code, name: cleanNick(name) || 'Друг' }); saveProf(); return '';
+}
+async function inviteFriend(code) {
+  audio(); openOnline();
+  if (typeof netInvite !== 'function') { doHost(); return; }
+  setBusy(true); setNoweb(false); const seq = ++opSeq; endCamp(); setArena(arenaPick);
+  let r = null; try { r = await netInvite(code); } catch (e) {}
+  if (seq !== opSeq) return;
+  setBusy(false); const rc = typeof r === 'string' ? r : r && typeof r.code === 'string' ? r.code : ''; if (rc) showRoom(rc);
+}
+const gameLink = () => { try { return location.href.split('#')[0].split('?')[0] + '?friend=' + P.code; } catch (e) { return '?friend=' + P.code; } };
+function copyText(t) {
+  return new Promise(res => {
+    try { if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(t).then(() => res(true), () => res(oldCopy(t))); return; } } catch (e) {}
+    res(oldCopy(t));
+  });
+}
+function oldCopy(t) { try { const a = document.createElement('textarea'); a.value = t; a.style.cssText = 'position:fixed;opacity:0;top:0'; document.body.appendChild(a); a.select(); const ok = document.execCommand('copy'); a.remove(); return ok; } catch (e) { return false; } }
+function flashBtn(btn, txt) { const o = btn.dataset.o || btn.textContent; btn.dataset.o = o; btn.textContent = txt; clearTimeout(btn._t); btn._t = setTimeout(() => { btn.textContent = o; }, 2000); }
+let plateTm = 0, plateOk = null;
+function showPlate(txt, okLabel, noLabel, okFn) {
+  $('plateTxt').textContent = txt; $('plateOk').textContent = okLabel; $('plateNo').textContent = noLabel; plateOk = okFn; $('plate').hidden = false;
+  clearTimeout(plateTm); plateTm = setTimeout(() => { $('plate').hidden = true; }, 30000);
+}
+function onFriendInvite(inv) {   // вызывает сетевой код: { from: код друга, name, room }
+  try {
+    if (!inv || typeof inv.room !== 'string' || !inv.room) return;
+    const fr = P.friends.find(f => f.code === inv.from), who = cleanNick(inv.name) || (fr && fr.name) || 'Друг';
+    showPlate(who + ' зовёт играть', 'ИГРАТЬ', 'ПОЗЖЕ', () => {
+      if (state !== 'menu') toMenu();
+      openOnline(inv.room); doJoin();
+    });
+  } catch (e) {}
+}
+$('plateNo').addEventListener('click', () => { $('plate').hidden = true; clearTimeout(plateTm); });
+$('plateOk').addEventListener('click', () => { $('plate').hidden = true; clearTimeout(plateTm); const f = plateOk; plateOk = null; if (f) f(); });
+$('profBtn').addEventListener('click', () => openProf('p'));
+$('profBack').addEventListener('click', () => show('menu'));
+$('tabP').addEventListener('click', () => profTab('p'));
+$('tabF').addEventListener('click', () => profTab('f'));
+$('nickIn').addEventListener('input', () => { const v = cleanNick($('nickIn').value); if (v) { P.nick = v; saveProf(); renderChip(); } });
+$('nickIn').addEventListener('blur', () => { $('nickIn').value = P.nick; });
+$('codeCopy').addEventListener('click', async () => flashBtn($('codeCopy'), (await copyText(P.code)) ? 'СКОПИРОВАНО' : 'НЕ ВЫШЛО'));
+$('shareBtn').addEventListener('click', async () => {
+  const link = gameLink(), b = $('shareBtn');
+  try { if (navigator.share) { await navigator.share({ title: '№4 × №10', text: P.nick + ' зовёт тебя играть в волейбол. Мой код друга: ' + P.code, url: link }); return; } } catch (e) { if (e && e.name === 'AbortError') return; }
+  flashBtn(b, (await copyText(link)) ? 'ССЫЛКА СКОПИРОВАНА' : 'НЕ ВЫШЛО');
+});
+$('fCode').addEventListener('input', () => { const v = normFC($('fCode').value); if ($('fCode').value !== v) $('fCode').value = v; });
+$('fAdd').addEventListener('click', () => {
+  const err = addFriend($('fCode').value, $('fName').value), st = $('fStat');
+  st.textContent = err || 'Друг добавлен'; st.classList.toggle('bad', !!err);
+  if (!err) { $('fCode').value = ''; $('fName').value = ''; renderFriends(); }
+});
+(function () {   // ссылка ?friend=КОД: предложить добавить друга
+  try {
+    const m = /[?&]friend=([^&#]+)/.exec(location.search); if (!m) return;
+    const c = normFC(decodeURIComponent(m[1]));
+    try { history.replaceState(null, '', location.pathname + location.search.replace(/([?&])friend=[^&]*&?/, '$1').replace(/[?&]$/, '') + location.hash); } catch (e) {}
+    if (c.length !== 6 || c === P.code || P.friends.some(f => f.code === c)) return;
+    showPlate('Добавить друга с кодом ' + c + '?', 'ДОБАВИТЬ', 'НЕТ', () => { addFriend(c, ''); toast('Друг добавлен'); if (!$('prof').hidden) renderFriends(); });
+  } catch (e) {}
+})();
+renderChip();
+try { window.onFriendInvite = onFriendInvite; window.getProfile = getProfile; window.setFriendPresence = setFriendPresence; } catch (e) {}
+
 /* ================= input ================= */
 /* Ввод. presses — счётчики нажатий (гость шлёт их хосту: короткие тапы не теряются). */
 const presses = { jump: 0, hit: 0, act: 0 };
@@ -4152,6 +4489,7 @@ addEventListener('keydown', e => {
   }
   if (e.code === 'KeyP' || e.code === 'Escape') {
     if (!ovOnline.hidden) { if (e.code === 'Escape') closeOnline(); return; }
+    if (!$('prof').hidden) { if (e.code === 'Escape') show('menu'); return; }
     if (isOnline()) { toggleLeave(); return; }
     state === 'paused' ? resumeGame() : pauseGame(); return;
   }
@@ -4233,5 +4571,34 @@ requestAnimationFrame(frame);
 })();
 </script>
 
+<script>/* Установка как приложение: сервис-воркер и кнопка «Установить» в меню (только на странице сайта, не во встроенном просмотрщике) */
+(() => {
+  const top = (() => { try { return window.top === window.self; } catch (e) { return false; } })();
+  if (!top || !/^https?:$/.test(location.protocol)) return;
+  if ('serviceWorker' in navigator) window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(() => {}); });
+  const standalone = () => matchMedia('(display-mode: standalone)').matches || matchMedia('(display-mode: fullscreen)').matches || navigator.standalone === true;
+  if (standalone()) return;
+  const ios = /iphone|ipad|ipod/i.test(navigator.userAgent) && !/crios|fxios/i.test(navigator.userAgent);
+  let deferred = null;
+  const st = document.createElement('style');
+  st.textContent = '.vb-inst{position:fixed;left:10px;bottom:calc(10px + env(safe-area-inset-bottom,0px));z-index:40;border:0;border-radius:12px;padding:9px 14px;font:700 13px/1.1 system-ui,sans-serif;letter-spacing:.04em;color:#10141e;background:#ff8c1a;box-shadow:0 4px 14px rgba(0,0,0,.35);cursor:pointer}'
+    + '.vb-tip{position:fixed;left:10px;right:10px;bottom:calc(56px + env(safe-area-inset-bottom,0px));z-index:41;max-width:360px;padding:12px 14px;border-radius:12px;background:rgba(16,20,30,.95);color:#fff;font:14px/1.4 system-ui,sans-serif;border-left:3px solid #ff8c1a}';
+  document.head.appendChild(st);
+  const btn = document.createElement('button');
+  btn.className = 'vb-inst'; btn.type = 'button'; btn.textContent = '⬇ УСТАНОВИТЬ'; btn.hidden = true;
+  const tip = document.createElement('div'); tip.className = 'vb-tip'; tip.hidden = true;
+  tip.textContent = 'iPhone: нажмите «Поделиться» внизу Safari, затем «На экран „Домой“». Игра появится иконкой и будет открываться на весь экран.';
+  const menu = () => document.getElementById('menu');
+  const sync = () => { const m = menu(); btn.hidden = !(m && !m.hidden && (deferred || ios)); if (btn.hidden) tip.hidden = true; };
+  window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); deferred = e; sync(); });
+  window.addEventListener('appinstalled', () => { deferred = null; btn.remove(); tip.remove(); });
+  btn.addEventListener('click', async () => {
+    if (deferred) { deferred.prompt(); try { await deferred.userChoice; } catch (e) {} deferred = null; sync(); }
+    else if (ios) tip.hidden = !tip.hidden;
+  });
+  const mount = () => { document.body.appendChild(btn); document.body.appendChild(tip); sync(); const m = menu(); if (m) new MutationObserver(sync).observe(m, { attributes: true, attributeFilter: ['hidden'] }); };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mount); else mount();
+})();
+</script>
 </body>
 </html>

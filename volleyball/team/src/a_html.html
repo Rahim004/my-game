@@ -273,6 +273,66 @@ h1 .x { color: var(--gold); }
   .code { font-size: 46px; }
   .noweb { padding: 10px 14px; }
 }
+
+/* profile and friends */
+.profchip { display: flex; align-items: center; gap: 8px; min-height: 48px; padding: 4px 12px 4px 5px; border-radius: 26px; background: var(--panel); border: 1px solid var(--line); color: var(--ink); font-family: var(--display); font-weight: 500; font-size: 15px; letter-spacing: .04em; max-width: 100%; }
+.profchip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.menu-l { position: relative; }
+.profchip { align-self: flex-start; }
+@media (orientation: landscape) and (min-width: 640px) { .menu-l > .profchip { position: absolute; top: 0; right: 0; max-width: 46%; z-index: 2; } }
+@media (orientation: landscape) and (min-width: 640px) and (max-width: 799px) { .profchip { padding: 4px; } .profchip span { display: none; } .profchip .av.s { width: 40px; height: 40px; } }
+.av { display: block; border-radius: 50%; background: radial-gradient(circle at 50% 35%, #34405a, #1a1e27); border: 3px solid var(--orange); box-sizing: border-box; flex: none; }
+.av.s { width: 38px; height: 38px; border-width: 2px; }
+.av.m { width: 56px; height: 56px; }
+.sheet.prof { max-width: 760px; gap: 8px; }
+.tabs { display: grid; grid-template-columns: 1fr 1fr; background: var(--panel); border: 1px solid var(--line); border-radius: 11px; padding: 3px; gap: 3px; flex: 1; max-width: 340px; }
+.tabs button { border: 0; background: transparent; border-radius: 8px; min-height: 44px; font-family: var(--display); font-weight: 600; font-size: 15px; letter-spacing: .08em; color: var(--muted); }
+.tabs button[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+.prof .onl-head { gap: 10px; }
+.prof .onl-head .ghost { min-height: 48px; }
+.pane { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-items: start; }
+.pane[hidden] { display: none; }
+@media (orientation: portrait), (max-width: 560px) { .pane { grid-template-columns: 1fr; } }
+.avrow { display: flex; align-items: center; gap: 8px; }
+.hbtn { padding: 0; border: 0; background: none; border-radius: 50%; line-height: 0; }
+.hbtn .av { width: 50px; height: 50px; border-color: transparent; opacity: .55; }
+.hbtn[aria-pressed="true"] .av { opacity: 1; border-color: var(--ink); }
+.cols { display: flex; gap: 8px; flex-wrap: wrap; }
+.sw { width: 34px; height: 34px; border-radius: 50%; border: 3px solid transparent; padding: 0; background-clip: padding-box; box-shadow: inset 0 0 0 3px var(--panel); }
+.sw[aria-pressed="true"] { border-color: var(--ink); }
+.field { box-sizing: border-box; width: 100%; min-height: 44px; font: 500 16px var(--body); color: var(--ink); background: var(--bg); border: 2px solid var(--line); border-radius: 10px; outline: none; padding: 0 10px; -webkit-user-select: text; user-select: text; touch-action: auto; }
+.field:focus { border-color: var(--orange); }
+.mycode { font-family: var(--display); font-weight: 700; font-size: 40px; line-height: 1.05; letter-spacing: .2em; text-indent: .2em; text-align: center; color: var(--gold); }
+.btn2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.btn2 .ghost, .prof .ghost.sm { min-height: 48px; padding: 8px; font-size: 14px; }
+.stats { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.stats div { background: var(--bg); border-radius: 8px; padding: 5px 8px; display: flex; flex-direction: column; min-width: 0; }
+.stats b { font-family: var(--display); font-weight: 700; font-size: 20px; line-height: 1.1; color: var(--ink); }
+.stats small { font-size: 10.5px; color: var(--muted); line-height: 1.2; }
+.flist { display: flex; flex-direction: column; gap: 6px; max-height: 190px; overflow-y: auto; touch-action: pan-y; }
+.fr { display: flex; align-items: center; gap: 8px; background: var(--bg); border-radius: 10px; padding: 5px 6px 5px 10px; min-height: 52px; }
+.fr .fi { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.fr b { font-weight: 500; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fr small { font-family: var(--display); letter-spacing: .12em; font-size: 12px; color: var(--muted); }
+.fr small.on { color: #7bd88f; }
+.fr button { min-height: 44px; min-width: 44px; border-radius: 9px; border: 1px solid var(--line); background: var(--panel); font-family: var(--display); font-weight: 600; font-size: 13px; letter-spacing: .06em; padding: 0 10px; }
+.fr button.inv { background: var(--orange); color: #1d0f04; border: 0; }
+.fempty { margin: 0; font-size: 13px; line-height: 1.4; color: var(--muted); }
+.onl-me { margin: 4px 0 0; font-size: 13px; color: var(--muted); }
+.plate { position: fixed; left: 50%; bottom: calc(10px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); z-index: 16; width: min(460px, calc(100% - 32px)); box-sizing: border-box; display: flex; align-items: center; gap: 10px; padding: 8px 8px 8px 14px; border-radius: 12px; background: var(--panel-2); border: 1px solid var(--line); border-left: 3px solid var(--orange); box-shadow: 0 8px 24px rgba(0, 0, 0, .55); }
+.plate[hidden] { display: none; }
+.plate p { margin: 0; flex: 1; min-width: 0; font-size: 14px; line-height: 1.3; }
+.plate button { min-height: 48px; padding: 0 14px; border-radius: 10px; font-family: var(--display); font-weight: 600; font-size: 14px; letter-spacing: .06em; border: 1px solid var(--line); background: var(--panel); }
+.plate button.ok { background: var(--orange); color: #1d0f04; border: 0; }
+@media (orientation: landscape) and (max-height: 540px) {
+  .mycode { font-size: 34px; }
+  .prof .onl-card { padding: 8px 10px; gap: 5px; }
+  .prof .onl-head h2 { font-size: 24px; }
+  .hbtn .av { width: 44px; height: 44px; }
+  .sw { width: 30px; height: 30px; }
+  .flist { max-height: 150px; }
+  .field { min-height: 40px; }
+}
 @media (prefers-reduced-motion: reduce) { .ctl, .play { transition: none; } }
 .errbox { position: fixed; left: 12px; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); z-index: 20; padding: 10px 12px; border-radius: 10px; background: #3a1414; border: 1px solid #a33; color: #ffd9d9; font-size: 13px; line-height: 1.4; }
 </style>
@@ -317,6 +377,7 @@ h1 .x { color: var(--gold); }
   <div class="overlay" id="menu">
     <div class="sheet menu">
       <div class="menu-l">
+        <button class="profchip" id="profBtn" aria-label="Профиль и друзья"><canvas class="av s" id="chipAv" width="76" height="76"></canvas><span id="chipNick">ПРОФИЛЬ</span></button>
         <div class="title">
           <div class="polaroid"><img src="data:image/jpeg;base64,__PHOTO__" alt="№4 и №10 в форме"></div>
           <div>
@@ -411,6 +472,7 @@ h1 .x { color: var(--gold); }
         <div>
           <p class="kicker">ОНЛАЙН</p>
           <h2>Играем с другом</h2>
+          <p class="onl-me" id="onlMe"></p>
         </div>
         <button class="ghost" id="onlBack">НАЗАД</button>
       </div>
@@ -438,6 +500,46 @@ h1 .x { color: var(--gold); }
       <p class="status" id="netStatus" role="status" aria-live="polite"></p>
     </div>
   </div>
+
+  <div class="overlay" id="prof" hidden>
+    <div class="sheet prof">
+      <div class="onl-head">
+        <div class="tabs" role="group" aria-label="Раздел">
+          <button id="tabP" aria-pressed="true">ПРОФИЛЬ</button>
+          <button id="tabF" aria-pressed="false">ДРУЗЬЯ</button>
+        </div>
+        <button class="ghost" id="profBack">НАЗАД</button>
+      </div>
+      <div class="pane" id="paneP">
+        <section class="onl-card">
+          <input class="field" id="nickIn" maxlength="14" placeholder="Ник" autocomplete="off" aria-label="Ник, до 14 символов">
+          <div class="avrow" id="heroRow"></div>
+          <div class="cols" id="colRow"></div>
+        </section>
+        <section class="onl-card">
+          <p class="label">Твой код друга</p>
+          <div class="mycode" id="myCode"></div>
+          <div class="btn2"><button class="ghost sm" id="codeCopy">КОПИРОВАТЬ</button><button class="ghost sm" id="shareBtn">ПОЗВАТЬ ДРУГА</button></div>
+          <div class="stats" id="stats"></div>
+        </section>
+      </div>
+      <div class="pane" id="paneF" hidden>
+        <section class="onl-card">
+          <p class="label">Добавить друга</p>
+          <input class="field codeadd" id="fCode" maxlength="6" placeholder="КОД ДРУГА" autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false" aria-label="Код друга, 6 символов">
+          <input class="field" id="fName" maxlength="14" placeholder="Как назвать (необязательно)" autocomplete="off" aria-label="Имя друга">
+          <button class="ghost sm" id="fAdd">ДОБАВИТЬ</button>
+          <p class="status" id="fStat"></p>
+        </section>
+        <section class="onl-card">
+          <p class="label">Мои друзья</p>
+          <div class="flist" id="fList"></div>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <div class="plate" id="plate" role="alert" hidden><p id="plateTxt"></p><button id="plateNo">ПОЗЖЕ</button><button class="ok" id="plateOk">ИГРАТЬ</button></div>
 
   <div class="overlay dim lite" id="leave" hidden>
     <div class="sheet small">
