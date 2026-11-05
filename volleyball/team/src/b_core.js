@@ -21,7 +21,22 @@ const PX = (X, y) => NETX + (X - NETX) * sOf(y);
 const netX = y => NETX + (y - LANE0) * 0.22;
 const SET_X = 206, ATT_X = 222, HOMES = [70, 205, 150], HOMES_TL = [178, 220, 78], LANES = [238, 212, 225];
 const PLAT = 12.5;
+// скользящий приём: скорость v = SLIDE_V·e^(−k·t), длительность SLIDE_DUR (сек); на песке тормозит сильнее
+const SLIDE_V = 230, SLIDE_DUR = .5;
 const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* ================= картинки (рендеры Blender) =================
+   build.py подставляет сюда base64 из assets/img/*.png. Картинок нет или не загрузились — всё рисуется кодом, как раньше.
+   img('имя') — готовая картинка или null; onImg(fn) — вызвать fn, когда догрузится любая картинка (например, пересобрать кэш фона). */
+const IMG_SRC = {/*__IMG__*/};
+const IMGS = {}, imgWait = [];
+const img = k => IMGS[k] || null;
+const onImg = fn => imgWait.push(fn);
+for (const k in IMG_SRC) {
+  const im = new Image();
+  im.onload = () => { IMGS[k] = im; for (const fn of imgWait) { try { fn(k); } catch (e) { showErr(e); } } };
+  im.src = IMG_SRC[k];
+}
 
 const KIT = {
   org: { jersey: '#f07a22', shade: '#c25b13', trim: '#1b1a20', shorts: '#1b1a20', shortsTrim: '#f07a22', num: '#ffffff', numEdge: '#1b1a20', sock: '#f4f4f2', sockBand: '#1b1a20', pad: '#1f1e25', shoe: '#f4f4f2', sole: '#f07a22' },
@@ -51,11 +66,12 @@ const ATK = {
   pipe:  { d: 135, h: 80, t: .95, blk: .55, jw: [.2, .34], txt: 'ПАЙП!' } };
 const ATK_KEYS = ['open', 'tempo', 'quick', 'pipe'];
 const DIFF = {
-  easy:   { speed: .78, react: .26, err: 16, block: .15, spike: .55, power: 330, dig: .35, pserve: .1, atkW: [.72, .14, .09, .05] },
-  normal: { speed: .92, react: .13, err: 8,  block: .35, spike: .8,  power: 390, dig: .5, pserve: .3, atkW: [.36, .26, .24, .14] },
-  hard:   { speed: 1.06, react: .05, err: 3, block: .6,  spike: .95, power: 440, dig: .68, pserve: .5, atkW: [.15, .3, .3, .25] },
+  easy:   { speed: .78, react: .26, err: 16, block: .15, spike: .55, power: 330, dig: .35, pserve: .1, slide: .25, atkW: [.72, .14, .09, .05] },
+  normal: { speed: .92, react: .13, err: 8,  block: .35, spike: .8,  power: 390, dig: .5, pserve: .3, slide: .55, atkW: [.36, .26, .24, .14] },
+  hard:   { speed: 1.06, react: .05, err: 3, block: .6,  spike: .95, power: 440, dig: .68, pserve: .5, slide: .8, atkW: [.15, .3, .3, .25] },
 };
-const HUMAN_D = { speed: 1.0, react: .07, err: 4, block: .35, spike: 1, power: 470, dig: .45, pserve: 0, atkW: [.36, .26, .24, .14] };
+const HUMAN_D = { speed: 1.0, react: .07, err: 4, block: .35, spike: 1, power: 470, dig: .45, pserve: 0, slide: 0, atkW: [.36, .26, .24, .14] };
+const slideK = () => ARENA === 'beach' ? 6.5 : 4.5;
 
 const $ = id => document.getElementById(id);
 const lerp = (a, b, s) => a + (b - a) * s, clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -78,9 +94,24 @@ const nameOf = n => OPP_NAMES[n] || String(names[n] || '').trim().toUpperCase() 
 const labelOf = n => nameOf(n) ? `${nameOf(n)} · ${n}` : `№${n}`;
 window.claude?.hot?.snapshot?.(() => ({ diff, target: TARGET, names }));
 
+/* ================= прокачка героев: очки за матчи, 4 характеристики по 5 уровней =================
+   Действует только в режимах против компьютера (Один, Турнир, Колизей) и только на нашу команду:
+   онлайн и «вдвоём» играют на равных, сеть не затрагивается. */
+const UP_MAX = 5;
+const UP_STATS = [['pow', 'СИЛА УДАРА', '+12 к скорости удара и силовой подачи'], ['jmp', 'ПРЫЖОК', '+2,5% к высоте прыжка'],
+  ['spd', 'СКОРОСТЬ', '+3% к бегу'], ['dig', 'ПРИЁМ', '+3,5% к шансу достать сильный удар']];
+let ups = (() => {
+  const u = { pts: 0, h: {} };
+  try { const v = JSON.parse(localStorage.getItem('vb-up') || 'null'); if (v) { u.pts = Math.max(0, v.pts | 0); for (const n of [10, 9, 4]) u.h[n] = v.h && v.h[n] || {}; } } catch (e) {}
+  for (const n of [10, 9, 4]) { u.h[n] = u.h[n] || {}; for (const [k] of UP_STATS) u.h[n][k] = clamp(u.h[n][k] | 0, 0, UP_MAX); }
+  return u;
+})();
+const upSave = () => { try { localStorage.setItem('vb-up', JSON.stringify(ups)); } catch (e) {} };
+const upLv = (p, k) => typeof mode !== 'undefined' && mode === 'solo' && p && p.team === TL && ups.h[p.num] ? ups.h[p.num][k] : 0;
+
 /* ================= audio ================= */
 let ac = null;
-function audio() { try { ac = ac || new (window.AudioContext || window.webkitAudioContext)(); if (ac.state === 'suspended') ac.resume(); } catch (e) { ac = null; } }
+function audio() { try { ac = ac || new (window.AudioContext || window.webkitAudioContext)(); if (ac.state === 'suspended') ac.resume(); music.start(); } catch (e) { ac = null; } }
 function tone(freq, vol, dur, type = 'sine', end = .45) {
   if (!ac) return; const t = ac.currentTime, o = ac.createOscillator(), gg = ac.createGain();
   o.type = type; o.frequency.setValueAtTime(freq, t); o.frequency.exponentialRampToValueAtTime(freq * end, t + dur);
@@ -103,6 +134,8 @@ const sfx = {
   net() { noise(.25, .16, 1200); },
   block() { tone(150, .7, .2, 'square', .6); noise(.3, .08); },
   jump() { tone(320, .06, .1, 'triangle', 1.5); },
+  slide() { if (ARENA === 'beach') noise(.25, .35, 500); else { tone(2200, .05, .12, 'sawtooth'); noise(.2, .35, 700); } },
+  sync() { tone(520, .2, .18, 'triangle', 2); tone(780, .14, .22, 'triangle', 2); },
   whistle() {
     if (!ac) return; const t = ac.currentTime, o = ac.createOscillator(), m = ac.createOscillator(), mg = ac.createGain(), gg = ac.createGain();
     o.frequency.value = 2900; m.frequency.value = 38; mg.gain.value = 140; m.connect(mg).connect(o.frequency);
@@ -111,6 +144,59 @@ const sfx = {
   },
   crowd(v = .14) { noise(v, 1.8, 1100); },
 };
+/* ================= музыка: синтез в коде, без файлов. Меню — спокойная тема (ля минор), матч — бодрая (ре минор) ================= */
+const music = (() => {
+  let on = (() => { try { return localStorage.getItem('vb-music') !== '0'; } catch (e) { return true; } })();
+  let mg = null, nb = null, timer = 0, next = 0, step = 0, song = '';
+  const SONGS = {   // prog — аккорды по тактам (MIDI-ноты)
+    menu: { bpm: 92, prog: [[57, 60, 64], [53, 57, 60], [48, 52, 55], [55, 59, 62]] },
+    match: { bpm: 128, prog: [[50, 53, 57], [46, 50, 53], [48, 52, 55], [45, 49, 52]] },
+  };
+  const hz = m => 440 * Math.pow(2, (m - 69) / 12);
+  function note(m, t, d, v, type) {
+    const o = ac.createOscillator(), g = ac.createGain(); o.type = type; o.frequency.value = hz(m);
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(v, t + .015); g.gain.exponentialRampToValueAtTime(.0005, t + d);
+    o.connect(g).connect(mg); o.start(t); o.stop(t + d + .02);
+  }
+  function kick(t) {
+    const o = ac.createOscillator(), g = ac.createGain(); o.frequency.setValueAtTime(130, t); o.frequency.exponentialRampToValueAtTime(42, t + .12);
+    g.gain.setValueAtTime(.28, t); g.gain.exponentialRampToValueAtTime(.001, t + .16); o.connect(g).connect(mg); o.start(t); o.stop(t + .17);
+  }
+  function hiss(t, v, d, f, type) {
+    if (!nb) { const len = ac.sampleRate * .3 | 0; nb = ac.createBuffer(1, len, ac.sampleRate); const x = nb.getChannelData(0); for (let i = 0; i < len; i++) x[i] = Math.random() * 2 - 1; }
+    const s = ac.createBufferSource(), fl = ac.createBiquadFilter(), g = ac.createGain(); s.buffer = nb; fl.type = type; fl.frequency.value = f;
+    g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(.001, t + d); s.connect(fl).connect(g).connect(mg); s.start(t); s.stop(t + d);
+  }
+  function sched(S, st, t, sp) {
+    const s = st % 16, ch = S.prog[(st >> 4) % 4];
+    if (song === 'menu') {
+      if (s === 0) ch.forEach(m => note(m + 12, t, sp * 15, .035, 'triangle'));
+      if (s % 2 === 0) note(ch[(s >> 1) % 3] + 24, t, sp * 3, .025, 'sine');
+      if (s === 0 || s === 10) note(ch[0] - 12, t, sp * 6, .07, 'triangle');
+    } else {
+      if (s % 4 === 0) kick(t);
+      if (s % 4 === 2) hiss(t, .03, .05, 7000, 'highpass');
+      if (s === 4 || s === 12) hiss(t, .09, .14, 1800, 'bandpass');
+      if (s % 2 === 0) note(ch[0] - 12 + (s === 6 || s === 14 ? 12 : 0), t, sp * 1.8, .07, 'triangle');
+      note(ch[[0, 1, 2, 1][s % 4]] + 24, t, sp * .9, .014, 'square');
+      if (s === 0 && (st >> 4) % 2 === 0) ch.forEach(m => note(m + 12, t, sp * 30, .02, 'sawtooth'));
+    }
+  }
+  function tick() {
+    if (!ac || !mg) return;
+    const want = ['menu', 'story', 'over'].includes(state) ? 'menu' : 'match';
+    if (want !== song) { song = want; step = 0; next = Math.max(next, ac.currentTime + .05); }
+    if (!on) { next = ac.currentTime + .05; return; }
+    const S = SONGS[song], sp = 60 / S.bpm / 4;
+    if (next < ac.currentTime - .5) next = ac.currentTime + .05;   // вкладка спала — не догоняем пропущенное
+    while (next < ac.currentTime + .3) { sched(S, step, next, sp); next += sp; step = (step + 1) % 64; }
+  }
+  return {
+    start() { if (!ac) return; if (!mg) { mg = ac.createGain(); mg.gain.value = on ? .6 : 0; mg.connect(ac.destination); } if (!timer) timer = setInterval(() => { try { tick(); } catch (e) {} }, 90); },
+    toggle() { on = !on; try { localStorage.setItem('vb-music', on ? '1' : '0'); } catch (e) {} if (mg) mg.gain.setTargetAtTime(on ? .6 : 0, ac.currentTime, .05); return on; },
+    get on() { return on; },
+  };
+})();
 function buzz(ms) { try { navigator.vibrate && navigator.vibrate(ms); } catch (e) {} }
 
 /* ================= state ================= */
@@ -130,6 +216,7 @@ const input = { left: false, right: false, jump: false, hit: false, act: false, 
 const input2 = { left: false, right: false, jump: false, hit: false, act: false, jumpQ: false, hitQ: false, actQ: false };
 const myTeam = () => mode === 'guest' ? TR : TL;
 let recvHints = 0, serveHints = 0, atkHints = 0;
+let tut = null, tim = null;   // tut — состояние обучения (c_ai.js: tutTick/tutFeed/tutEvt), tim — метка тайминга у игрока (timeMark, рисует f_ui.js)
 
 const mirror = (T, x) => T.side < 0 ? x : VW - x;
 const other = T => T === TL ? TR : TL;
@@ -141,17 +228,18 @@ const platX = p => p.x + p.face * PLAT * p.look.tall;
 function mkTeam(side, D, name) {
   return { side, D, name, players: [], touches: 0, roles: {}, receiver: null, blocker: null, serveIdx: 0, score: 0, tick: 0,
     blockRoll: 1, blockUsed: false, spikeRoll: 0, digRoll: 0, recvT: 9, setT: 9,
-    atk: 'open', setH: 74, plan: null, human: false, inp: null, act: null, hdir: 0, moving: false, lastMove: -9 };
+    atk: 'open', setH: 74, plan: null, human: false, inp: null, act: null, hdir: 0, moving: false, lastMove: -9, sync: 0, slideChk: false };   // sync — шкала «СИНХРОН» (0..3), slideChk — ИИ уже решал, скользить ли к этому мячу
 }
 function mkPlayer(team, idx, num, kitName) {
   const p = { team, idx, num, kit: KIT[kitName], look: LOOKS[num], face: team.side < 0 ? 1 : -1,
     job: team.side < 0 ? { org: 'set', blk: 'hit', lib: 'lib' }[kitName] : undefined, lib: kitName === 'lib', x: 0, lane: LANES[idx], h: 0, vx: 0, vh: 0, ground: true, goal: 0,
     swing: 0, swingType: '', cd: 0, run: 0, aiJump: false, forceJump: false, blocking: false,
-    landT: 0, toss: 0, diveDone: false, pose: null };
+    landT: 0, toss: 0, diveDone: false, pose: null,
+    slide: 0, slideDir: team.side < 0 ? 1 : -1, rise: 0, slideHit: 0, aiSlide: 0, fxT: 0 };   // slide/rise — сек до конца скольжения / подъёма с пола
   p.x = homeOf(p); p.goal = p.x; return p;
 }
 function newMatch() {
-  const twoHumans = mode !== 'solo';
+  const twoHumans = mode !== 'solo'; tut = null; tim = null;
   TL = mkTeam(-1, HUMAN_D, mode === 'local2' ? 'ИГРОК 1' : '№4 · №10');
   TR = mkTeam(1, twoHumans ? HUMAN_D : DIFF[diff], mode === 'local2' ? 'ИГРОК 2' : twoHumans ? 'ДРУГ' : 'ГОСТИ');
   TL.human = true; TL.inp = input;
@@ -171,7 +259,9 @@ function resetServe() {
     for (const p of T.players) {
       p.x = homeOf(p); p.h = 0; p.vx = p.vh = 0; p.ground = true; p.swing = 0; p.goal = p.x;
       p.blocking = false; p.toss = 0; p.landT = 0; p.diveDone = false; p.cd = 0; p.jumpServe = false; p.jsJumped = false; p.recvWin = 0;
+      p.slide = 0; p.rise = 0; p.slideHit = 0; p.aiSlide = 0;
     }
+    T.slideChk = false;
   }
   server.x = servingTeam.side < 0 ? 8 : VW - 8; server.goal = server.x;
   state = 'serve'; serveT = 0; lastToucher = null; lastTeam = null; blockDone = false; netHitThisRally = false; pointWinner = null;
@@ -234,15 +324,17 @@ function spray(n, cols, sp, life) {
     parts.push({ x: ball.x, h: ball.h, lane: ball.lane, vx: Math.cos(a) * v, vh: Math.sin(a) * v, g: 0, t: 0, life: life * (.6 + Math.random() * .5), col: cols[i % cols.length], size: .5 + Math.random() * .6 });
   }
 }
-function dust(x, lane, n) {
+function dust(x, lane, n) { dustRaw(x, lane, n); }   // сетевая обёртка в g_net.js пересылает dust гостю
+function dustRaw(x, lane, n) {   // локальная пыль без пересылки (след скольжения считают и хост, и гость сами)
   for (let i = 0; i < n; i++) parts.push({ x: x + (Math.random() - .5) * 4, h: .5, lane, vx: (Math.random() - .5) * 40, vh: 10 + Math.random() * 30, g: 90, t: 0, life: .45 + Math.random() * .3, col: Math.random() < .5 ? (ARENA === 'beach' ? 'rgba(230,205,150,.85)' : 'rgba(235,245,235,.8)') : (ARENA === 'beach' ? 'rgba(200,170,110,.8)' : 'rgba(190,215,190,.8)'), size: .5 + Math.random() * .7 });
 }
 
 /* ================= touches ================= */
 function touch(p, type) {
   const T = p.team; T.touches++; lastToucher = p; lastTeam = T; ball.spiked = false; T.lastHit = { p, type };
-  p.swing = SW; p.swingType = type; p.cd = .22;
+  p.swing = SW; p.swingType = type; p.cd = .22; slideReset();
 }
+function slideReset() { for (const T of [TL, TR]) { T.slideChk = false; for (const q of T.players) q.aiSlide = 0; } }   // новое касание — ИИ заново решает про скольжение
 const byJob = (T, j) => T.players.find(q => q.job === j);
 function pickSetter(T, p) {   // у TL: пасует Арис; если принял он сам — Рэй; либеро не нападает, но может принять и пасовать
   const st = byJob(T, 'set'), hi = byJob(T, 'hit');
@@ -255,13 +347,36 @@ function pickHitter(T, p) {   // p — исключаемый (пасующий 
   if (p !== hi) return hi;
   return p !== st ? st : byJob(T, 'lib');   // Рэй недоступен — Арис, затем Дан
 }
-function receive(p, perfect) {
-  const T = p.team; snapBall(p, 'receive', perfect ? 22 : 16); touch(p, 'receive');
+function receive(p, perfect, em = 1) {   // em — множитель ошибки паса (поздний скользящий приём — 2)
+  const T = p.team, rw = p.recvWin; snapBall(p, 'receive', perfect ? 22 : 16); touch(p, 'receive');
+  timeRecv(p, perfect, rw); tutEvt('recv', p, perfect);
   const setter = pickSetter(T, p);
   T.roles = { setter, hitter: pickHitter(T, setter) };
-  passTo(mirror(T, SET_X) + (Math.random() * 2 - 1) * (perfect ? 1 : T.D.err), 42, 1.15);
+  passTo(mirror(T, SET_X) + (Math.random() * 2 - 1) * (perfect ? 1 : T.D.err * em), 42, 1.15);
   aimLane(setter, 1.15); sfx.pass(); ring('w');
   if (perfect) { p.recvWin = 0; spray(12, ['#f2c230', '#ffffff'], 70, .4); banner('ОТЛИЧНЫЙ ПРИЁМ!', 'gold', 1.0, true); }
+}
+/* ================= скользящий приём ================= */
+function startSlide(p, dir) {   // ПРИЁМ + стрелка (человек) или решение ИИ (planTeam)
+  if (state !== 'play' || !p.ground || p.slide > 0 || p.rise > 0 || !dir) return false;
+  p.slide = p.slideMax = SLIDE_DUR; p.slideDir = dir < 0 ? -1 : 1; p.slideHit = 0; p.aiSlide = 0; p.fxT = 0;   // slideMax/riseMax — для фазы позы в d_chars.js
+  p.recvWin = 0; p.forceJump = p.aiJump = false; p.diveDone = true; p.vx = p.slideDir * SLIDE_V;
+  sfx.slide(); dust(p.x, p.lane, 4);
+  if (!REDUCED) punch = Math.max(punch, .035);
+  return true;
+}
+function slideReceive(p) {   // мяч попал в окно скольжения; тайминг по прошедшему времени e
+  const T = p.team, e = SLIDE_DUR - p.slide, perf = e >= .08 && e <= .28, late = !perf && e > .4;
+  p.actAt = -9; p.slideHit = perf ? 2 : 1;
+  if (T.touches === 1) {   // спасение плохого паса: низкая передача нападающему
+    setBall(p, true); timeMark(p, perf ? 'ИДЕАЛЬНО!' : late ? 'Поздно' : 'Хорошо');
+  } else if (late) { p.recvWin = 0; receive(p, false, 2); timeMark(p, 'Поздно'); }
+  else { p.recvWin = perf ? .42 : .2; receive(p, true); }
+  p.swing = 0; p.swingType = '';
+  if (perf) {
+    banner('СПАСЕНИЕ!', T === TL ? 'gold' : 'teal', 1.0, T !== TL && mode === 'solo'); buzz(15);
+    if (!REDUCED) { punch = Math.max(punch, .06); freeze = Math.max(freeze, .04); shake = Math.max(shake, 1.2); }
+  }
 }
 function chooseAtk(T) {
   const w = T.D.atkW || [1, 0, 0, 0]; let r = Math.random();
@@ -280,7 +395,7 @@ function setBall(p, low) {
   T.atk = T.human ? humanAtk(T, h) : (T.plan || chooseAtk(T));
   const A = ATK[T.atk]; T.setH = A.h; T.plan = null;
   passTo(NETX + T.side * A.d + (Math.random() * 2 - 1) * T.D.err * .6, A.h, A.t);
-  aimLane(h, A.t); sfx.set(); ring('w');
+  aimLane(h, A.t); sfx.set(); ring('w'); tutEvt('set', p);
   T.spikeRoll = Math.random(); other(T).blockRoll = Math.random() / A.blk; other(T).blockUsed = false;
   if (T === TL) {
     if (A.txt) banner(A.txt, 'gold', .8, true);
@@ -291,12 +406,19 @@ function freeBall(p) {
   const T = p.team; snapBall(p, 'receive', 14); touch(p, 'receive');
   passTo(NETX - T.side * (70 + Math.random() * 100), 0, 1.5); aimLaneTeam(other(T), 1.5); sfx.pass(); ring('w');
 }
-function tip(p) {
+function tip(p, dir = 0) {   // dir: +1 — к сетке (коротко за блок), −1 — от сетки (накат в угол), 0 — обычный обман
   const T = p.team; snapBall(p, 'spike', 16); touch(p, 'tip');
-  passTo(NETX - T.side * (22 + Math.random() * 45), 0, .85); aimLaneTeam(other(T), .85); sfx.set();
-  if (T === TL) banner('ОБМАН!', 'org', .8);
+  const xt = NETX - T.side * (dir > 0 ? 12 + Math.random() * 16 : dir < 0 ? 170 + Math.random() * 32 : 22 + Math.random() * 45);
+  let fl = dir > 0 ? .75 : dir < 0 ? .95 : .85;
+  for (; fl < 1.6; fl += .05) {   // время полёта подбираем так, чтобы мяч прошёл над сеткой
+    passTo(xt, 0, fl); const tn = (NETX - ball.x) / ball.vx;
+    if (tn <= 0 || ball.h + ball.vh * tn - .5 * G * tn * tn > NET_H + BR + 4) break;
+  }
+  aimLaneTeam(other(T), fl); sfx.set();
+  if (T === TL) banner(dir > 0 ? 'ОБМАН ЗА БЛОК!' : dir < 0 ? 'НАКАТ В УГОЛ!' : 'ОБМАН!', 'org', .8);
 }
-function spike(p, human) {
+const blockUp = T => T.players.some(q => !q.ground && Math.abs(q.x - NETX) < 26);   // у команды T поставлен блок
+function spike(p, human, boost = false) {   // boost — усиленный удар по полной шкале «СИНХРОН» (+40 силы)
   const T = p.team, O = other(T), o = -T.side;
   snapBall(p, 'spike', 18);
   let xt;
@@ -316,7 +438,7 @@ function spike(p, human) {
   }
   touch(p, 'spike');
   let ok = false, flight = .5;
-  for (let sp = T.D.power + (T.atk === 'pipe' ? 30 : 0); sp >= 160; sp -= 20) {
+  for (let sp = T.D.power + 12 * upLv(p, 'pow') + (T.atk === 'pipe' ? 30 : 0) + (boost ? 40 : 0); sp >= 160; sp -= 20) {
     const vx = Math.sign(xt - ball.x) * sp, t = (xt - ball.x) / vx, vh = (0 - ball.h + .5 * G * t * t) / t;
     const tn = (NETX - ball.x) / vx, hn = ball.h + vh * tn - .5 * G * tn * tn;
     if (tn < 0 || hn > NET_H + BR + 2) { ball.vx = vx; ball.vh = vh; ok = true; flight = t; break; }
@@ -332,7 +454,12 @@ function spike(p, human) {
   flash = .12;
   speedLines = { wx: PX(ball.x, ball.lane), wy: ball.lane - ball.h * sOf(ball.lane), t: 0, seeds: Array.from({ length: 30 }, () => Math.random()) };
   spray(16, ['#ffffff', '#ffe28a', '#f07a22'], 120, .35); ring('w');
-  if (human) banner(Math.random() < .5 ? 'АТАКА!' : 'МОЩНО!', 'org', .9);
+  if (boost) {
+    T.sync = 0; banner('СИНХРОН-УДАР!', T === TL ? 'gold' : 'teal', 1.1);
+    cutin = { p, team: T, act: 'СИНХРОН-УДАР', t: 0, life: 1.1 };
+    if (!REDUCED) { freeze = .11; shake = 3.2; }
+  }
+  if (human) { if (!boost) banner(Math.random() < .5 ? 'АТАКА!' : 'МОЩНО!', 'org', .9); tutEvt('spike', p); }
   else if (O === TL && recvHints < 3) { recvHints++; banner('ЖМИ «ПРИЁМ»!', 'gold', .9, true, 'L'); }
 }
 function startToss(p) {
@@ -351,7 +478,7 @@ function powerServe(p) {
   const fault = Math.random() < (T === TL ? .1 : .15);
   const xt = NETX + o * (fault ? 224 + Math.random() * 22 : 70 + Math.random() * 140);
   let flight = 1;
-  for (let sp = T.D.power + 40; sp >= 160; sp -= 20) {
+  for (let sp = T.D.power + 12 * upLv(p, 'pow') + 40; sp >= 160; sp -= 20) {
     const vx = Math.sign(xt - ball.x) * sp, t = (xt - ball.x) / vx, vh = (0 - ball.h + .5 * G * t * t) / t;
     const tn = (NETX - ball.x) / vx, hn = ball.h + vh * tn - .5 * G * tn * tn;
     if (hn > NET_H + BR + 3) { ball.vx = vx; ball.vh = vh; flight = t; break; }
@@ -382,10 +509,19 @@ function checkContacts() {
   for (const T of [TL, TR]) {
     if (!ownLoose(T, ball.x) || T.touches >= 3) continue;
     for (const p of T.receiver && T.touches === 0 ? [T.receiver, ...T.players.filter(q => q !== T.receiver)] : T.players) {
-      if (p === lastToucher || p.cd > 0) continue;
+      if (p === lastToucher || p.cd > 0 || p.rise > 0) continue;   // поднимается после скольжения — мяч не берёт
       const dxp = Math.abs(ball.x - platX(p));
+      if (p.slide > 0) {   // в скольжении — только своё окно приёма (низкий мяч)
+        if (!p.slideHit && T.touches <= 1 && ball.h > 1.5 && ball.h < 26 && dxp < 20 && (ball.vh < 0 || ball.h < 10)) { slideReceive(p); return; }
+        continue;
+      }
       if (T.touches === 2) {
-        if (!T.human && p === T.roles.hitter && !p.ground && spikeReach(p, 13)) { if (T.spikeRoll < T.D.spike && ball.h > 52) spike(p, false); else tip(p); return; }
+        if (!T.human && p === T.roles.hitter && !p.ground && spikeReach(p, 13)) {   // ИИ: против поставленного блока иногда скидывает за него
+          const blk = blockUp(other(T));
+          if (T.spikeRoll < T.D.spike && ball.h > 52 && !(blk && Math.random() < .3)) spike(p, false);
+          else tip(p, blk ? 1 : Math.random() < .5 ? 1 : -1);
+          return;
+        }
         if (p.ground && ball.vh < 0 && ball.h < 24 && ball.h > 4 && dxp < 9) { freeBall(p); return; }
         continue;
       }
@@ -395,8 +531,9 @@ function checkContacts() {
       }
       if (T.touches === 0 && ball.vh < 0 && ball.h < 30 && ball.h > 4) {
         if (ball.spiked) {
-          if (dxp < 7 && T.digRoll < T.D.dig) { receive(p); return; }
-          if (dxp < 18 && !p.diveDone && T.digRoll >= T.D.dig) { p.diveDone = true; p.swing = .5; p.swingType = 'dive'; }
+          const dg = T.D.dig + .035 * upLv(p, 'dig');
+          if (dxp < 7 && T.digRoll < dg) { receive(p); return; }
+          if (dxp < 18 && !p.diveDone && T.digRoll >= dg) { p.diveDone = true; p.swing = .5; p.swingType = 'dive'; }
           continue;
         }
         if (dxp < 10) { receive(p); return; }
@@ -413,12 +550,16 @@ function checkBlock() {
   const att = ball.x < NETX ? TL : TR, def = other(att);
   if (Math.abs(ball.x - NETX) > 8 || ball.vx * att.side >= 0) return;
   for (const b of def.players) {
-    if (b.ground || Math.abs(b.x - NETX) > 22) continue;
+    const hum = def.human && b === def.act, sh = hum ? (def.hdir || 0) * 4 : 0;   // человек: стрелка в полёте сдвигает руки на ±4
+    if (b.ground || Math.abs(b.x + sh - NETX) > 22) continue;
     const k = b.look.tall;
     if (ball.h > b.h + 33 * k && ball.h < b.h + 58 * k) {
-      blockDone = true; ball.spiked = false; lastToucher = null; lastTeam = def; def.lastHit = { p: b, type: 'block' };
+      blockDone = true; ball.spiked = false; lastToucher = null; lastTeam = def; def.lastHit = { p: b, type: 'block' }; slideReset();
       b.swing = SW; b.swingType = 'set'; ball.lane = b.lane;
-      if (Math.random() < .55) {
+      // человек: блок в верхней точке прыжка (|vh| < 60) — «БЛОК!» в 90%, иначе только касание; ИИ — шанс по сложности (≈ прежние 55%)
+      const stuff = hum ? Math.abs(b.vh) < 60 && Math.random() < .9 : Math.random() < .4 + def.D.block * .4;
+      if (hum) timeMark(b, Math.abs(b.vh) < 60 ? 'ИДЕАЛЬНО!' : b.vh > 0 ? 'Рано' : 'Поздно');
+      if (stuff) {
         ball.vx = -ball.vx * .32; ball.vh = -70; ball.x = NETX + att.side * (BR + 1);
         att.touches = 0; att.roles = {}; aimLaneTeam(att, .5);
         banner('БЛОК!', def === TL ? 'gold' : 'teal', 1.0);
@@ -440,7 +581,7 @@ function stepBall(dt) {
       netShake = .45; sfx.net();
       if (state === 'play' && !netHitThisRally) { netHitThisRally = true; banner('СЕТКА!', 'teal', .8, true); }
     } else {
-      const T = now < 0 ? TL : TR; T.touches = 0; T.roles = {}; lastToucher = null; blockDone = false;
+      const T = now < 0 ? TL : TR; T.touches = 0; T.roles = {}; lastToucher = null; blockDone = false; slideReset();
     }
   }
   if (state === 'play') checkBlock();
@@ -453,6 +594,7 @@ function stepBall(dt) {
   if (ball.x < -40) { ball.x = -40; ball.vx = Math.abs(ball.vx) * .3; } else if (ball.x > VW + 40) { ball.x = VW + 40; ball.vx = -Math.abs(ball.vx) * .3; }   // стены арены: мяч не улетает за край
 }
 function land() {
+  if (tut) { tutLand(); return; }   // обучение: без очков
   const x = ball.x; let W, out = false;
   if (x >= COURT_L && x < NETX) W = TR; else if (x > NETX && x <= COURT_R) W = TL;
   else { out = true; W = lastTeam ? other(lastTeam) : (x < NETX ? TR : TL); }

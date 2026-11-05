@@ -15,6 +15,19 @@ for key, f in [('__PHOTO__', 'photo.b64'), ('__P4__', 'p4.b64'), ('__P10__', 'p1
     data = fp.read_text().strip() if fp.exists() else ''
     if not data: photos = False
     src = src.replace(key, data)
+# рендеры Blender: assets/img/*.png → объект IMG_SRC в b_core.js (имя файла без .png = ключ)
+import base64
+img_dir = root / 'assets' / 'img'
+imgs = sorted(img_dir.glob('*.png')) if img_dir.exists() else []
+img_kb = 0
+entries = []
+for fp in imgs:
+    b = base64.b64encode(fp.read_bytes()).decode('ascii')
+    entries.append(f"'{fp.stem}':'data:image/png;base64,{b}'")
+    img_kb += len(b) / 1024
+    print(f'  картинка {fp.name:<28} {fp.stat().st_size // 1024:>5} KB (base64 {len(b) // 1024} KB)')
+src = src.replace('/*__IMG__*/', ','.join(entries), 1)
+if imgs: print(f'картинок: {len(imgs)}, всего base64 {int(img_kb)} KB')
 if not photos:
     # публичная сборка без фото: убираем полароиды, портреты рисуются кодом
     src = re.sub(r'<div class="polaroid"><img[^>]*></div>', '', src)

@@ -128,6 +128,7 @@ function showCampEnd(win) {
     else { title = 'КОНЕЦ СЕРИИ'; btn = 'НОВАЯ СЕРИЯ'; endAct = 'coloAgain'; }
     sub = 'Серия: ' + camp.wins + ' ' + pluralWins(camp.wins) + ' · Рекорд: ' + coloBest;
   }
+  sub += upAward(win, win && camp.kind === 'tour' ? 1 : 0);   // этап турнира — +1 ★ сверху
   T.textContent = title; T.className = win ? 'win' : '';
   $('endScore').textContent = sc; $('endSub').textContent = sub; $('againBtn').textContent = btn;
   show('end');
@@ -197,7 +198,39 @@ $('stSkip').addEventListener('click', e => { e.stopPropagation(); storyDone(); }
 
 /* ================= screens ================= */
 let pausedFrom = null;
-function show(id) { ['menu', 'pause', 'end', 'online', 'leave', 'story', 'prof'].forEach(k => $(k).hidden = k !== id); }
+function show(id) { ['menu', 'pause', 'end', 'online', 'leave', 'story', 'ups', 'prof'].forEach(k => $(k).hidden = k !== id); }
+
+/* ================= прокачка: экран и награда за матч ================= */
+function upAward(win, bonus = 0) {   // очки за матч против компьютера; возвращает строку для экрана итогов
+  const n = (win ? 3 : 1) + bonus; ups.pts += n; upSave(); syncUps();
+  return ' +' + n + ' ★ на прокачку.';
+}
+function syncUps() {
+  $('upPts').textContent = ups.pts ? '★ ' + ups.pts : ''; $('upPts2').textContent = ups.pts;
+  const L = $('upList'); L.textContent = '';
+  for (const n of [10, 9, 4]) {
+    const box = document.createElement('div'); box.className = 'up-hero';
+    const h = document.createElement('h3'); h.textContent = nameOf(n); const sm = document.createElement('small'); sm.textContent = '№' + n + ' · ' + HERO[n].role; h.append(sm); box.append(h);
+    for (const [k, title, hint] of UP_STATS) {
+      const lv = ups.h[n][k], cost = lv + 1, row = document.createElement('div'); row.className = 'up-st'; row.title = hint;
+      const b = document.createElement('b'); b.textContent = title;
+      const pips = document.createElement('div'); pips.className = 'up-pips';
+      for (let i = 0; i < UP_MAX; i++) { const p = document.createElement('i'); if (i < lv) p.className = 'on'; pips.append(p); }
+      const btn = document.createElement('button'); btn.type = 'button';
+      btn.textContent = lv >= UP_MAX ? 'МАКС' : '+ ' + cost + '★'; btn.disabled = lv >= UP_MAX || ups.pts < cost;
+      btn.addEventListener('click', () => { if (ups.h[n][k] >= UP_MAX || ups.pts < cost) return; ups.pts -= cost; ups.h[n][k]++; upSave(); sfx.sync(); syncUps(); });
+      row.append(b, btn, pips); box.append(row);
+    }
+    L.append(box);
+  }
+}
+syncUps();
+$('upBtn').addEventListener('click', () => { audio(); syncUps(); show('ups'); });
+$('upBack').addEventListener('click', () => show('menu'));
+function syncMus() { const t = music.on ? '♪ МУЗЫКА: ВКЛ' : '♪ МУЗЫКА: ВЫКЛ'; $('musBtn').textContent = t; $('musBtn2').textContent = t; }
+for (const id of ['musBtn', 'musBtn2']) $(id).addEventListener('click', () => { audio(); music.toggle(); syncMus(); });
+syncMus();
+document.addEventListener('pointerdown', () => audio(), { once: true });   // музыка меню — с первого касания (браузер не даёт звук без жеста)
 const isOnline = () => mode === 'host' || mode === 'guest';
 /* startMatch(m): m = 'solo' | 'local2' (без сети). Без аргумента (или с событием клика) — повтор текущего режима;
    онлайн: хост перезапускает матч для обоих, гость ждёт хоста. Онлайн-режимы запускаются через netHost/netJoin (g_net.js). */
@@ -217,12 +250,12 @@ function showEnd() {
   $('endTitle').textContent = mode === 'local2' ? 'ИГРОК ' + (TL.score > TR.score ? 1 : 2) + ' ПОБЕДИЛ' : win ? 'ПОБЕДА!' : 'ПОРАЖЕНИЕ';
   $('endTitle').className = win || mode === 'local2' ? 'win' : '';
   $('endScore').textContent = me.score + ' : ' + other(me).score;
-  $('endSub').textContent = mode === 'local2' ? 'Реванш?' : mode === 'solo' ? (win ? 'Рэй, Арис и Дан забирают матч.' : 'Гости оказались сильнее. Реванш?') : (win ? 'Победа над другом!' : 'Друг оказался сильнее. Реванш?');
+  $('endSub').textContent = mode === 'local2' ? 'Реванш?' : mode === 'solo' ? (win ? 'Рэй, Арис и Дан забирают матч.' : 'Гости оказались сильнее. Реванш?') + upAward(win) : (win ? 'Победа над другом!' : 'Друг оказался сильнее. Реванш?');
   show('end');
 }
 function pauseGame() { if (isOnline()) return; if (!['serve', 'play', 'point'].includes(state)) return; pausedFrom = state; state = 'paused'; show('pause'); }
 function resumeGame() { if (state !== 'paused') return; state = pausedFrom; last = performance.now(); show(null); }
-function toMenu() { if (mode === 'host' || mode === 'guest') netLeave(); mode = 'solo'; state = 'menu'; stopStory(); champ = false; clearInterval(champTimer); $('end').classList.remove('lite'); endCamp(); setArena(arenaPick); syncMode(); cutin = null; TL = TR = null; active = null; banners = []; confetti = []; show('menu'); updateCamera(0, true); }
+function toMenu() { if (mode === 'host' || mode === 'guest') netLeave(); mode = 'solo'; state = 'menu'; tut = null; tim = null; stopStory(); champ = false; clearInterval(champTimer); $('end').classList.remove('lite'); endCamp(); setArena(arenaPick); syncMode(); cutin = null; TL = TR = null; active = null; banners = []; confetti = []; show('menu'); updateCamera(0, true); }
 function syncSeg() {
   document.querySelectorAll('[data-diff]').forEach(x => x.setAttribute('aria-pressed', String(x.dataset.diff === diff)));
   document.querySelectorAll('[data-target]').forEach(x => x.setAttribute('aria-pressed', String(+x.dataset.target === TARGET)));
@@ -279,6 +312,72 @@ syncMode();
 $('campReset').addEventListener('click', () => { setProg(chapPick, { stage: 0, done: false }); syncMode(); });
 $('playBtn').addEventListener('click', () => { audio(); if (pick === 'online') openOnline(); else if (pick === 'tour') startTour(); else if (pick === 'colo') startColo(); else startMatch(pick); });
 
+/* ================= обучение: запуск и рисование (логика — c_ai.js) ================= */
+function startTutorial() {
+  if (mode === 'host' || mode === 'guest') netLeave();
+  endCamp(); setArena(arenaPick); mode = 'solo'; audio();
+  const sh = serveHints; newMatch(); serveHints = sh; show(null); updateCamera(0, true);
+  banners = []; state = 'play';
+  ball.x = 300; ball.h = BR; ball.vx = ball.vh = 0; ball.lane = LANE0; ball.trail = [];
+  tut = { step: 0, t: 0, wait: 2.6, miss: 0, done: false, endT: 0, exit: false, msg: '', msgT: 0 };
+}
+$('tutBtn').addEventListener('click', startTutorial);
+const TOUCH_UI = (() => { try { return matchMedia('(pointer: coarse)').matches; } catch (e) { return false; } })();
+function tutText() {
+  const act = TOUCH_UI ? 'ПРИЁМ' : '↓', hit = TOUCH_UI ? 'УДАР' : 'Пробел';
+  return [['1 / 3 · ПРИЁМ', 'Мяч снижается — жми ' + act + '. ' + act + ' + стрелка — скольжение.'],
+    ['2 / 3 · ПАС', 'Отлично! Арис делает пас — следи за мячом.'],
+    ['3 / 3 · УДАР', 'Жми ' + (TOUCH_UI ? 'УДАР' : 'Пробел') + ' — прыжок. Мяч у руки — ' + hit + '! ' + act + ' в прыжке — скидка.'],
+    ['ГОТОВО!', 'Ты умеешь принимать, пасовать и бить. Возвращаемся в меню.']][tut.step];
+}
+function drawTutorial(c) {
+  const u = clamp(cssW / 820, .7, 1.25), t = tutText(), w = Math.min(cssW * .8, 430 * u), h = 40 * u, x = (cssW - w) / 2, y = 58 * u;
+  c.fillStyle = 'rgba(13,15,20,.86)'; skew(c, x, y, w, h, 8 * u); c.fill();
+  c.fillStyle = tut.done ? TONE.gold : TONE.teal; c.fillRect(x + 8 * u, y + h - 2.4 * u, (w - 16 * u) * Math.min(1, tut.step / 3), 2.4 * u);
+  c.textAlign = 'center'; c.textBaseline = 'middle';
+  c.font = `700 ${11.5 * u}px Oswald, "Arial Narrow", sans-serif`; c.fillStyle = TONE.gold; c.fillText(t[0], cssW / 2, y + 10 * u);
+  c.font = `500 ${11 * u}px Rubik, Arial, sans-serif`; c.fillStyle = tut.msg ? '#ffb27a' : '#ffffff'; c.fillText(tut.msg || t[1], cssW / 2, y + 26 * u, w - 20 * u);
+}
+function syncHud(c) {   // шкала «СИНХРОН» своей команды под табло (у local2 — обеих): 3 деления, полная — золотая и мигает
+  if (!TL || tut || !(state === 'serve' || state === 'play' || state === 'point')) return;
+  const u = clamp(cssW / 820, .7, 1.25), y = 58 * u, list = mode === 'local2' ? [TL, TR] : mode === 'guest' ? [TR] : mode === 'solo' || mode === 'host' ? [TL] : [];
+  c.textBaseline = 'middle'; c.font = `700 ${8.5 * u}px Oswald, "Arial Narrow", sans-serif`;
+  for (const T of list) {
+    const n = clamp(T.sync | 0, 0, 3), full = n >= 3, left = T === TL, w = 92 * u, x = left ? cssW / 2 - 24 * u - w : cssW / 2 + 24 * u;
+    c.fillStyle = 'rgba(13,15,20,.78)'; skew(c, x, y, w, 15 * u, 5 * u); c.fill();
+    c.textAlign = 'left'; c.fillStyle = full ? TONE.gold : '#d9dde3'; c.fillText('СИНХРОН', x + 8 * u, y + 7.8 * u);
+    const blink = full && (clock * 4 % 1) < .5;
+    for (let i = 0; i < 3; i++) {
+      c.fillStyle = i < n ? (blink ? '#ffffff' : TONE.gold) : 'rgba(255,255,255,.18)';
+      c.fillRect(x + 50 * u + i * 13 * u, y + 4.5 * u, 10 * u, 6 * u);
+    }
+  }
+}
+function timingFx(c) {   // кольцо тайминга у мяча + метка у игрока (поверх кадра, экранные пиксели)
+  if (!TL || !ball || mode === 'guest') return;
+  const sc = cam.scale, u = clamp(cssW / 820, .7, 1.25);
+  if (state === 'play') for (const T of [TL, TR]) {
+    const p = T.human && (mode === 'local2' || T === TL) ? T.act : null;
+    if (!p || !ownLoose(T, ball.x) || p === lastToucher) continue;
+    let hp = null, gold = 0;
+    if (T.touches === 0 && p.ground && ball.vh < 0) { hp = handPoint(p, 'receive'); gold = 26; }
+    else if (T.touches === 2 && p === T.roles.hitter) { hp = handPoint(p, 'spike'); gold = 6.5; }
+    if (!hp) continue;
+    const d = Math.hypot(ball.x - hp[0], ball.h - hp[1]); if (d > 40) continue;
+    const sl = sOf(ball.lane), bx = (PX(ball.x, ball.lane) - cam.x) * sc + cssW / 2, by = (ball.lane - ball.h * sl - cam.top) * sc;
+    c.strokeStyle = d < gold ? 'rgba(242,194,48,.95)' : 'rgba(255,255,255,.7)'; c.lineWidth = d < gold ? 2 : 1.2;
+    c.beginPath(); c.arc(bx, by, (BR + d * .5) * sl * sc, 0, 6.283); c.stroke();
+  }
+  if (tim) {
+    const p = tim.p, sl = sOf(p.lane), k = tim.t / tim.life, a = Math.min(1, (1 - k) * 2.5, k * 12);
+    const px = (PX(p.x, p.lane) - cam.x) * sc + cssW / 2, py = (p.lane - (p.h + 56 * p.look.tall) * sl - cam.top) * sc - k * 18 * u;
+    c.save(); c.globalAlpha = Math.max(0, a); c.textAlign = 'center'; c.textBaseline = 'middle'; c.lineJoin = 'round';
+    c.font = `700 ${(tim.gold ? 20 : 14) * u}px Oswald, "Arial Narrow", sans-serif`;
+    c.lineWidth = 3.2 * u; c.strokeStyle = 'rgba(13,15,20,.85)'; c.strokeText(tim.text, px, py);
+    c.fillStyle = tim.gold ? '#f2c230' : tim.text === 'Хорошо' ? '#ffffff' : '#5fd3da'; c.fillText(tim.text, px, py);
+    c.restore();
+  }
+}
 const ovOnline = $('online'), netStatusEl = $('netStatus'), codeIn = $('codeIn');
 const netKind = () => { try { const q = location.search; return /[?&]net=bc\b/.test(q) ? 'bc' : /[?&]net=peer\b/.test(q) ? 'peer' : 'auto'; } catch (e) { return 'auto'; } };
 const RU2LAT = { 'й': 'Q', 'ц': 'W', 'у': 'E', 'к': 'R', 'е': 'T', 'н': 'Y', 'г': 'U', 'ш': 'I', 'щ': 'O', 'з': 'P', 'ф': 'A', 'ы': 'S', 'в': 'D', 'а': 'F', 'п': 'G', 'р': 'H', 'о': 'J', 'л': 'K', 'д': 'L', 'я': 'Z', 'ч': 'X', 'с': 'C', 'м': 'V', 'и': 'B', 'т': 'N', 'ь': 'M' };
@@ -586,6 +685,10 @@ function frame(now) {
   requestAnimationFrame(frame);
   const raw = Math.max(0, (now - last) / 1000), dt = Math.min(1 / 30, raw); last = now;
   try {
+    if (tut && tut.exit) toMenu();
+    if (tut) banners = banners.filter(b => !b.small);   // в обучении мелкие подсказки заменены панелью
+    const tk = tut && !tut.done ? ['act', '', 'hit'][tut.step] : '';
+    if (document.body.dataset.tut !== tk) document.body.dataset.tut = tk;
     const live = state === 'serve' || state === 'play' || state === 'point';
     if (mode === 'guest') netGuestFrame(dt);   // гость не считает игру: показывает снимки хоста
     else if (live) { if (freeze > 0) freeze -= dt; else update(dt); }
@@ -600,7 +703,7 @@ function frame(now) {
     const am2 = state === 'serve' && TR && servingTeam === TR && mode === 'local2' ? 'serve' : 'recv';   // подача второго игрока (только local2: в онлайне вторая кнопка не нужна)
     if (am2 !== actMode2) { actMode2 = am2; setActLabel(actBtns2, am2 === 'serve'); }
     const overlay = !ovMenu.hidden || !ovPause.hidden || (!ovEnd.hidden && !champ) || !ovOnline.hidden || !$('story').hidden;
-    if (!overlay) { render(); staticDone = false; }
+    if (!overlay) { render(); staticDone = false; out.setTransform(dpr, 0, 0, dpr, 0, 0); timingFx(out); syncHud(out); if (tut) drawTutorial(out); }
     else if (!staticDone && TL) { render(); staticDone = true; }
     if (!ovMenu.hidden) drawPreview(dt);
     if (live && !overlay && raw < .5 && ++perfSkip > 20) {
