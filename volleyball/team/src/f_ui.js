@@ -37,7 +37,7 @@ function drawPreview(dt) {
 const lsGet = k => { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch (e) { return null; } };
 const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
 let arenaPick = lsGet('vb-arena') === 'beach' ? 'beach' : 'hall';
-let camp = null, campBase = 11, endAct = '', champ = false, champTimer = 0;   // camp: { kind: 'tour', stage } | { kind: 'colo', wins }
+let camp = null, campBase = 11, endAct = '', champ = false, champTimer = 0;   // camp: { kind: 'tour', ch, stage } | { kind: 'colo', wins }
 const TOUR = [
   { name: 'ОТБОРОЧНЫЙ', team: 'ЗЕЛЁНАЯ ШКОЛА', arena: 'hall', target: 7, diff: 'easy', boost: 0, talk: [
     ['c', 'Школа «Северная Верфь», крыша течёт, сетку чинили скотчем. Зато вы здесь.'],
@@ -72,23 +72,37 @@ function boostD(base, k) {   // плавное усиление соперник
   d.spike = Math.min(1, d.spike + .01 * k); d.pserve = Math.min(.85, d.pserve + .04 * k);
   return d;
 }
-let tourSave = (() => { const v = lsGet('vb-tour'); return v && Number.isInteger(v.stage) && v.stage >= 0 && v.stage < TOUR.length ? { stage: v.stage, done: !!v.done } : { stage: 0, done: false }; })();
+/* главы: [глава 1 = TOUR] + CHAPTERS_NEXT (h_story.js); этап может иметь kit — ключ KIT формы соперника */
+const CHS = [{ id: 'c1', title: 'Глава 1', stages: TOUR }].concat((typeof CHAPTERS_NEXT !== 'undefined' && Array.isArray(CHAPTERS_NEXT) ? CHAPTERS_NEXT : []).filter(c => c && Array.isArray(c.stages) && c.stages.length).map((c, i) => Object.assign({}, c, { title: c.title || 'Глава ' + (i + 2) })));
+const progKey = i => i === 0 ? 'vb-tour' : 'vb-tour-' + (i + 1);   // vb-tour — прогресс главы 1 (совместимость)
+const progCache = [];
+function getProg(i) {
+  if (!progCache[i]) { const v = lsGet(progKey(i)), n = CHS[i].stages.length; progCache[i] = v && Number.isInteger(v.stage) && v.stage >= 0 && v.stage < n ? { stage: v.stage, done: !!v.done } : { stage: 0, done: false }; }
+  return progCache[i];
+}
+function setProg(i, v) { progCache[i] = v; lsSet(progKey(i), v); }
+let chapOpen = (() => { const v = lsGet('vb-chaps'), o = v && Number.isInteger(v.open) ? v.open : 0; return Math.max(o, getProg(0).done ? 1 : 0); })();
+const isOpen = i => i === 0 || i <= chapOpen;
+function openChap(i) { if (i > chapOpen) { chapOpen = i; lsSet('vb-chaps', { open: i }); } }
+let chapPick = Math.min(CHS.length - 1, Math.max(0, +lsGet('vb-chap') || 0)); if (!isOpen(chapPick)) chapPick = 0;
 let coloBest = Math.max(0, Math.floor(+lsGet('vb-colo') || 0));
 function endCamp() { if (camp) { TARGET = campBase; camp = null; syncSeg(); } }
 function campMatch(withStory) {   // новый матч кампании (camp уже выставлен)
   if (isOnline()) netLeave();
   let st = null, D, nm, ar, tg;
-  if (camp.kind === 'tour') { st = TOUR[camp.stage]; ar = st.arena; tg = st.target; D = boostD(DIFF[st.diff], st.boost); nm = st.team; }
+  if (camp.kind === 'tour') { st = CHS[camp.ch].stages[camp.stage]; ar = st.arena; tg = st.target; D = boostD(DIFF[st.diff], st.boost); nm = st.team; }
   else { ar = camp.wins % 2 ? 'beach' : 'hall'; tg = 5; D = boostD(DIFF.hard, camp.wins); nm = 'РАУНД ' + (camp.wins + 1); }
   mode = 'solo'; audio(); TARGET = tg; setArena(ar); newMatch(); TR.D = D; TR.name = nm;
+  if (st && st.kit && KIT[st.kit]) for (const p of TR.players) p.kit = KIT[st.kit];
   champ = false; endAct = ''; clearInterval(champTimer); $('end').classList.remove('lite');
   staticDone = false; updateCamera(0, true); last = performance.now();
   if (st && withStory) openStory(st); else { show(null); if (!st) banner('РАУНД ' + (camp.wins + 1) + ' · ДО 5', 'gold', 1.8, true); }
 }
 function startTour() {
-  if (tourSave.done) { tourSave = { stage: 0, done: false }; lsSet('vb-tour', tourSave); }
+  const ch = chapPick; if (!isOpen(ch)) return;
+  if (getProg(ch).done) setProg(ch, { stage: 0, done: false });
   if (!camp) campBase = TARGET;
-  camp = { kind: 'tour', stage: tourSave.stage }; campMatch(true);
+  camp = { kind: 'tour', ch, stage: getProg(ch).stage }; campMatch(true);
 }
 function startColo() { if (!camp) campBase = TARGET; camp = { kind: 'colo', wins: 0 }; campMatch(false); }
 function showCampEnd(win) {
@@ -97,16 +111,18 @@ function showCampEnd(win) {
   $('menuBtn').textContent = 'В МЕНЮ';
   let title, sub, btn;
   if (camp.kind === 'tour') {
-    const st = TOUR[camp.stage], last = camp.stage === TOUR.length - 1;
+    const ch = camp.ch, C = CHS[ch], st = C.stages[camp.stage], last = camp.stage === C.stages.length - 1, nxt = ch + 1 < CHS.length;
     if (win && last) {
-      tourSave = { stage: 0, done: true }; lsSet('vb-tour', tourSave);
-      title = 'ЧЕМПИОНЫ!'; sub = 'Рэй, Арис и Дан взяли турнир. Но это только начало: впереди регион!'; btn = 'ЗАНОВО'; endAct = 'tourAgain';
+      setProg(ch, { stage: 0, done: true });
+      if (nxt) { openChap(ch + 1); title = 'ГЛАВА ПРОЙДЕНА'; sub = 'Глава ' + (ch + 1) + ' позади. Дальше — ' + CHS[ch + 1].title + '.'; btn = 'ГЛАВА ' + (ch + 2); endAct = 'chapNext'; }
+      else if (ch === 0) { title = 'ЧЕМПИОНЫ!'; sub = 'Рэй, Арис и Дан взяли турнир. Но это только начало: впереди регион!'; btn = 'ЗАНОВО'; endAct = 'tourAgain'; }
+      else { title = 'ГЛАВА ПРОЙДЕНА'; sub = 'Глава ' + (ch + 1) + ' позади. Продолжение следует.'; btn = 'ЗАНОВО'; endAct = 'tourAgain'; }
       champ = true; el.classList.add('lite'); makeConfetti();
       let n = 0; champTimer = setInterval(() => { if (el.hidden || ++n > 7) clearInterval(champTimer); else makeConfetti(); }, 1300);
     } else if (win) {
-      tourSave = { stage: camp.stage + 1, done: false }; lsSet('vb-tour', tourSave);
-      title = 'ЭТАП ПРОЙДЕН'; sub = st.name + ': победа над «' + st.team + '». Дальше — ' + TOUR[camp.stage + 1].name.toLowerCase() + '.'; btn = 'ДАЛЬШЕ'; endAct = 'tourNext';
-    } else { title = 'ПОРАЖЕНИЕ'; sub = 'Этап ' + (camp.stage + 1) + ' из ' + TOUR.length + ': «' + st.team + '» оказались сильнее. Ещё раз?'; btn = 'ЕЩЁ РАЗ'; endAct = 'tourRetry'; }
+      setProg(ch, { stage: camp.stage + 1, done: false });
+      title = 'ЭТАП ПРОЙДЕН'; sub = st.name + ': победа над «' + st.team + '». Дальше — ' + C.stages[camp.stage + 1].name.toLowerCase() + '.'; btn = 'ДАЛЬШЕ'; endAct = 'tourNext';
+    } else { title = 'ПОРАЖЕНИЕ'; sub = 'Этап ' + (camp.stage + 1) + ' из ' + C.stages.length + ': «' + st.team + '» оказались сильнее. Ещё раз?'; btn = 'ЕЩЁ РАЗ'; endAct = 'tourRetry'; }
   } else {
     if (win) { camp.wins++; if (camp.wins > coloBest) { coloBest = camp.wins; lsSet('vb-colo', coloBest); } title = 'РАУНД ПРОЙДЕН'; btn = 'ДАЛЬШЕ'; endAct = 'coloNext'; }
     else { title = 'КОНЕЦ СЕРИИ'; btn = 'НОВАЯ СЕРИЯ'; endAct = 'coloAgain'; }
@@ -122,7 +138,8 @@ function endAgain() {
   const a = endAct; endAct = '';
   if (a === 'tourNext') { camp.stage++; campMatch(true); }
   else if (a === 'tourRetry') campMatch(false);
-  else if (a === 'tourAgain') { tourSave = { stage: 0, done: false }; lsSet('vb-tour', tourSave); camp = { kind: 'tour', stage: 0 }; campMatch(true); }
+  else if (a === 'tourAgain') { setProg(camp.ch, { stage: 0, done: false }); camp = { kind: 'tour', ch: camp.ch, stage: 0 }; campMatch(true); }
+  else if (a === 'chapNext') { const ch = camp.ch + 1; chapPick = ch; lsSet('vb-chap', ch); const pg = getProg(ch), st0 = pg.done ? 0 : pg.stage; if (pg.done) setProg(ch, { stage: 0, done: false }); camp = { kind: 'tour', ch, stage: st0 }; campMatch(true); }   // начатая глава продолжается с сохранённого этапа
   else if (a === 'coloNext') campMatch(false);
   else if (a === 'coloAgain') { camp = { kind: 'colo', wins: 0 }; campMatch(false); }
 }
@@ -131,17 +148,38 @@ function endAgain() {
 let sto = { lines: [], i: 0, full: '', n: 0, tm: 0, on: false };
 const STO_AV = { 4: 'lib', 10: 'blk', 9: 'org', o: 'wht' };
 function openStory(st) {
-  sto.lines = st.talk; sto.i = 0; sto.on = true; state = 'story';
-  $('stKick').textContent = 'ЭТАП ' + (camp.stage + 1) + ' ИЗ ' + TOUR.length; $('stName').textContent = st.name;
+  sto.lines = st.talk; sto.i = 0; sto.on = true; state = 'story'; sto.who = '';
+  const C = CHS[camp.ch];
+  $('stKick').textContent = (CHS.length > 1 ? 'ГЛАВА ' + (camp.ch + 1) + ' · ' : '') + 'ЭТАП ' + (camp.stage + 1) + ' ИЗ ' + C.stages.length; $('stName').textContent = st.name;
   $('stVs').textContent = 'против «' + st.team + '» · ' + (st.arena === 'beach' ? 'пляж' : 'зал') + ' · до ' + st.target;
   show('story'); storyLine();
 }
+const PORT_NUM = { 4: 4, 9: 9, 10: 10, o: 8 };
+function drawStoryAv(who, emo) {   // крупный портрет в плашке реплики; запасной вариант — кружок с номером
+  const cv = $('stAv'), r = cv.getBoundingClientRect(), dpr = Math.min(2, window.devicePixelRatio || 1), W = Math.max(40, Math.round((r.width || 84) * dpr)), H = Math.max(40, Math.round((r.height || 84) * dpr));
+  if (cv.width !== W || cv.height !== H) { cv.width = W; cv.height = H; }
+  const c = cv.getContext('2d'); c.clearRect(0, 0, W, H);
+  const oKey = who === 'o' ? (CHS[camp && camp.kind === 'tour' ? camp.ch : 0].stages[camp && camp.kind === 'tour' ? camp.stage : 0] || {}).kit : '';
+  const kit = who === 'o' ? KIT[oKey] || KIT.wht : KIT[STO_AV[who]];
+  if (who !== 'c' && typeof drawPortrait === 'function') {
+    try { c.save(); drawPortrait(c, PORT_NUM[who], emo, W / 2, H / 2, Math.min(W, H), KIT[oKey] ? oKey : undefined); c.restore(); return; } catch (e) { c.restore(); c.clearRect(0, 0, W, H); }
+  }
+  const R = Math.min(W, H) / 2 - 3 * dpr;
+  c.beginPath(); c.arc(W / 2, H / 2, R, 0, 6.2832); c.fillStyle = who === 'c' ? '#138f97' : kit.jersey; c.fill();
+  c.lineWidth = 3 * dpr; c.strokeStyle = who === 'c' ? '#fff' : kit.trim === kit.jersey ? '#fff' : kit.trim; c.stroke();
+  c.fillStyle = who === 'c' ? '#fff' : kit.num; c.font = '700 ' + Math.round(R * .95) + 'px Oswald, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
+  c.fillText(who === 'c' ? 'Т' : who === 'o' ? 'К' : who, W / 2, H / 2 + R * .06);
+}
 function storyLine() {
-  const [who, text] = sto.lines[sto.i], av = $('stAv'), num = who === 'o' ? 9 : who;
-  const k = KIT[STO_AV[who]];
-  if (who === 'c') { av.style.background = 'var(--teal)'; av.style.color = '#fff'; av.style.borderColor = '#fff'; av.textContent = 'Т'; $('stWho').textContent = 'ТРЕНЕР'; }
-  else if (who === 'o') { const kw = KIT.wht, st = TOUR[camp && camp.kind === 'tour' ? camp.stage : 0]; av.style.background = kw.jersey; av.style.color = kw.num; av.style.borderColor = kw.trim; av.textContent = 'К'; $('stWho').textContent = 'КАПИТАН · ' + (st ? st.team : 'СОПЕРНИКИ'); }
-  else { av.style.background = k.jersey; av.style.color = k.num; av.style.borderColor = k.trim === k.jersey ? '#fff' : k.trim; av.textContent = num; $('stWho').textContent = nameOf(num) ? nameOf(num) + ' · №' + num : '№' + num; }
+  const [who, text, emo] = sto.lines[sto.i], num = who === 'o' ? 8 : who;
+  if (who === 'c') $('stWho').textContent = 'ТРЕНЕР';
+  else if (who === 'o') { const st = CHS[camp && camp.kind === 'tour' ? camp.ch : 0].stages[camp && camp.kind === 'tour' ? camp.stage : 0]; $('stWho').textContent = 'КАПИТАН · ' + (st ? st.team : 'СОПЕРНИКИ'); }
+  else $('stWho').textContent = nameOf(num) ? nameOf(num) + ' · №' + num : '№' + num;
+  const box = $('stBox'), av = $('stAv'), right = who === 'o';
+  box.classList.toggle('right', right);
+  drawStoryAv(who, emo || 'calm');
+  if (sto.who !== who && !REDUCED && av.animate) av.animate([{ transform: 'translateX(' + (right ? 28 : -28) + 'px)', opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: 240, easing: 'ease-out' });
+  sto.who = who;
   clearInterval(sto.tm); sto.full = text; sto.n = 0;
   const t = $('stTxt');
   if (REDUCED) { t.textContent = text; sto.n = text.length; return; }
@@ -160,7 +198,7 @@ $('stSkip').addEventListener('click', e => { e.stopPropagation(); storyDone(); }
 
 /* ================= screens ================= */
 let pausedFrom = null;
-function show(id) { ['menu', 'pause', 'end', 'online', 'leave', 'story', 'ups'].forEach(k => $(k).hidden = k !== id); }
+function show(id) { ['menu', 'pause', 'end', 'online', 'leave', 'story', 'ups', 'prof'].forEach(k => $(k).hidden = k !== id); }
 
 /* ================= прокачка: экран и награда за матч ================= */
 function upAward(win, bonus = 0) {   // очки за матч против компьютера; возвращает строку для экрана итогов
@@ -206,7 +244,7 @@ function startMatch(m) {
   mode = m; audio(); newMatch(); show(null); updateCamera(0, true);
 }
 function showEnd() {
-  const me = myTeam(), win = me.score > other(me).score; state = 'over';
+  const me = myTeam(), win = me.score > other(me).score; if (state !== 'over') recStat(win); state = 'over';
   if (camp && mode === 'solo') { showCampEnd(win); return; }
   champ = false; endAct = ''; clearInterval(champTimer); $('end').classList.remove('lite'); $('againBtn').textContent = 'ЕЩЁ'; $('menuBtn').textContent = 'В МЕНЮ';
   $('endTitle').textContent = mode === 'local2' ? 'ИГРОК ' + (TL.score > TR.score ? 1 : 2) + ' ПОБЕДИЛ' : win ? 'ПОБЕДА!' : 'ПОРАЖЕНИЕ';
@@ -244,7 +282,7 @@ document.addEventListener('visibilitychange', () => { if (document.hidden) pause
 
 /* ================= режимы: меню и онлайн-экран ================= */
 let pick = 'solo';   // выбор в меню: 'solo' | 'local2' | 'online'
-const MODE_NOTE = { solo: 'Играешь против компьютера.', local2: 'Игрок 1 слева, игрок 2 справа.', online: 'Каждый на своём телефоне. Паузы нет.', tour: 'Четыре матча, история, разные площадки.', colo: 'Соперник сильнее с каждой победой.' };
+const MODE_NOTE = { solo: 'Играешь против компьютера.', local2: 'Игрок 1 слева, игрок 2 справа.', online: 'Каждый на своём телефоне. Паузы нет.', tour: 'Матчи, история, главы по порядку.', colo: 'Соперник сильнее с каждой победой.' };
 function syncMode() {
   document.querySelectorAll('[data-mode]').forEach(x => x.setAttribute('aria-pressed', String(x.dataset.mode === pick)));
   const cp = pick === 'tour' || pick === 'colo';
@@ -252,17 +290,26 @@ function syncMode() {
   $('opts').hidden = cp; $('campInfo').hidden = !cp; $('optArena').hidden = cp; $('playRow').classList.toggle('one', cp);
   $('opts').classList.toggle('one', pick !== 'solo');
   if (pick === 'tour') {
-    const ts = tourSave, fresh = !ts.done && ts.stage === 0;
-    $('campLbl').textContent = 'Турнир'; $('campTxt').textContent = ts.done ? 'Турнир пройден!' : 'Этап ' + (ts.stage + 1) + ' из ' + TOUR.length + ' · ' + TOUR[ts.stage].name;
-    $('campReset').hidden = fresh; $('playBtn').textContent = ts.done ? 'СЫГРАТЬ СНОВА' : fresh ? 'НАЧАТЬ' : 'ПРОДОЛЖИТЬ';
+    const ch = chapPick, C = CHS[ch], ts = getProg(ch), fresh = !ts.done && ts.stage === 0, open = isOpen(ch);
+    const box = $('chaps'); box.hidden = CHS.length < 2;
+    if (CHS.length > 1) {
+      box.innerHTML = '';
+      CHS.forEach((c, i) => { const b = document.createElement('button'); b.className = 'chap'; b.setAttribute('aria-pressed', String(i === ch)); b.dataset.ch = i; if (!isOpen(i)) b.classList.add('locked');
+        b.innerHTML = (isOpen(i) ? '' : '<svg viewBox="0 0 12 14" width="11" height="13" aria-hidden="true"><rect x="1" y="6" width="10" height="7.5" rx="1.5" fill="currentColor"/><path d="M3.2 6V4.4a2.8 2.8 0 0 1 5.6 0V6" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>') + 'Глава ' + (i + 1);
+        b.addEventListener('click', () => { chapPick = i; lsSet('vb-chap', i); syncMode(); }); box.appendChild(b); });
+    }
+    $('campLbl').textContent = CHS.length > 1 ? 'Турнир · ' + (C.title || 'Глава ' + (ch + 1)) : 'Турнир';
+    $('campTxt').textContent = !open ? 'Пройди главу ' + ch : ts.done ? (ch ? 'Глава пройдена!' : 'Турнир пройден!') : 'Этап ' + (ts.stage + 1) + ' из ' + C.stages.length + ' · ' + C.stages[ts.stage].name;
+    $('campReset').hidden = fresh || !open; $('playBtn').textContent = ts.done ? 'СЫГРАТЬ СНОВА' : fresh ? 'НАЧАТЬ' : 'ПРОДОЛЖИТЬ'; $('playBtn').disabled = !open;
   } else if (pick === 'colo') {
+    $('chaps').hidden = true; $('playBtn').disabled = false;
     $('campLbl').textContent = 'Колизей'; $('campTxt').textContent = 'Рекорд: ' + coloBest + ' ' + pluralWins(coloBest); $('campReset').hidden = true; $('playBtn').textContent = 'В БОЙ';
-  } else $('playBtn').textContent = pick === 'online' ? 'ДАЛЕЕ' : 'ИГРАТЬ';
+  } else { $('chaps').hidden = true; $('playBtn').disabled = false; $('playBtn').textContent = pick === 'online' ? 'ДАЛЕЕ' : 'ИГРАТЬ'; }
   $('modeNote').textContent = MODE_NOTE[pick];
 }
 document.querySelectorAll('[data-mode]').forEach(b => b.addEventListener('click', () => { pick = b.dataset.mode; syncMode(); }));
 syncMode();
-$('campReset').addEventListener('click', () => { tourSave = { stage: 0, done: false }; lsSet('vb-tour', tourSave); syncMode(); });
+$('campReset').addEventListener('click', () => { setProg(chapPick, { stage: 0, done: false }); syncMode(); });
 $('playBtn').addEventListener('click', () => { audio(); if (pick === 'online') openOnline(); else if (pick === 'tour') startTour(); else if (pick === 'colo') startColo(); else startMatch(pick); });
 
 /* ================= обучение: запуск и рисование (логика — c_ai.js) ================= */
@@ -358,7 +405,7 @@ function resetOnline() {
   $('copyBtn').textContent = 'СКОПИРОВАТЬ ССЫЛКУ';
 }
 function openOnline(code) {
-  resetOnline(); pick = 'online'; syncMode();
+  resetOnline(); pick = 'online'; syncMode(); profLobby();
   if (code) codeIn.value = fixCode(code);
   show('online');
 }
@@ -411,6 +458,146 @@ function checkInvite() { const c = roomFromHash(); if (c && state === 'menu' && 
 addEventListener('hashchange', checkInvite);
 checkInvite();
 
+/* ================= профиль и друзья (всё в localStorage, без сервера) ================= */
+const FC_SET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';   // без 0/O/1/I
+const AV_COLORS = ['#f07a22', '#f2c230', '#138f97', '#4da3ff', '#ff5436'];
+const AV_HEROES = [[10, 'Рэй'], [9, 'Арис'], [4, 'Дан']];
+const newFC = () => { let c = ''; try { const a = new Uint8Array(6); crypto.getRandomValues(a); for (const v of a) c += FC_SET[v % FC_SET.length]; } catch (e) { for (let i = 0; i < 6; i++) c += FC_SET[Math.floor(Math.random() * FC_SET.length)]; } return c; };
+const normFC = v => String(v || '').toLowerCase().replace(/[а-яё]/g, ch => RU2LAT[ch] || '').toUpperCase().split('').filter(ch => FC_SET.includes(ch)).join('').slice(0, 6);
+const cleanNick = v => String(v || '').replace(/[\u0000-\u001f<>]/g, '').trim().slice(0, 14);
+const P = (() => {
+  const v = lsGet('vb-profile') || {}, st = v.st || {};
+  const code = typeof v.code === 'string' && v.code.length === 6 && normFC(v.code) === v.code ? v.code : newFC();
+  const n = x => Math.max(0, Math.floor(+x || 0));
+  const o = {
+    code, nick: cleanNick(v.nick) || 'Игрок-' + code.slice(0, 4),
+    hero: AV_HEROES.some(h => h[0] === v.hero) ? v.hero : 10, color: AV_COLORS.includes(v.color) ? v.color : AV_COLORS[0],
+    friends: (Array.isArray(v.friends) ? v.friends : []).filter(f => f && normFC(f.code) === f.code && f.code.length === 6).slice(0, 40).map(f => ({ code: f.code, name: cleanNick(f.name) || 'Друг' })),
+    st: { m: n(st.m), w: n(st.w), om: n(st.om), ow: n(st.ow) } };
+  lsSet('vb-profile', o); return o;
+})();
+const saveProf = () => lsSet('vb-profile', P);
+function getProfile() { return { nick: P.nick, code: P.code, avatar: { hero: P.hero, color: P.color }, friends: P.friends.map(f => ({ code: f.code, name: f.name })) }; }
+function recStat(win) {   // конец матча: против компьютера (в т.ч. турнир и колизей) или онлайн; «вдвоём» не считаем
+  try {
+    if (mode === 'solo') { P.st.m++; if (win) P.st.w++; } else if (isOnline()) { P.st.om++; if (win) P.st.ow++; } else return;
+    saveProf(); if (!$('prof').hidden) renderProf();
+  } catch (e) {}
+}
+let presence = null;   // { КОД: true } — выставляет сетевой код через setFriendPresence(); пока null, статус не показываем
+function setFriendPresence(map) { presence = map && typeof map === 'object' ? map : null; if (!$('prof').hidden) renderFriends(); }
+function drawAv(cv, hero, color) {
+  const W = cv.width, c = cv.getContext('2d'); c.clearRect(0, 0, W, W); cv.style.borderColor = color;
+  try { if (typeof drawPortrait === 'function') { drawPortrait(c, hero, 'joy', W / 2, W * .54, W * 1.12); return; } } catch (e) { c.clearRect(0, 0, W, W); }
+  c.fillStyle = '#fff'; c.font = '700 ' + Math.round(W * .5) + 'px Oswald, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(hero, W / 2, W / 2);
+}
+function renderChip() { drawAv($('chipAv'), P.hero, P.color); $('chipNick').textContent = P.nick; }
+function profLobby() { $('onlMe').textContent = 'Ты: ' + P.nick + ' · код ' + P.code; }
+function chapsDone() { let n = 0; for (let i = 0; i < CHS.length; i++) { try { if (getProg(i).done) n++; } catch (e) {} } return n; }
+function renderProf() {
+  const hr = $('heroRow'), cr = $('colRow');
+  if (!hr.children.length) {
+    AV_HEROES.forEach(([n, nm]) => { const b = document.createElement('button'); b.className = 'hbtn'; b.dataset.hero = n; b.setAttribute('aria-label', nm); b.innerHTML = '<canvas class="av" width="100" height="100"></canvas>'; b.addEventListener('click', () => { P.hero = n; saveProf(); renderProf(); }); hr.appendChild(b); });
+    AV_COLORS.forEach(col => { const b = document.createElement('button'); b.className = 'sw'; b.dataset.col = col; b.style.background = col; b.setAttribute('aria-label', 'Цвет рамки'); b.addEventListener('click', () => { P.color = col; saveProf(); renderProf(); }); cr.appendChild(b); });
+  }
+  hr.querySelectorAll('.hbtn').forEach(b => { b.setAttribute('aria-pressed', String(+b.dataset.hero === P.hero)); drawAv(b.firstChild, +b.dataset.hero, P.color); });
+  cr.querySelectorAll('.sw').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.col === P.color)));
+  if (document.activeElement !== $('nickIn')) $('nickIn').value = P.nick;
+  $('myCode').textContent = P.code;
+  const S = P.st, cell = (v, t) => '<div><b>' + v + '</b><small>' + t + '</small></div>';
+  $('stats').innerHTML = cell(S.w + ' / ' + S.m, 'с компьютером: победы / матчи') + cell(S.ow + ' / ' + S.om, 'онлайн: победы / матчи') + cell(coloBest, 'лучшая серия колизея') + cell(chapsDone() + ' / ' + CHS.length, 'глав турнира пройдено');
+  renderChip(); renderFriends();
+}
+function renderFriends() {
+  const el = $('fList'); el.textContent = '';
+  if (!P.friends.length) { const p = document.createElement('p'); p.className = 'fempty'; p.textContent = 'Пока никого. Введи код друга или отправь ему свой.'; el.appendChild(p); return; }
+  P.friends.forEach(f => {
+    const r = document.createElement('div'); r.className = 'fr';
+    const i = document.createElement('div'); i.className = 'fi';
+    const b = document.createElement('b'); b.textContent = f.name; const sm = document.createElement('small');
+    sm.textContent = f.code + (presence ? (presence[f.code] ? ' · в сети' : ' · не в сети') : ''); if (presence && presence[f.code]) sm.className = 'on';
+    i.append(b, sm);
+    const inv = document.createElement('button'); inv.className = 'inv'; inv.textContent = 'ПРИГЛАСИТЬ'; inv.addEventListener('click', () => inviteFriend(f.code));
+    const del = document.createElement('button'); del.textContent = '✕'; del.setAttribute('aria-label', 'Удалить друга'); del.addEventListener('click', () => { P.friends = P.friends.filter(x => x.code !== f.code); saveProf(); renderFriends(); });
+    r.append(i, inv, del); el.appendChild(r);
+  });
+}
+function profTab(t) {
+  $('paneP').hidden = t !== 'p'; $('paneF').hidden = t !== 'f';
+  $('tabP').setAttribute('aria-pressed', String(t === 'p')); $('tabF').setAttribute('aria-pressed', String(t === 'f'));
+}
+function openProf(t) { audio(); profTab(t || 'p'); renderProf(); show('prof'); }
+function addFriend(code, name) {
+  code = normFC(code); if (code.length !== 6) return 'Код — 6 символов';
+  if (code === P.code) return 'Это твой собственный код';
+  if (P.friends.some(f => f.code === code)) return 'Этот друг уже в списке';
+  if (P.friends.length >= 40) return 'Список друзей полон';
+  P.friends.push({ code, name: cleanNick(name) || 'Друг' }); saveProf(); return '';
+}
+async function inviteFriend(code) {
+  audio(); openOnline();
+  if (typeof netInvite !== 'function') { doHost(); return; }
+  setBusy(true); setNoweb(false); const seq = ++opSeq; endCamp(); setArena(arenaPick);
+  let r = null; try { r = await netInvite(code); } catch (e) {}
+  if (seq !== opSeq) return;
+  setBusy(false); const rc = typeof r === 'string' ? r : r && typeof r.code === 'string' ? r.code : ''; if (rc) showRoom(rc);
+}
+const gameLink = () => { try { return location.href.split('#')[0].split('?')[0] + '?friend=' + P.code; } catch (e) { return '?friend=' + P.code; } };
+function copyText(t) {
+  return new Promise(res => {
+    try { if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(t).then(() => res(true), () => res(oldCopy(t))); return; } } catch (e) {}
+    res(oldCopy(t));
+  });
+}
+function oldCopy(t) { try { const a = document.createElement('textarea'); a.value = t; a.style.cssText = 'position:fixed;opacity:0;top:0'; document.body.appendChild(a); a.select(); const ok = document.execCommand('copy'); a.remove(); return ok; } catch (e) { return false; } }
+function flashBtn(btn, txt) { const o = btn.dataset.o || btn.textContent; btn.dataset.o = o; btn.textContent = txt; clearTimeout(btn._t); btn._t = setTimeout(() => { btn.textContent = o; }, 2000); }
+let plateTm = 0, plateOk = null;
+function showPlate(txt, okLabel, noLabel, okFn) {
+  $('plateTxt').textContent = txt; $('plateOk').textContent = okLabel; $('plateNo').textContent = noLabel; plateOk = okFn; $('plate').hidden = false;
+  clearTimeout(plateTm); plateTm = setTimeout(() => { $('plate').hidden = true; }, 30000);
+}
+function onFriendInvite(inv) {   // вызывает сетевой код: { from: код друга, name, room }
+  try {
+    if (!inv || typeof inv.room !== 'string' || !inv.room) return;
+    const fr = P.friends.find(f => f.code === inv.from), who = cleanNick(inv.name) || (fr && fr.name) || 'Друг';
+    showPlate(who + ' зовёт играть', 'ИГРАТЬ', 'ПОЗЖЕ', () => {
+      if (state !== 'menu') toMenu();
+      openOnline(inv.room); doJoin();
+    });
+  } catch (e) {}
+}
+$('plateNo').addEventListener('click', () => { $('plate').hidden = true; clearTimeout(plateTm); });
+$('plateOk').addEventListener('click', () => { $('plate').hidden = true; clearTimeout(plateTm); const f = plateOk; plateOk = null; if (f) f(); });
+$('profBtn').addEventListener('click', () => openProf('p'));
+$('profBack').addEventListener('click', () => show('menu'));
+$('tabP').addEventListener('click', () => profTab('p'));
+$('tabF').addEventListener('click', () => profTab('f'));
+$('nickIn').addEventListener('input', () => { const v = cleanNick($('nickIn').value); if (v) { P.nick = v; saveProf(); renderChip(); } });
+$('nickIn').addEventListener('blur', () => { $('nickIn').value = P.nick; });
+$('codeCopy').addEventListener('click', async () => flashBtn($('codeCopy'), (await copyText(P.code)) ? 'СКОПИРОВАНО' : 'НЕ ВЫШЛО'));
+$('shareBtn').addEventListener('click', async () => {
+  const link = gameLink(), b = $('shareBtn');
+  try { if (navigator.share) { await navigator.share({ title: '№4 × №10', text: P.nick + ' зовёт тебя играть в волейбол. Мой код друга: ' + P.code, url: link }); return; } } catch (e) { if (e && e.name === 'AbortError') return; }
+  flashBtn(b, (await copyText(link)) ? 'ССЫЛКА СКОПИРОВАНА' : 'НЕ ВЫШЛО');
+});
+$('fCode').addEventListener('input', () => { const v = normFC($('fCode').value); if ($('fCode').value !== v) $('fCode').value = v; });
+$('fAdd').addEventListener('click', () => {
+  const err = addFriend($('fCode').value, $('fName').value), st = $('fStat');
+  st.textContent = err || 'Друг добавлен'; st.classList.toggle('bad', !!err);
+  if (!err) { $('fCode').value = ''; $('fName').value = ''; renderFriends(); }
+});
+(function () {   // ссылка ?friend=КОД: предложить добавить друга
+  try {
+    const m = /[?&]friend=([^&#]+)/.exec(location.search); if (!m) return;
+    const c = normFC(decodeURIComponent(m[1]));
+    try { history.replaceState(null, '', location.pathname + location.search.replace(/([?&])friend=[^&]*&?/, '$1').replace(/[?&]$/, '') + location.hash); } catch (e) {}
+    if (c.length !== 6 || c === P.code || P.friends.some(f => f.code === c)) return;
+    showPlate('Добавить друга с кодом ' + c + '?', 'ДОБАВИТЬ', 'НЕТ', () => { addFriend(c, ''); toast('Друг добавлен'); if (!$('prof').hidden) renderFriends(); });
+  } catch (e) {}
+})();
+renderChip();
+try { window.onFriendInvite = onFriendInvite; window.getProfile = getProfile; window.setFriendPresence = setFriendPresence; } catch (e) {}
+
 /* ================= input ================= */
 /* Ввод. presses — счётчики нажатий (гость шлёт их хосту: короткие тапы не теряются). */
 const presses = { jump: 0, hit: 0, act: 0 };
@@ -447,6 +634,7 @@ addEventListener('keydown', e => {
   }
   if (e.code === 'KeyP' || e.code === 'Escape') {
     if (!ovOnline.hidden) { if (e.code === 'Escape') closeOnline(); return; }
+    if (!$('prof').hidden) { if (e.code === 'Escape') show('menu'); return; }
     if (isOnline()) { toggleLeave(); return; }
     state === 'paused' ? resumeGame() : pauseGame(); return;
   }
