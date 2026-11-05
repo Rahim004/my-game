@@ -3,10 +3,9 @@
   "short_name": "№4×№10",
   "description": "Волейбол 3 на 3: Рэй, Арис и Дан. Турнир с историей и онлайн с друзьями.",
   "lang": "ru",
-  "start_url": "./",
+  "start_url": "./index.html",
   "scope": "./",
-  "display": "fullscreen",
-  "orientation": "landscape",
+  "display": "standalone",
   "background_color": "#10141e",
   "theme_color": "#10141e",
   "icons": [
