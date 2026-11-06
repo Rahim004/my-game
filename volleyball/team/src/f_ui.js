@@ -812,10 +812,10 @@ try { window.onFriendInvite = onFriendInvite; window.getProfile = getProfile; wi
 
 /* ================= input ================= */
 /* Ввод. presses — счётчики нажатий (гость шлёт их хосту: короткие тапы не теряются). */
-const presses = { jump: 0, hit: 0, act: 0 };
+const presses = { jump: 0, hit: 0, act: 0, slide: 0 };
 function mkPress(inp, cnt) {
   return (k, v) => {
-    if (v && !inp[k]) { if (k === 'jump') inp.jumpQ = true; if (k === 'hit') inp.hitQ = true; if (k === 'act') inp.actQ = true; if (cnt && k in cnt) cnt[k]++; }
+    if (v && !inp[k]) { if (k === 'jump') inp.jumpQ = true; if (k === 'hit') inp.hitQ = true; if (k === 'act') inp.actQ = true; if (k === 'slide') inp.slideQ = true; if (cnt && k in cnt) cnt[k]++; }
     inp[k] = v;
   };
 }
@@ -831,6 +831,20 @@ function bindButtons(attr, fn) {
   });
 }
 bindButtons('data-key', press);
+(() => {   // джойстик: тянешь кружок влево/вправо — игрок бежит
+  const joy = document.getElementById('joy'); if (!joy) return;
+  const knob = joy.querySelector('.joyknob'); let pid = null, cx = 0;
+  const setDir = dx => {
+    const lim = joy.clientWidth * .32, x = Math.max(-lim, Math.min(lim, dx)), dz = joy.clientWidth * .1;
+    knob.style.transform = 'translateX(' + x + 'px)';
+    press('left', x < -dz); press('right', x > dz);
+    joy.setAttribute('aria-valuenow', x < -dz ? '-1' : x > dz ? '1' : '0');
+  };
+  const end = () => { pid = null; joy.classList.remove('on'); knob.style.transform = ''; press('left', false); press('right', false); joy.setAttribute('aria-valuenow', '0'); };
+  joy.addEventListener('pointerdown', e => { e.preventDefault(); audio(); pid = e.pointerId; try { joy.setPointerCapture(pid); } catch (_) {} const r = joy.getBoundingClientRect(); cx = r.left + r.width / 2; joy.classList.add('on'); setDir(e.clientX - cx); });
+  joy.addEventListener('pointermove', e => { if (e.pointerId === pid) setDir(e.clientX - cx); });
+  ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(ev => joy.addEventListener(ev, e => { if (e.pointerId === pid) end(); }));
+})();
 bindButtons('data-key2', press2);
 const KEYMAP = { ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right', ArrowUp: 'jump', KeyW: 'jump', ArrowDown: 'act', KeyS: 'act', Space: 'hit', KeyJ: 'hit', KeyK: 'hit' };
 const KEYMAP_P1 = { KeyA: 'left', KeyD: 'right', KeyW: 'jump', KeyF: 'hit', KeyS: 'act' };   // local2, игрок 1 (слева)
@@ -877,7 +891,7 @@ function syncModeUi() {   // подписи и раскладка под тек�
   pauseBtn.setAttribute('aria-label', on ? 'Выйти из матча' : 'Пауза');
   hintEl.innerHTML = HINTS[mode] || HINT_SOLO;
 }
-function setActLabel(btns, serve) { btns.forEach(b => { b.textContent = serve ? 'СИЛОВАЯ' : 'ПРИЁМ'; b.classList.toggle('serve', serve); }); }
+function setActLabel(btns, serve) { btns.forEach(b => { const lb = b.querySelector('.lb'); (lb || b).textContent = serve ? 'СИЛОВАЯ' : 'ПРИЁМ'; b.classList.toggle('serve', serve); }); }
 
 const netLinkEl = $('netLink'); let netLinkAt = 0, netLinkTxt = '', netLinkCls = '';
 function updNetLink(now) {   // плашка связи в онлайне: пинг в углу, при обрыве — крупно по центру
