@@ -100,6 +100,22 @@ body.local2 .ctl.hit { width: 68px; height: 68px; }
 .ctl.act { background: rgba(19, 143, 151, .82); border-color: rgba(255, 255, 255, .45); }
 .ctl.act.serve { background: rgba(242, 194, 48, .95); color: #1d1404; }
 .ctl.act.on { background: #5fd3da; }
+/* джойстик и круглые кнопки с иконками (одиночная игра и онлайн) */
+.joy { position: relative; width: 120px; height: 120px; border-radius: 50%; touch-action: none; pointer-events: auto;
+  background: radial-gradient(circle, rgba(255,255,255,.10) 0 38%, rgba(20,23,30,.45) 39%); border: 2px solid rgba(255,255,255,.22);
+  -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+.joyarr { position: absolute; inset: 0; width: 100%; height: 100%; fill: rgba(255,255,255,.55); }
+.joyknob { position: absolute; left: 50%; top: 50%; width: 52px; height: 52px; margin: -26px 0 0 -26px; border-radius: 50%;
+  background: rgba(255,255,255,.82); box-shadow: 0 2px 8px rgba(0,0,0,.35); transition: transform .08s; }
+.joy.on .joyknob { transition: none; background: #fff; }
+.rbtns { align-items: flex-end; }
+.ctl.ic { flex-direction: column; gap: 1px; padding-top: 4px; display: flex; align-items: center; justify-content: center; }
+.ctl.ic svg { width: 46%; height: 46%; fill: currentColor; }
+.ctl.ic .lb { font-family: var(--body); font-weight: 600; font-size: 9.5px; letter-spacing: .02em; line-height: 1; }
+.ctl.ic.hit { color: #1d0f04; }
+.ctl.ic.slide { background: rgba(20, 23, 30, .62); }
+.ctl.ic .lb { white-space: nowrap; text-align: center; }
+.ctl.ic.hit .lb { font-size: 9px; line-height: 1.05; }
 .hint, .turn { margin: 0; text-align: center; color: var(--muted); font-size: 13px; }
 .hint { display: none; }
 body:not(.touch) .hint { display: block; }
@@ -121,6 +137,9 @@ kbd { font-family: var(--body); font-weight: 500; color: var(--ink); background:
   body.local2 .ctl.hit { width: 68px; height: 68px; }
   .pad { gap: 10px; }
   .ctl.hit { width: 76px; height: 76px; }
+  .ctl.ic { width: 66px; height: 66px; }
+  .ctl.ic.hit { width: 80px; height: 80px; }
+  .joy { width: 112px; height: 112px; }
   .turn, .hint { display: none !important; }
 }
 
@@ -429,13 +448,15 @@ body[data-tut="act"] .ctl.act, body[data-tut="hit"] .ctl.hit { animation: tutp .
   <p class="turn">Поверни телефон горизонтально — арена станет больше</p>
   <div class="controls">
     <div class="pad">
-      <button class="ctl" data-key="left" aria-label="Влево"><svg viewBox="0 0 24 24"><path d="M16 4 6 12l10 8z"/></svg></button>
-      <button class="ctl" data-key="right" aria-label="Вправо"><svg viewBox="0 0 24 24"><path d="m8 4 10 8-10 8z"/></svg></button>
+      <div class="joy" id="joy" role="slider" aria-label="Движение влево-вправо" aria-valuemin="-1" aria-valuemax="1" aria-valuenow="0">
+        <svg class="joyarr" viewBox="0 0 120 120" aria-hidden="true"><path d="M22 60 36 48v24zM98 60 84 48v24z"/></svg>
+        <div class="joyknob"></div>
+      </div>
     </div>
-    <div class="pad">
-      <button class="ctl act" data-key="act">ПРИЁМ</button>
-      <button class="ctl" data-key="jump">ПРЫЖОК</button>
-      <button class="ctl hit" data-key="hit">УДАР</button>
+    <div class="pad rbtns">
+      <button class="ctl ic slide" data-key="slide" aria-label="Приём в скольжении"><svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="36" cy="14" r="5"/><path d="M6 38h22l10-8M14 30l10 0" fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="round"/></svg><b class="lb">СКОЛЬЖЕНИЕ</b></button>
+      <button class="ctl ic act" data-key="act" aria-label="Приём"><svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="11" r="6"/><path d="M8 40 22 27M40 40 26 27M22 27h4" fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="round"/></svg><b class="lb">ПРИЁМ</b></button>
+      <button class="ctl ic hit" data-key="hit" aria-label="Прыжок и удар: на земле — прыжок, в воздухе — удар"><svg viewBox="0 0 48 48" aria-hidden="true"><path d="M17 4 8 15h6v9h6v-9h6z"/><circle cx="33" cy="33" r="8"/><path d="M24 22l5 5" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"/></svg><b class="lb">ПРЫЖОК<br>УДАР</b></button>
     </div>
   </div>
   <div class="controls2" id="controls2">
@@ -1032,8 +1053,8 @@ const scorePop = [0, 0];
    active — игрок, которым управляет основной ввод (TL; у гостя — свой, из TR); active2 — активный игрок второй человеческой команды
    (TR у solo-без-ИИ/local2/host; у гостя — активный игрок хоста из TL; в solo = null). */
 let mode = 'solo';
-const input = { left: false, right: false, jump: false, hit: false, act: false, jumpQ: false, hitQ: false, actQ: false };
-const input2 = { left: false, right: false, jump: false, hit: false, act: false, jumpQ: false, hitQ: false, actQ: false };
+const input = { left: false, right: false, jump: false, hit: false, act: false, slide: false, jumpQ: false, hitQ: false, actQ: false, slideQ: false };
+const input2 = { left: false, right: false, jump: false, hit: false, act: false, slide: false, jumpQ: false, hitQ: false, actQ: false, slideQ: false };
 const myTeam = () => mode === 'guest' ? TR : TL;
 let recvHints = 0, serveHints = 0, atkHints = 0;
 let tut = null, tim = null;   // tut — состояние обучения (c_ai.js: tutTick/tutFeed/tutEvt), tim — метка тайминга у игрока (timeMark, рисует f_ui.js)
@@ -1619,21 +1640,27 @@ function tutTick(dt) {
   if (tut.done) { if ((tut.endT -= dt) <= 0) tut.exit = true; return; }
   if (tut.wait > 0 && (tut.wait -= dt) <= 0) tutFeed();
 }
-function humanAction(p) {
+const remoteTeam = T => mode === 'host' && T === TR;   // команда гостя онлайн: он видит игру с задержкой связи
+const lagWin = () => .14 + Math.min(.4, ((typeof net !== 'undefined' && net && net.rtt) || 0) / 2000);   // запас по времени на задержку
+function humanAction(p, retry) {
   if (!p) return;
   if (state === 'serve') { if (server === p) startToss(p); return; }
   if (state !== 'play') return;
   const T = p.team;
   if (!p.ground) {
     const [hx, hh] = handPoint(p, 'spike'), hd = Math.hypot(ball.x - hx, ball.h - hh), live = ownLoose(T, ball.x) && T.touches < 3 && p !== lastToucher;
-    if (live && spikeReach(p, 17)) {
+    const rem = remoteTeam(T);
+    if (live && spikeReach(p, rem ? 23 : 17)) {
+      p.hitBuf = 0;
       const boost = T.sync >= 3 && ball.h >= 52;   // шкала была полной до этого удара
       timeMark(p, hd < 6.5 ? 'ИДЕАЛЬНО!' : 'Хорошо'); if (ball.h >= 52) spike(p, true, boost); else tip(p);
     }
-    else { p.swing = SW; p.swingType = 'spike'; if (live && T.touches === 2 && hd < 45) timeMark(p, ball.h > hh ? 'Рано' : 'Поздно'); }
+    else if (rem && !retry) p.hitBuf = clock + lagWin();   // у гостя нажатие приходит позже: держим «намерение ударить» и бьём, как только мяч в досягаемости
+    else if (!retry) { p.swing = SW; p.swingType = 'spike'; if (live && T.touches === 2 && hd < 45) timeMark(p, ball.h > hh ? 'Рано' : 'Поздно'); }
     return;
   }
   p.forceJump = true;
+  if (remoteTeam(T)) p.hitBuf = clock + .9 + lagWin();   // гость: «УДАР» с земли = прыжок и удар в лучший момент
 }
 function humanTip(p, dir) {   // скидка по кнопке ПРИЁМ в прыжке: dir +1 — к сетке (за блок), −1 — от сетки (в угол)
   const T = p.team, [hx, hh] = handPoint(p, 'spike'), hd = Math.hypot(ball.x - hx, ball.h - hh), live = ownLoose(T, ball.x) && T.touches < 3 && p !== lastToucher;
@@ -1663,7 +1690,15 @@ function update(dt) {
         else if (!a.slide && !a.rise) { a.recvWin = .42; a.actAt = clock; sfx.jump(); }
       } else if (state === 'play' && a && !a.ground) humanTip(a, T.hdir * -T.side);   // ПРИЁМ в прыжке — скидка (стрелка к сетке / от сетки)
     }
+    if (inp.slideQ) {   // СКОЛЬЖЕНИЕ: приём в падении — в сторону джойстика, без джойстика — к мячу
+      inp.slideQ = false;
+      if (state === 'play' && a && a.ground && !a.slide && !a.rise) startSlide(a, T.hdir || (Math.sign(ball.x - a.x) || 1));
+    }
     if (hj && a && a.ground && state === 'play') a.forceJump = true;
+    if (remoteTeam(T) && state === 'play') for (const p of T.players) {   // отложенный удар гостя
+      if (p.hitBuf && clock < p.hitBuf) { if (!p.ground) humanAction(p, true); }
+      else p.hitBuf = 0;
+    }
   }
   if (state === 'serve' && !(server.toss > 0)) {
     if (servingTeam.human) { if (serveT > 6) startToss(server); }
@@ -4202,7 +4237,7 @@ function netLeave() {   // выйти из комнаты/матча без шу
   if (wasGuest) toMenu();   // у гостя нет своей симуляции — без снимков играть нечем
 }
 function toSolo() {   // команда TR снова под управлением ИИ
-  input2.left = input2.right = input2.jump = input2.hit = input2.act = input2.jumpQ = input2.hitQ = input2.actQ = false;
+  input2.left = input2.right = input2.jump = input2.hit = input2.act = input2.jumpQ = input2.hitQ = input2.actQ = input2.slide = input2.slideQ = false;
   if (TR) { TR.human = false; TR.inp = null; TR.act = null; TR.D = DIFF[diff]; TR.name = 'ГОСТИ'; }
   active2 = null;
 }
@@ -4286,8 +4321,9 @@ function hostOnMsg(m) {
     if (m.jn > g.j) i.jumpQ = true;
     if (m.hn > g.h) i.hitQ = true;
     if (m.an > g.a) i.actQ = true;
+    if (Number.isFinite(m.sn) && m.sn > (g.s | 0)) i.slideQ = true;
   }
-  net.gn = { j: m.jn | 0, h: m.hn | 0, a: m.an | 0 };
+  net.gn = { j: m.jn | 0, h: m.hn | 0, a: m.an | 0, s: Number.isFinite(m.sn) ? m.sn | 0 : 0 };
 }
 const SWT = ['', 'receive', 'set', 'spike', 'tip', 'serve', 'dive', 'slide', 'rise'];   // 'slide'/'rise' (PROTO 4): в row[6] тогда p.slide / p.rise
 const idxOf = (T, p) => p ? T.players.indexOf(p) : -1;
@@ -4471,8 +4507,8 @@ function guestPush(m) {
 }
 function netGuestSend() {
   if (!net || net.role !== 'guest' || !net.connected) return;
-  const m = { t: 'in', ak: net.lastN || 0, l: +input.left, r: +input.right, j: +input.jump, h: +input.hit, a: +input.act, jn: presses.jump, hn: presses.hit, an: presses.act };
-  const sig = '' + m.l + m.r + m.j + m.h + m.a + '.' + m.jn + '.' + m.hn + '.' + m.an, now = performance.now();
+  const m = { t: 'in', ak: net.lastN || 0, l: +input.left, r: +input.right, j: +input.jump, h: +input.hit, a: +input.act, jn: presses.jump, hn: presses.hit, an: presses.act, sn: presses.slide };
+  const sig = '' + m.l + m.r + m.j + m.h + m.a + '.' + m.jn + '.' + m.hn + '.' + m.an + '.' + m.sn, now = performance.now();
   if (sig !== net.lastSig || now - net.lastSend > 100) { net.lastSig = sig; net.lastSend = now; net.tr.send(m); }
 }
 const BN_SWAP = { 'ТВОЯ ПОДАЧА': 'ПОДАЧА ДРУГА', 'ПОДАЧА ДРУГА': 'ТВОЯ ПОДАЧА' };
@@ -5618,10 +5654,10 @@ try { window.onFriendInvite = onFriendInvite; window.getProfile = getProfile; wi
 
 /* ================= input ================= */
 /* Ввод. presses — счётчики нажатий (гость шлёт их хосту: короткие тапы не теряются). */
-const presses = { jump: 0, hit: 0, act: 0 };
+const presses = { jump: 0, hit: 0, act: 0, slide: 0 };
 function mkPress(inp, cnt) {
   return (k, v) => {
-    if (v && !inp[k]) { if (k === 'jump') inp.jumpQ = true; if (k === 'hit') inp.hitQ = true; if (k === 'act') inp.actQ = true; if (cnt && k in cnt) cnt[k]++; }
+    if (v && !inp[k]) { if (k === 'jump') inp.jumpQ = true; if (k === 'hit') inp.hitQ = true; if (k === 'act') inp.actQ = true; if (k === 'slide') inp.slideQ = true; if (cnt && k in cnt) cnt[k]++; }
     inp[k] = v;
   };
 }
@@ -5637,6 +5673,20 @@ function bindButtons(attr, fn) {
   });
 }
 bindButtons('data-key', press);
+(() => {   // джойстик: тянешь кружок влево/вправо — игрок бежит
+  const joy = document.getElementById('joy'); if (!joy) return;
+  const knob = joy.querySelector('.joyknob'); let pid = null, cx = 0;
+  const setDir = dx => {
+    const lim = joy.clientWidth * .32, x = Math.max(-lim, Math.min(lim, dx)), dz = joy.clientWidth * .1;
+    knob.style.transform = 'translateX(' + x + 'px)';
+    press('left', x < -dz); press('right', x > dz);
+    joy.setAttribute('aria-valuenow', x < -dz ? '-1' : x > dz ? '1' : '0');
+  };
+  const end = () => { pid = null; joy.classList.remove('on'); knob.style.transform = ''; press('left', false); press('right', false); joy.setAttribute('aria-valuenow', '0'); };
+  joy.addEventListener('pointerdown', e => { e.preventDefault(); audio(); pid = e.pointerId; try { joy.setPointerCapture(pid); } catch (_) {} const r = joy.getBoundingClientRect(); cx = r.left + r.width / 2; joy.classList.add('on'); setDir(e.clientX - cx); });
+  joy.addEventListener('pointermove', e => { if (e.pointerId === pid) setDir(e.clientX - cx); });
+  ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(ev => joy.addEventListener(ev, e => { if (e.pointerId === pid) end(); }));
+})();
 bindButtons('data-key2', press2);
 const KEYMAP = { ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right', ArrowUp: 'jump', KeyW: 'jump', ArrowDown: 'act', KeyS: 'act', Space: 'hit', KeyJ: 'hit', KeyK: 'hit' };
 const KEYMAP_P1 = { KeyA: 'left', KeyD: 'right', KeyW: 'jump', KeyF: 'hit', KeyS: 'act' };   // local2, игрок 1 (слева)
@@ -5683,7 +5733,7 @@ function syncModeUi() {   // подписи и раскладка под тек�
   pauseBtn.setAttribute('aria-label', on ? 'Выйти из матча' : 'Пауза');
   hintEl.innerHTML = HINTS[mode] || HINT_SOLO;
 }
-function setActLabel(btns, serve) { btns.forEach(b => { b.textContent = serve ? 'СИЛОВАЯ' : 'ПРИЁМ'; b.classList.toggle('serve', serve); }); }
+function setActLabel(btns, serve) { btns.forEach(b => { const lb = b.querySelector('.lb'); (lb || b).textContent = serve ? 'СИЛОВАЯ' : 'ПРИЁМ'; b.classList.toggle('serve', serve); }); }
 
 const netLinkEl = $('netLink'); let netLinkAt = 0, netLinkTxt = '', netLinkCls = '';
 function updNetLink(now) {   // плашка связи в онлайне: пинг в углу, при обрыве — крупно по центру

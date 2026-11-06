@@ -502,7 +502,7 @@ function netLeave() {   // выйти из комнаты/матча без шу
   if (wasGuest) toMenu();   // у гостя нет своей симуляции — без снимков играть нечем
 }
 function toSolo() {   // команда TR снова под управлением ИИ
-  input2.left = input2.right = input2.jump = input2.hit = input2.act = input2.jumpQ = input2.hitQ = input2.actQ = false;
+  input2.left = input2.right = input2.jump = input2.hit = input2.act = input2.jumpQ = input2.hitQ = input2.actQ = input2.slide = input2.slideQ = false;
   if (TR) { TR.human = false; TR.inp = null; TR.act = null; TR.D = DIFF[diff]; TR.name = 'ГОСТИ'; }
   active2 = null;
 }
@@ -586,8 +586,9 @@ function hostOnMsg(m) {
     if (m.jn > g.j) i.jumpQ = true;
     if (m.hn > g.h) i.hitQ = true;
     if (m.an > g.a) i.actQ = true;
+    if (Number.isFinite(m.sn) && m.sn > (g.s | 0)) i.slideQ = true;
   }
-  net.gn = { j: m.jn | 0, h: m.hn | 0, a: m.an | 0 };
+  net.gn = { j: m.jn | 0, h: m.hn | 0, a: m.an | 0, s: Number.isFinite(m.sn) ? m.sn | 0 : 0 };
 }
 const SWT = ['', 'receive', 'set', 'spike', 'tip', 'serve', 'dive', 'slide', 'rise'];   // 'slide'/'rise' (PROTO 4): в row[6] тогда p.slide / p.rise
 const idxOf = (T, p) => p ? T.players.indexOf(p) : -1;
@@ -771,8 +772,8 @@ function guestPush(m) {
 }
 function netGuestSend() {
   if (!net || net.role !== 'guest' || !net.connected) return;
-  const m = { t: 'in', ak: net.lastN || 0, l: +input.left, r: +input.right, j: +input.jump, h: +input.hit, a: +input.act, jn: presses.jump, hn: presses.hit, an: presses.act };
-  const sig = '' + m.l + m.r + m.j + m.h + m.a + '.' + m.jn + '.' + m.hn + '.' + m.an, now = performance.now();
+  const m = { t: 'in', ak: net.lastN || 0, l: +input.left, r: +input.right, j: +input.jump, h: +input.hit, a: +input.act, jn: presses.jump, hn: presses.hit, an: presses.act, sn: presses.slide };
+  const sig = '' + m.l + m.r + m.j + m.h + m.a + '.' + m.jn + '.' + m.hn + '.' + m.an + '.' + m.sn, now = performance.now();
   if (sig !== net.lastSig || now - net.lastSend > 100) { net.lastSig = sig; net.lastSend = now; net.tr.send(m); }
 }
 const BN_SWAP = { 'ТВОЯ ПОДАЧА': 'ПОДАЧА ДРУГА', 'ПОДАЧА ДРУГА': 'ТВОЯ ПОДАЧА' };

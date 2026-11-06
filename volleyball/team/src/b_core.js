@@ -295,8 +295,8 @@ const scorePop = [0, 0];
    active — игрок, которым управляет основной ввод (TL; у гостя — свой, из TR); active2 — активный игрок второй человеческой команды
    (TR у solo-без-ИИ/local2/host; у гостя — активный игрок хоста из TL; в solo = null). */
 let mode = 'solo';
-const input = { left: false, right: false, jump: false, hit: false, act: false, jumpQ: false, hitQ: false, actQ: false };
-const input2 = { left: false, right: false, jump: false, hit: false, act: false, jumpQ: false, hitQ: false, actQ: false };
+const input = { left: false, right: false, jump: false, hit: false, act: false, slide: false, jumpQ: false, hitQ: false, actQ: false, slideQ: false };
+const input2 = { left: false, right: false, jump: false, hit: false, act: false, slide: false, jumpQ: false, hitQ: false, actQ: false, slideQ: false };
 const myTeam = () => mode === 'guest' ? TR : TL;
 let recvHints = 0, serveHints = 0, atkHints = 0;
 let tut = null, tim = null;   // tut — состояние обучения (c_ai.js: tutTick/tutFeed/tutEvt), tim — метка тайминга у игрока (timeMark, рисует f_ui.js)

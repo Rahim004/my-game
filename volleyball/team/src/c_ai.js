@@ -152,21 +152,27 @@ function tutTick(dt) {
   if (tut.done) { if ((tut.endT -= dt) <= 0) tut.exit = true; return; }
   if (tut.wait > 0 && (tut.wait -= dt) <= 0) tutFeed();
 }
-function humanAction(p) {
+const remoteTeam = T => mode === 'host' && T === TR;   // команда гостя онлайн: он видит игру с задержкой связи
+const lagWin = () => .14 + Math.min(.4, ((typeof net !== 'undefined' && net && net.rtt) || 0) / 2000);   // запас по времени на задержку
+function humanAction(p, retry) {
   if (!p) return;
   if (state === 'serve') { if (server === p) startToss(p); return; }
   if (state !== 'play') return;
   const T = p.team;
   if (!p.ground) {
     const [hx, hh] = handPoint(p, 'spike'), hd = Math.hypot(ball.x - hx, ball.h - hh), live = ownLoose(T, ball.x) && T.touches < 3 && p !== lastToucher;
-    if (live && spikeReach(p, 17)) {
+    const rem = remoteTeam(T);
+    if (live && spikeReach(p, rem ? 23 : 17)) {
+      p.hitBuf = 0;
       const boost = T.sync >= 3 && ball.h >= 52;   // шкала была полной до этого удара
       timeMark(p, hd < 6.5 ? 'ИДЕАЛЬНО!' : 'Хорошо'); if (ball.h >= 52) spike(p, true, boost); else tip(p);
     }
-    else { p.swing = SW; p.swingType = 'spike'; if (live && T.touches === 2 && hd < 45) timeMark(p, ball.h > hh ? 'Рано' : 'Поздно'); }
+    else if (rem && !retry) p.hitBuf = clock + lagWin();   // у гостя нажатие приходит позже: держим «намерение ударить» и бьём, как только мяч в досягаемости
+    else if (!retry) { p.swing = SW; p.swingType = 'spike'; if (live && T.touches === 2 && hd < 45) timeMark(p, ball.h > hh ? 'Рано' : 'Поздно'); }
     return;
   }
   p.forceJump = true;
+  if (remoteTeam(T)) p.hitBuf = clock + .9 + lagWin();   // гость: «УДАР» с земли = прыжок и удар в лучший момент
 }
 function humanTip(p, dir) {   // скидка по кнопке ПРИЁМ в прыжке: dir +1 — к сетке (за блок), −1 — от сетки (в угол)
   const T = p.team, [hx, hh] = handPoint(p, 'spike'), hd = Math.hypot(ball.x - hx, ball.h - hh), live = ownLoose(T, ball.x) && T.touches < 3 && p !== lastToucher;
@@ -196,7 +202,15 @@ function update(dt) {
         else if (!a.slide && !a.rise) { a.recvWin = .42; a.actAt = clock; sfx.jump(); }
       } else if (state === 'play' && a && !a.ground) humanTip(a, T.hdir * -T.side);   // ПРИЁМ в прыжке — скидка (стрелка к сетке / от сетки)
     }
+    if (inp.slideQ) {   // СКОЛЬЖЕНИЕ: приём в падении — в сторону джойстика, без джойстика — к мячу
+      inp.slideQ = false;
+      if (state === 'play' && a && a.ground && !a.slide && !a.rise) startSlide(a, T.hdir || (Math.sign(ball.x - a.x) || 1));
+    }
     if (hj && a && a.ground && state === 'play') a.forceJump = true;
+    if (remoteTeam(T) && state === 'play') for (const p of T.players) {   // отложенный удар гостя
+      if (p.hitBuf && clock < p.hitBuf) { if (!p.ground) humanAction(p, true); }
+      else p.hitBuf = 0;
+    }
   }
   if (state === 'serve' && !(server.toss > 0)) {
     if (servingTeam.human) { if (serveT > 6) startToss(server); }
