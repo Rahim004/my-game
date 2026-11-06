@@ -17,7 +17,7 @@ let fails = 0; const check = (ok, msg) => { console.log((ok ? 'PASS ' : 'FAIL ')
     const ctx = await b.newContext({ viewport: { width: 844, height: 390 } });
     const hp = await ctx.newPage(), gp = await ctx.newPage();
     for (const [n, p] of [['host', hp], ['guest', gp]]) p.on('pageerror', e => errs.push(n + ': ' + e.message));
-    await hp.goto(base + '/test.html'); await gp.goto(base + '/test.html'); await sleep(500);
+    await hp.goto(base + '/test.html?lang=ru'); await gp.goto(base + '/test.html?lang=ru'); await sleep(500);
     const code = await hp.evaluate(() => window.__vb.netHost('bc'));
     await gp.evaluate(c => window.__vb.netJoin(c, 'bc'), code);
     await sleep(800);

@@ -8,7 +8,7 @@ const path = require('path'), fs = require('fs');
   const b = await chromium.launch();
   const p = await b.newPage({ viewport: { width: W, height: H }, hasTouch: true, isMobile: W < 1000, deviceScaleFactor: 2 });
   const errs = []; p.on('pageerror', e => errs.push(e.message));
-  await p.goto('file://' + path.join(dir, 'test.html')); await p.waitForTimeout(600);
+  await p.goto('file://' + path.join(dir, 'test.html') + '?lang=ru'); await p.waitForTimeout(600);
   await p.screenshot({ path: path.join(dir, 'shots', 'menu.png') });
   await p.click('[data-target="7"]'); await p.click('#playBtn');
   await p.evaluate(() => {

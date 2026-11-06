@@ -99,7 +99,7 @@ const HERO = {   // свои герои команды (оригинальные
 let names = { 4: '', 10: '', 9: '' };
 try { const sv = JSON.parse(localStorage.getItem('vb-names') || 'null'); if (sv) { if (sv[7] && !sv[9]) sv[9] = sv[7]; delete sv[7]; Object.assign(names, sv); } } catch (e) {}
 if (boot.names) Object.assign(names, boot.names);
-const nameOf = n => OPP_NAMES[n] || String(names[n] || '').trim().toUpperCase() || (HERO[n] ? HERO[n].name : '');
+const nameOf = n => OPP_NAMES[n] ? L(OPP_NAMES[n]) : String(names[n] || '').trim().toUpperCase() || (HERO[n] ? L(HERO[n].name) : '');
 const labelOf = n => nameOf(n) ? `${nameOf(n)} · ${n}` : `№${n}`;
 window.claude?.hot?.snapshot?.(() => ({ diff, target: TARGET, names }));
 

@@ -31,7 +31,7 @@ const PROF = (me, nick, friends) => `window.__prof = { nick: ${JSON.stringify(ni
       const p = await ctx.newPage(); p.on('pageerror', e => errs.push(name + ': ' + e.message));
       await p.addInitScript(n => { window.__sn = n; window.__fsCalls = 0; window.__onFriendStats = m => { window.__fsCalls++; window.__fsLast = m; }; }, nick);
       await p.addInitScript(prof => { try { localStorage.setItem('vb-profile', JSON.stringify(prof)); } catch (e) {} }, { code: me, nick, hero: 10, color: '#f07a22', friends, st: { w: 7, m: 12, ow: 3 } });
-      await p.goto(`http://localhost:${port}/test.html`);
+      await p.goto(`http://localhost:${port}/test.html?lang=ru`);
       return p;
     };
     const A = await mk('A', 'AAAA22', 'Аня', [{ code: 'BBBB33', name: 'Боря' }]);

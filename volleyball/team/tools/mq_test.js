@@ -44,7 +44,7 @@ const STUB = `(() => {
     if (noCdn) await ctx.route(/unpkg\.com|cdn\.jsdelivr\.net|cdnjs\.cloudflare\.com/, rt => rt.abort());   // PeerJS недоступен: запасного пути нет
     return ctx;
   };
-  const open = async (ctx, name, query) => { const p = await ctx.newPage(); p.on('pageerror', e => errs.push(name + ': ' + e.message)); await p.goto(`http://localhost:${port}/test.html${query || ''}`); return p; };
+  const open = async (ctx, name, query) => { const p = await ctx.newPage(); p.on('pageerror', e => errs.push(name + ': ' + e.message)); await p.goto(`http://localhost:${port}/test.html?lang=ru${(query || "").replace(/^\?/, "&")}`); return p; };
   try {
     // ---------- A: хосту доступны shiftr и emqx, гостю только emqx ----------
     let ctx = await mkCtx();

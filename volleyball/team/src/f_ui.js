@@ -169,7 +169,7 @@ function drawStoryAv(who, emo) {   // крупный портрет в плаш�
   c.beginPath(); c.arc(W / 2, H / 2, R, 0, 6.2832); c.fillStyle = who === 'c' ? '#138f97' : kit.jersey; c.fill();
   c.lineWidth = 3 * dpr; c.strokeStyle = who === 'c' ? '#fff' : kit.trim === kit.jersey ? '#fff' : kit.trim; c.stroke();
   c.fillStyle = who === 'c' ? '#fff' : kit.num; c.font = '700 ' + Math.round(R * .95) + 'px Oswald, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
-  c.fillText(who === 'c' ? 'Т' : who === 'o' ? 'К' : who, W / 2, H / 2 + R * .06);
+  c.fillText(L(who === 'c' ? 'Т' : who === 'o' ? 'К' : who), W / 2, H / 2 + R * .06);
 }
 function storyLine() {
   const [who, text, emo] = sto.lines[sto.i], num = who === 'o' ? 8 : who;
@@ -261,7 +261,7 @@ function upAward(win, bonus = 0) {   // очки за матч против ко
 }
 function syncUps() {
   $('upPts').textContent = ups.pts ? '★ ' + ups.pts : ''; $('upPts2').textContent = ups.pts;
-  const L = $('upList'); L.textContent = '';
+  const UL = $('upList'); UL.textContent = '';
   for (const n of [10, 9, 4]) {
     const box = document.createElement('div'); box.className = 'up-hero';
     const h = document.createElement('h3'); h.textContent = nameOf(n); const sm = document.createElement('small'); sm.textContent = '№' + n + ' · ' + HERO[n].role; h.append(sm); box.append(h);
@@ -275,7 +275,7 @@ function syncUps() {
       btn.addEventListener('click', () => { if (ups.h[n][k] >= UP_MAX || ups.pts < cost) return; ups.pts -= cost; ups.h[n][k]++; upSave(); sfx.sync(); syncUps(); });
       row.append(b, btn, pips); box.append(row);
     }
-    L.append(box);
+    UL.append(box);
   }
 }
 syncUps();
@@ -379,11 +379,11 @@ function startTutorial() {
 $('tutBtn').addEventListener('click', startTutorial);
 const TOUCH_UI = (() => { try { return matchMedia('(pointer: coarse)').matches; } catch (e) { return false; } })();
 function tutText() {
-  const act = TOUCH_UI ? 'ПРИЁМ' : '↓', hit = TOUCH_UI ? 'УДАР' : 'Пробел';
-  return [['1 / 3 · ПРИЁМ', 'Мяч снижается — жми ' + act + '. ' + act + ' + стрелка — скольжение.'],
-    ['2 / 3 · ПАС', 'Отлично! Арис делает пас — следи за мячом.'],
-    ['3 / 3 · УДАР', 'Жми ' + (TOUCH_UI ? 'УДАР' : 'Пробел') + ' — прыжок. Мяч у руки — ' + hit + '! ' + act + ' в прыжке — скидка.'],
-    ['ГОТОВО!', 'Ты умеешь принимать, пасовать и бить. Возвращаемся в меню.']][tut.step];
+  const act = TOUCH_UI ? L('ПРИЁМ') : '↓', hit = TOUCH_UI ? L('УДАР') : L('Пробел');
+  return [[L('1 / 3 · ПРИЁМ'), Lf('Мяч снижается — жми {0}. {0} + стрелка — скольжение.', act)],
+    [L('2 / 3 · ПАС'), L('Отлично! Арис делает пас — следи за мячом.')],
+    [L('3 / 3 · УДАР'), Lf('Жми {0} — прыжок. Мяч у руки — {1}! {2} в прыжке — скидка.', hit, hit, act)],
+    [L('ГОТОВО!'), L('Ты умеешь принимать, пасовать и бить. Возвращаемся в меню.')]][tut.step];
 }
 function drawTutorial(c) {
   const u = clamp(cssW / 820, .7, 1.25), t = tutText(), w = Math.min(cssW * .8, 430 * u), h = 40 * u, x = (cssW - w) / 2, y = 58 * u;
@@ -391,7 +391,7 @@ function drawTutorial(c) {
   c.fillStyle = tut.done ? TONE.gold : TONE.teal; c.fillRect(x + 8 * u, y + h - 2.4 * u, (w - 16 * u) * Math.min(1, tut.step / 3), 2.4 * u);
   c.textAlign = 'center'; c.textBaseline = 'middle';
   c.font = `700 ${11.5 * u}px Oswald, "Arial Narrow", sans-serif`; c.fillStyle = TONE.gold; c.fillText(t[0], cssW / 2, y + 10 * u);
-  c.font = `500 ${11 * u}px Rubik, Arial, sans-serif`; c.fillStyle = tut.msg ? '#ffb27a' : '#ffffff'; c.fillText(tut.msg || t[1], cssW / 2, y + 26 * u, w - 20 * u);
+  c.font = `500 ${11 * u}px Rubik, Arial, sans-serif`; c.fillStyle = tut.msg ? '#ffb27a' : '#ffffff'; c.fillText(tut.msg ? L(tut.msg) : t[1], cssW / 2, y + 26 * u, w - 20 * u);
 }
 function syncHud(c) {   // шкала «СИНХРОН» своей команды под табло (у local2 — обеих): 3 деления, полная — золотая и мигает
   if (!TL || tut || !(state === 'serve' || state === 'play' || state === 'point')) return;
@@ -400,7 +400,7 @@ function syncHud(c) {   // шкала «СИНХРОН» своей команд
   for (const T of list) {
     const n = clamp(T.sync | 0, 0, 3), full = n >= 3, left = T === TL, w = 92 * u, x = left ? cssW / 2 - 24 * u - w : cssW / 2 + 24 * u;
     c.fillStyle = 'rgba(13,15,20,.78)'; skew(c, x, y, w, 15 * u, 5 * u); c.fill();
-    c.textAlign = 'left'; c.fillStyle = full ? TONE.gold : '#d9dde3'; c.fillText('СИНХРОН', x + 8 * u, y + 7.8 * u);
+    c.textAlign = 'left'; c.fillStyle = full ? TONE.gold : '#d9dde3'; c.fillText(L('СИНХРОН'), x + 8 * u, y + 7.8 * u);
     const blink = full && (clock * 4 % 1) < .5;
     for (let i = 0; i < 3; i++) {
       c.fillStyle = i < n ? (blink ? '#ffffff' : TONE.gold) : 'rgba(255,255,255,.18)';
@@ -428,8 +428,8 @@ function timingFx(c) {   // кольцо тайминга у мяча + метк
     const px = (PX(p.x, p.lane) - cam.x) * sc + cssW / 2, py = (p.lane - (p.h + 56 * p.look.tall) * sl - cam.top) * sc - k * 18 * u;
     c.save(); c.globalAlpha = Math.max(0, a); c.textAlign = 'center'; c.textBaseline = 'middle'; c.lineJoin = 'round';
     c.font = `700 ${(tim.gold ? 20 : 14) * u}px Oswald, "Arial Narrow", sans-serif`;
-    c.lineWidth = 3.2 * u; c.strokeStyle = 'rgba(13,15,20,.85)'; c.strokeText(tim.text, px, py);
-    c.fillStyle = tim.gold ? '#f2c230' : tim.text === 'Хорошо' ? '#ffffff' : '#5fd3da'; c.fillText(tim.text, px, py);
+    c.lineWidth = 3.2 * u; c.strokeStyle = 'rgba(13,15,20,.85)'; c.strokeText(L(tim.text), px, py);
+    c.fillStyle = tim.gold ? '#f2c230' : tim.text === 'Хорошо' ? '#ffffff' : '#5fd3da'; c.fillText(L(tim.text), px, py);
     c.restore();
   }
 }
@@ -525,7 +525,7 @@ const P = (() => {
   const code = typeof v.code === 'string' && v.code.length === 6 && normFC(v.code) === v.code ? v.code : newFC();
   const n = x => Math.max(0, Math.floor(+x || 0));
   const o = {
-    code, nick: cleanNick(v.nick) || 'Игрок-' + code.slice(0, 4),
+    code, nick: cleanNick(v.nick) || L('Игрок') + '-' + code.slice(0, 4),
     hero: AV_HEROES.some(h => h[0] === v.hero) ? v.hero : 10, color: AV_COLORS.includes(v.color) ? v.color : AV_COLORS[0],
     friends: (Array.isArray(v.friends) ? v.friends : []).filter(f => f && normFC(f.code) === f.code && f.code.length === 6).slice(0, 40).map(f => ({ code: f.code, name: cleanNick(f.name) || 'Друг' })),
     st: { m: n(st.m), w: n(st.w), om: n(st.om), ow: n(st.ow) } };
@@ -574,8 +574,8 @@ function renderRating() {
     const d = document.createElement('div'); d.className = 'rr' + (r.me ? ' me' : '');
     const n = document.createElement('span'); n.className = 'rn'; n.textContent = i + 1;
     const inf = document.createElement('div'); inf.className = 'ri';
-    const b = document.createElement('b'); b.textContent = r.nick + (r.me ? ' (ты)' : '');
-    const sm = document.createElement('small'); sm.textContent = RAT_COLS.filter(c => c[0] !== ratKey).map(c => r[c[0]] + ' ' + c[1]).join(' · ');
+    const b = document.createElement('b'); b.textContent = r.nick + (r.me ? ' ' + L('(ты)') : '');
+    const sm = document.createElement('small'); sm.textContent = RAT_COLS.filter(c => c[0] !== ratKey).map(c => r[c[0]] + ' ' + L(c[1])).join(' · ');
     inf.append(b, sm);
     const v = document.createElement('span'); v.className = 'rv'; v.textContent = r[ratKey];
     d.append(n, inf, v); el.appendChild(d);
@@ -681,20 +681,20 @@ function makeCard() {
   c.fillStyle = orange; c.fillRect(0, 0, W, 14); c.fillRect(0, H - 14, W, 14);
   c.textAlign = 'center'; c.textBaseline = 'alphabetic';
   c.fillStyle = gold; shFit(c, '№4 × №10', W / 2, 150, 900, 120, '700 #px ' + D);
-  c.fillStyle = muted; c.font = '500 36px ' + D; if ('letterSpacing' in c) c.letterSpacing = '8px'; c.fillText('ВОЛЕЙБОЛ 3 НА 3', W / 2, 205); if ('letterSpacing' in c) c.letterSpacing = '0px';
-  c.fillStyle = I.win ? gold : ink; shFit(c, I.title, W / 2, 360, 940, 130, '700 #px ' + D);
+  c.fillStyle = muted; c.font = '500 36px ' + D; if ('letterSpacing' in c) c.letterSpacing = '8px'; c.fillText(L('ВОЛЕЙБОЛ 3 НА 3'), W / 2, 205); if ('letterSpacing' in c) c.letterSpacing = '0px';
+  c.fillStyle = I.win ? gold : ink; shFit(c, L(I.title), W / 2, 360, 940, 130, '700 #px ' + D);
   c.fillStyle = ink; shFit(c, I.score, W / 2, 595, 900, 220, '700 #px ' + D);
-  c.fillStyle = teal; shFit(c, I.line, W / 2, 648, 940, 40, '500 #px ' + B);
+  c.fillStyle = teal; shFit(c, L(I.line), W / 2, 648, 940, 40, '500 #px ' + B);
   let port = false;
   if (typeof drawPortrait === 'function') {
     try { c.save(); c.beginPath(); c.arc(W / 2, 860, 190, 0, 6.2832); c.fillStyle = 'rgba(255,255,255,.07)'; c.fill(); c.lineWidth = 6; c.strokeStyle = gold; c.stroke(); c.clip(); drawPortrait(c, I.mvp, I.win ? 'joy' : 'calm', W / 2, 870, 440); c.restore(); port = true; } catch (e) { c.restore(); }
   }
   c.fillStyle = gold; c.font = '700 40px ' + D; c.fillText('MVP' + (port ? '' : ' №' + I.mvp), W / 2, 1100);
-  c.fillStyle = ink; shFit(c, (HERO[I.mvp] ? HERO[I.mvp].full : nameOf(I.mvp)), W / 2, 1144, 900, 44, '500 #px ' + B);
+  c.fillStyle = ink; shFit(c, (HERO[I.mvp] ? L(HERO[I.mvp].full) : nameOf(I.mvp)), W / 2, 1144, 900, 44, '500 #px ' + B);
   roundRect(c, 60, 1186, 960, 134, 28); c.fillStyle = orange; c.fill();
-  c.fillStyle = '#16120a'; c.font = '700 54px ' + D; c.fillText('СЫГРАЙ СО МНОЙ', W / 2, 1238);
+  c.fillStyle = '#16120a'; c.font = '700 54px ' + D; c.fillText(LANG === 'en' ? 'PLAY ME' : 'СЫГРАЙ СО МНОЙ', W / 2, 1238);
   shFit(c, shareLink().replace('https://', ''), W / 2, 1277, 900, 34, '500 #px ' + B);
-  c.fillStyle = '#16120a'; c.font = '500 26px ' + B; c.fillText('Код друга: ' + P.code, W / 2, 1306);
+  c.fillStyle = '#16120a'; c.font = '500 26px ' + B; c.fillText(L('Код друга: ' + P.code), W / 2, 1306);
   return new Promise(res => { try { cv2.toBlob(b => res(b), 'image/png'); } catch (e) { res(null); } });
 }
 function dlBlob(b, name) { const u = URL.createObjectURL(b), a = document.createElement('a'); a.href = u; a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(u), 8000); }
@@ -712,7 +712,7 @@ $('shareBtn').addEventListener('click', async () => {
   if (shareBusy) return; shareBusy = true; const b = $('shareBtn');
   try {
     const blob = await makeCard(); if (!blob) { flashBtn(b, 'НЕ ВЫШЛО'); return; }
-    const I = shareInfo(), r = await shareFile(blob, 'volleyball-4x10.png', 'image/png', (I.win ? 'Я выиграл ' : 'Я сыграл ') + I.score + ' в «№4 × №10». Сыграй со мной!');
+    const I = shareInfo(), r = await shareFile(blob, 'volleyball-4x10.png', 'image/png', L((I.win ? 'Я выиграл ' : 'Я сыграл ') + I.score + ' в «№4 × №10». Сыграй со мной!'));
     if (r === 'saved') flashBtn(b, 'КАРТИНКА СОХРАНЕНА, ССЫЛКА СКОПИРОВАНА');
   } catch (e) { flashBtn(b, 'НЕ ВЫШЛО'); } finally { shareBusy = false; }
 });
@@ -756,7 +756,7 @@ for (const id of ['clipBtn', 'clipBtn2']) $(id).addEventListener('click', async 
   const b = $(id); if (shareBusy) return; shareBusy = true;
   try {
     const k = await clipGet(); if (!k || !k.b.size) { flashBtn(b, 'КЛИПА НЕТ'); return; }
-    const ext = /mp4/.test(k.b.type) ? 'mp4' : 'webm', r = await shareFile(k.b, 'volleyball-moment.' + ext, k.b.type.split(';')[0], 'Мой лучший момент в «№4 × №10»!');
+    const ext = /mp4/.test(k.b.type) ? 'mp4' : 'webm', r = await shareFile(k.b, 'volleyball-moment.' + ext, k.b.type.split(';')[0], L('Мой лучший момент в «№4 × №10»!'));
     if (r === 'saved') flashBtn(b, 'ВИДЕО СОХРАНЕНО');
   } catch (e) { flashBtn(b, 'НЕ ВЫШЛО'); } finally { shareBusy = false; }
 });
@@ -789,7 +789,7 @@ $('nickIn').addEventListener('blur', () => { $('nickIn').value = P.nick; });
 $('codeCopy').addEventListener('click', async () => flashBtn($('codeCopy'), (await copyText(P.code)) ? 'СКОПИРОВАНО' : 'НЕ ВЫШЛО'));
 $('shareBtn').addEventListener('click', async () => {
   const link = gameLink(), b = $('shareBtn');
-  try { if (navigator.share) { await navigator.share({ title: '№4 × №10', text: P.nick + ' зовёт тебя играть в волейбол. Мой код друга: ' + P.code, url: link }); return; } } catch (e) { if (e && e.name === 'AbortError') return; }
+  try { if (navigator.share) { await navigator.share({ title: '№4 × №10', text: L(P.nick + ' зовёт тебя играть в волейбол. Мой код друга: ' + P.code), url: link }); return; } } catch (e) { if (e && e.name === 'AbortError') return; }
   flashBtn(b, (await copyText(link)) ? 'ССЫЛКА СКОПИРОВАНА' : 'НЕ ВЫШЛО');
 });
 $('fCode').addEventListener('input', () => { const v = normFC($('fCode').value); if ($('fCode').value !== v) $('fCode').value = v; });
@@ -883,10 +883,10 @@ const netLinkEl = $('netLink'); let netLinkAt = 0, netLinkTxt = '', netLinkCls =
 function updNetLink(now) {   // плашка связи в онлайне: пинг в углу, при обрыве — крупно по центру
   if (now - netLinkAt < 250) return; netLinkAt = now;
   let txt = '', cls = 'netlink';
-  const L = state === 'menu' ? null : netLink();
-  if (L) {
-    if (L.warn) { txt = L.warn; cls += ' warn'; }
-    else if (L.ms > 0) { txt = '● ' + Math.round(L.ms) + ' мс'; cls += L.ms > 600 ? ' slow' : L.ms > 300 ? ' mid' : ''; }
+  const NL = state === 'menu' ? null : netLink();
+  if (NL) {
+    if (NL.warn) { txt = NL.warn; cls += ' warn'; }
+    else if (NL.ms > 0) { txt = '● ' + Math.round(NL.ms) + ' мс'; cls += NL.ms > 600 ? ' slow' : NL.ms > 300 ? ' mid' : ''; }
   }
   if (txt !== netLinkTxt) { netLinkTxt = txt; netLinkEl.textContent = txt; netLinkEl.hidden = !txt; }
   if (cls !== netLinkCls) { netLinkCls = cls; netLinkEl.className = cls; }

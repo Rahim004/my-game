@@ -39,7 +39,7 @@ function drawFan(c, pp, cheer, signs) {
     c.moveTo(x + 1.9, by - 5.4); c.lineTo(x + hx, by - hy); c.stroke();
     if (sign) {
       const arr = team === 1 ? SIGN_L : SIGN_R;
-      signs.push({ x, y: by - 10.6, text: arr[(rr() * arr.length) | 0], bg: rr() < .55 ? '#f7f4ea' : tcol, ink: 0, tcol, rot: (rr() - .5) * .3 });
+      signs.push({ x, y: by - 10.6, text: L(arr[(rr() * arr.length) | 0]), bg: rr() < .55 ? '#f7f4ea' : tcol, ink: 0, tcol, rot: (rr() - .5) * .3 });
     } else if (cheer && team && r6 < .5) {
       c.strokeStyle = tcol; c.lineWidth = 1.25; c.beginPath(); c.moveTo(x - hx, by - hy); c.lineTo(x + hx, by - hy - .4); c.stroke();
       c.strokeStyle = '#f7f7f2'; c.lineWidth = 1.25; c.setLineDash([.9, 1.1]); c.beginPath(); c.moveTo(x - hx, by - hy); c.lineTo(x + hx, by - hy - .4); c.stroke(); c.setLineDash([]);
@@ -66,6 +66,17 @@ function drawSteward(c, x, y, k) {
   if (k) { c.fillStyle = '#9aa0a8'; c.fillRect(x - 2.2, y - 7.4, 4.4, .6); }
   c.fillStyle = '#ddae86'; c.beginPath(); c.arc(x, y - 12.4, 1.9, 0, 6.283); c.fill();
   c.fillStyle = '#1a1411'; c.beginPath(); c.arc(x, y - 12.8, 1.98, Math.PI * 1.02, Math.PI * 1.98); c.fill();
+}
+function adPanels(c) {   // рекламные щиты по низу зала (текст — на языке интерфейса); в режиме картинки EN рисуются поверх запечённых русских
+  const PAN = [['#1b1a20', '№4 × №10', '#f2a24a'], ['#16294d', 'ВОЛЕЙБОЛ 3 НА 3', '#f2c230'], ['#1b1a20', 'ГОСТИ', '#5fd0d6'], ['#16294d', 'ВОЛЕЙБОЛ 3 НА 3', '#ffffff']];
+  c.textAlign = 'center'; c.textBaseline = 'middle';
+  for (let i = 0, x = BGX0 + 6; x < BGX1 - 20; i++, x += 66) {
+    const pn = PAN[i % 4].map(v => typeof v === 'string' && !v.startsWith('#') ? L(v) : v);
+    c.fillStyle = 'rgba(0,0,0,.3)'; c.fillRect(x + .6, 187.9, 58, 9.4);
+    c.fillStyle = pn[0]; c.fillRect(x, 187.2, 58, 9.4);
+    c.fillStyle = 'rgba(255,255,255,.14)'; c.fillRect(x, 187.2, 58, 1.1);
+    c.fillStyle = pn[2]; fitText(c, pn[1], x + 29, 192.2, 50, 6.4);
+  }
 }
 function drawStands(c, cheer) {
   const rnd = mulberry(7), W = BGX1 - BGX0, signs = [];
@@ -131,15 +142,7 @@ function drawStands(c, cheer) {
   c.fillStyle = g; c.fillRect(BGX0, 184, W, 16);
   c.fillStyle = '#6e4326'; for (let y = 185.6; y < 200; y += 2.1) c.fillRect(BGX0, y, W, .45);
   c.fillStyle = '#a8724b'; c.fillRect(BGX0, 184, W, .6);
-  const PAN = [['#1b1a20', '№4 × №10', '#f2a24a'], ['#16294d', 'ВОЛЕЙБОЛ 3 НА 3', '#f2c230'], ['#1b1a20', 'ГОСТИ', '#5fd0d6'], ['#16294d', 'ВОЛЕЙБОЛ 3 НА 3', '#ffffff']];
-  c.textAlign = 'center'; c.textBaseline = 'middle';
-  for (let i = 0, x = BGX0 + 6; x < BGX1 - 20; i++, x += 66) {
-    const pn = PAN[i % 4];
-    c.fillStyle = 'rgba(0,0,0,.3)'; c.fillRect(x + .6, 187.9, 58, 9.4);
-    c.fillStyle = pn[0]; c.fillRect(x, 187.2, 58, 9.4);
-    c.fillStyle = 'rgba(255,255,255,.14)'; c.fillRect(x, 187.2, 58, 1.1);
-    c.fillStyle = pn[2]; fitText(c, pn[1], x + 29, 192.2, 50, 6.4);
-  }
+  adPanels(c);
   c.fillStyle = '#4d2f1a'; c.fillRect(BGX0, 198.8, W, 1.2);
   g = c.createLinearGradient(0, BGY0, 0, 168); g.addColorStop(0, 'rgba(8,6,8,.6)'); g.addColorStop(.55, 'rgba(8,6,8,.14)'); g.addColorStop(1, 'rgba(8,6,8,0)');
   c.fillStyle = g; c.fillRect(BGX0, BGY0, W, 210);
@@ -272,7 +275,7 @@ function paintBeachFloor(c) {
     c.fillStyle = 'rgba(255,248,225,.22)'; c.font = `700 15px ${FONT}`; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(txt, .5, 1.6);
     c.fillStyle = 'rgba(110,70,30,.2)'; c.fillText(txt, 0, 1); c.restore();
   }
-  c.save(); c.translate(240, 276); c.scale(1, .3); c.fillStyle = 'rgba(110,70,30,.17)'; c.font = `700 18px ${FONT}`; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('ВОЛЕЙБОЛ 3 НА 3', 0, 0); c.restore();
+  c.save(); c.translate(240, 276); c.scale(1, .3); c.fillStyle = 'rgba(110,70,30,.17)'; c.font = `700 18px ${FONT}`; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(L('ВОЛЕЙБОЛ 3 НА 3'), 0, 0); c.restore();
 }
 function drawBeachPost(c, y, near) {
   const s = sOf(y), x = netX(y), top = y - 62 * s, dir = near ? 1 : -1;
@@ -387,6 +390,7 @@ function buildBg(res) {
     c.scale(res, res); c.translate(-BGX0, -BGY0);   // глубина: верхние ряды темнее, игроки читаются на фоне трибун (как в код-версии)
     const g = c.createLinearGradient(0, BGY0, 0, 166); g.addColorStop(0, 'rgba(8,6,8,.5)'); g.addColorStop(.6, 'rgba(8,6,8,.16)'); g.addColorStop(1, 'rgba(8,6,8,0)');
     c.fillStyle = g; c.fillRect(BGX0, BGY0, BGX1 - BGX0, 206);
+    if (LANG === 'en') adPanels(c);   // в картинке щиты с русским текстом: перекрываем английскими
     return { calm: cv2, cheer: cv2, res };
   }
   const make = cheer => {
@@ -409,10 +413,10 @@ function drawLed(c) {
   c.font = '600 7px Oswald, "Arial Narrow", sans-serif'; c.textBaseline = 'middle';
   if (led) {
     c.fillStyle = led.t % .5 < .25 && led.t < 1 ? '#ffffff' : '#ffd36a'; c.textAlign = 'center';
-    for (const x of [60, 200, 340, 470]) c.fillText(led.text + ' КМ/Ч', x, 178.3);
+    for (const x of [60, 200, 340, 470]) c.fillText(L(led.text + ' КМ/Ч'), x, 178.3);
   } else {
     c.fillStyle = 'rgba(190,225,255,.85)'; c.textAlign = 'left';
-    const msg = '№4 × №10   •   ВОЛЕЙБОЛ 3 НА 3   •   ', w = ledW || (ledW = c.measureText(msg).width || 120), off = -((clock * 16) % w);
+    const msg = '№4 × №10   •   ' + L('ВОЛЕЙБОЛ 3 НА 3') + '   •   ', w = ledW || (ledW = c.measureText(msg).width || 120), off = -((clock * 16) % w);
     for (let x = BGX0 + off; x < BGX1; x += w) c.fillText(msg, x, 178.3);
   }
   c.restore();
@@ -434,8 +438,8 @@ function scrSprite(key, x, y, w, h, col, label, big) {
 function drawScreens(c, bounce) {
   const sc = cam.scale, bgx = 240 + (cam.x - 240) * .62, u = clamp(cssW / 820, .7, 1.25);
   const hx0 = cssW / 2 - 162 * u, hx1 = cssW / 2 + 162 * u, hy1 = 60 * u;   // зона главного табло HUD в css-пикселях
-  const lab = TL ? [hudName(TL), hudName(TR)] : ['№4 · №10', 'ГОСТИ'];
-  const list = [[SCR[0], lab[0], TEAM_L, 0], [SCR[1], lab[1], TEAM_R, 0], [BIG, 'ВОЛЕЙБОЛ 3 НА 3', '#c9941c', 1]];
+  const lab = TL ? [hudName(TL), hudName(TR)] : ['№4 · №10', L('ГОСТИ')];
+  const list = [[SCR[0], lab[0], TEAM_L, 0], [SCR[1], lab[1], TEAM_R, 0], [BIG, L('ВОЛЕЙБОЛ 3 НА 3'), '#c9941c', 1]];
   c.strokeStyle = '#59606c'; c.lineWidth = .7;
   list.forEach(([s, label, col, big], i) => {
     const sx0 = cssW / 2 + (s.x - 3 - bgx) * sc, sx1 = cssW / 2 + (s.x + s.w + 3 - bgx) * sc, sy1 = (s.y + s.h + 3 + bounce - cam.top) * sc;
@@ -531,7 +535,7 @@ function paintFloor(c) {
     c.fillStyle = 'rgba(255,255,255,.12)'; c.font = `700 15px ${FONT}`; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(txt, 0, 1);
     c.restore();
   }
-  c.save(); c.translate(240, 276); c.scale(1, .3); c.fillStyle = 'rgba(255,255,255,.1)'; c.font = `700 18px ${FONT}`; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('ВОЛЕЙБОЛ 3 НА 3', 0, 0); c.restore();
+  c.save(); c.translate(240, 276); c.scale(1, .3); c.fillStyle = 'rgba(255,255,255,.1)'; c.font = `700 18px ${FONT}`; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(L('ВОЛЕЙБОЛ 3 НА 3'), 0, 0); c.restore();
 }
 function drawMarks(c) {
   for (const m of marks) { const a = 1 - m.t / 1.4; c.fillStyle = `rgba(20,45,25,${.25 * a})`; c.beginPath(); c.ellipse(PX(m.x, m.lane), m.lane, 3.6, 1.15, 0, 0, 6.283); c.fill(); }
@@ -649,7 +653,7 @@ function paintAdStand(c, x, y, kind) {
   c.strokeStyle = 'rgba(255,255,255,.5)'; c.lineWidth = .45; c.strokeRect(x - w / 2 + 1.3, top + 1.3, w - 2.6, h - 7);
   c.textAlign = 'center'; c.textBaseline = 'middle';
   if (kind) {
-    c.fillStyle = '#f2c230'; fitText(c, 'ВОЛЕЙБОЛ', x, top + 6.5, w - 4, 5); fitText(c, '3 НА 3', x, top + 13.4, w - 4, 7);
+    c.fillStyle = '#f2c230'; fitText(c, L('ВОЛЕЙБОЛ'), x, top + 6.5, w - 4, 5); fitText(c, L('3 НА 3'), x, top + 13.4, w - 4, 7);
     c.fillStyle = 'rgba(255,255,255,.88)'; c.beginPath(); c.arc(x, top + 19.6, 2.6, 0, 6.283); c.fill(); c.strokeStyle = '#16294d'; c.lineWidth = .45; c.beginPath(); c.arc(x, top + 19.6, 2.6, .4, 3.6); c.moveTo(x - 2.5, top + 19.6); c.lineTo(x + 2.5, top + 19.6); c.stroke();
   } else {
     c.fillStyle = '#ffffff'; fitText(c, '№4', x, top + 6.4, w - 4, 7.6); fitText(c, '×', x, top + 12.4, w - 4, 6); fitText(c, '№10', x, top + 18.6, w - 4, 7.6);
@@ -666,7 +670,7 @@ function drawProps(c) {
   const p = hype > .25 ? propsL.cheer : propsL.calm;
   c.drawImage(p, PRX0, PRY0, PRX1 - PRX0, PRY1 - PRY0);
 }
-let LAB = ['№4 · №10', 'ГОСТИ'];   // подписи команд на полу и скамейках — по режиму; слои пересобираются при смене
+let LAB = ['№4 · №10', L('ГОСТИ')];   // подписи команд на полу и скамейках — по режиму; слои пересобираются при смене
 const FLX0 = -80, FLX1 = 560, FLY0 = 196, FLY1 = 300, NLX0 = 226, NLX1 = 254, NLY0 = 126, NLY1 = 242;
 let floorL = null, netL = null, vigL = null, propsL = null, lightL = null, glowL = null, glintL = null, vigArena = '';
 const GLINTS = (() => { const rn = mulberry(77), a = []; for (let i = 0; i < 16; i++) a.push([30 + rn() * 420, 202 + rn() * 54, rn() * 6.28, 1.3 + rn() * 1.4, 3 + rn() * 3]); return a; })();
@@ -677,7 +681,7 @@ function layer(x0, x1, y0, y1, res, paint) {
 let labKey = '', layRes = 0;
 function ensureLayers() {
   const want = clamp(cam.scale * dpr, 1.4, 3.4);
-  const lk = TL ? hudName(TL) + '|' + hudName(TR) : '№4 · №10|ГОСТИ';
+  const lk = TL ? hudName(TL) + '|' + hudName(TR) : '№4 · №10|' + L('ГОСТИ');
   const full = !bgL || Math.abs(bgL.res - want) / want > .22;
   if (full || lk !== labKey) {   // подписи команд на полу и скамейках зависят от режима: пересобираем только пол и скамейки
     labKey = lk; LAB = lk.split('|');
@@ -754,12 +758,12 @@ function skew(c, x, y, w, h, s) { c.beginPath(); c.moveTo(x + s, y); c.lineTo(x 
 const TONE = { org: '#f07a22', gold: '#f2c230', teal: '#14a3ab' };
 /* Подпись команды на табло и в заставке — по режиму: solo «№4 · №10»/«ГОСТИ», local2 «ИГРОК 1/2», онлайн «ТЫ»/«ДРУГ» со стороны этого устройства. */
 function hudName(T) {
-  if (mode === 'local2') return T === TL ? 'ИГРОК 1' : 'ИГРОК 2';
-  if (mode === 'host' || mode === 'guest') return T === myTeam() ? 'ТЫ' : 'ДРУГ';
-  return T === TL ? '№4 · №10' : String(T.name || 'ГОСТИ').slice(0, 16);   // в турнире/колизее — название соперника
+  if (mode === 'local2') return L(T === TL ? 'ИГРОК 1' : 'ИГРОК 2');
+  if (mode === 'host' || mode === 'guest') return L(T === myTeam() ? 'ТЫ' : 'ДРУГ');
+  return T === TL ? '№4 · №10' : L(String(T.name || 'ГОСТИ')).slice(0, 16);   // в турнире/колизее — название соперника
 }
 function hudSide(T) {   // короткая метка в заставке: НАШИ/ГОСТИ, ИГРОК 1/2 или ТЫ/ДРУГ
-  return mode === 'solo' ? (T === TL ? 'НАШИ' : 'ГОСТИ') : hudName(T);
+  return mode === 'solo' ? L(T === TL ? 'НАШИ' : 'ГОСТИ') : hudName(T);
 }
 function drawScoreboard(c) {
   if (!TL) return;
@@ -786,7 +790,7 @@ function drawScoreboard(c) {
       c.fillStyle = '#f5cf2e'; c.beginPath(); c.arc(dx, sy + shh / 2, 3.6 * u, 0, 6.283); c.fill();
       c.strokeStyle = '#2356b8'; c.lineWidth = 1.2 * u; c.beginPath(); c.arc(dx, sy + shh / 2, 3.6 * u, .3, 1.9); c.stroke();
       c.font = `600 ${6.5 * u}px Oswald, "Arial Narrow", sans-serif`; c.textAlign = 'center'; c.fillStyle = 'rgba(255,255,255,.85)';
-      c.fillText('ПОДАЧА', sd < 0 ? bx + sw / 2 : bx + sw / 2, sy + shh + 7 * u);
+      c.fillText(L('ПОДАЧА'), sd < 0 ? bx + sw / 2 : bx + sw / 2, sy + shh + 7 * u);
     }
   });
   const hy = y + bh * .62, hh = 30 * u;
@@ -795,14 +799,14 @@ function drawScoreboard(c) {
   c.fillStyle = 'rgba(0,0,0,.18)'; c.fillRect(cx - hw / 2 + 9 * u, hy + hh / 2 - 3 * u, hw - 18 * u, 3 * u);
   c.fillStyle = '#16181d'; c.textAlign = 'center';
   c.font = `700 ${15 * u}px Oswald, "Arial Narrow", sans-serif`; c.fillText('VS', cx, hy + 3 * u);
-  c.font = `600 ${8 * u}px Oswald, "Arial Narrow", sans-serif`; c.fillStyle = 'rgba(22,24,29,.7)'; c.fillText('ДО ' + TARGET, cx, hy - 8.5 * u);
+  c.font = `600 ${8 * u}px Oswald, "Arial Narrow", sans-serif`; c.fillStyle = 'rgba(22,24,29,.7)'; c.fillText(L('ДО ' + TARGET), cx, hy - 8.5 * u);
   if (stats) {
     const a = Math.min(1, stats.t / .2, (3.2 - stats.t) / .4);
     c.globalAlpha = Math.max(0, a); c.font = `500 ${10.5 * u}px Oswald, "Arial Narrow", sans-serif`; c.textAlign = 'center';
-    const ty = cssH - 16 * u, tw = c.measureText(stats.text).width + 28 * u;
+    const ty = cssH - 16 * u, tw = c.measureText(L(stats.text)).width + 28 * u;
     c.fillStyle = 'rgba(13,15,20,.78)'; skew(c, cx - tw / 2, ty - 10 * u, tw, 20 * u, 6 * u); c.fill();
     c.fillStyle = TONE.org; c.fillRect(cx - tw / 2 + 2 * u, ty + 8 * u, tw * .3, 2 * u);
-    c.fillStyle = '#ffffff'; c.fillText(stats.text, cx, ty + .5);
+    c.fillStyle = '#ffffff'; c.fillText(L(stats.text), cx, ty + .5);
     c.globalAlpha = 1;
   }
 }
@@ -812,13 +816,13 @@ function drawBanners(c) {
     const inT = clamp(b.t / .18, 0, 1), outT = clamp((b.life - b.t) / .22, 0, 1);
     const fs = (b.small ? 13 : 26) * u;
     c.font = `700 ${fs}px Oswald, "Arial Narrow", sans-serif`;
-    const tw = c.measureText(b.text).width, w = tw + fs * 1.7, h = fs * 1.45;
+    const btx = L(b.text), tw = c.measureText(btx).width, w = tw + fs * 1.7, h = fs * 1.45;
     const x = cssW / 2 - w / 2 - (1 - easeOut(inT)) * 70 * u + (1 - outT) * 50 * u, y = (b.small ? 68 * u + cssH * .1 : cssH * .3) - h / 2;
     c.globalAlpha = Math.min(inT, outT);
     c.fillStyle = 'rgba(13,15,20,.88)'; skew(c, x, y, w, h, h * .35); c.fill();
     c.fillStyle = TONE[b.tone] || TONE.org; skew(c, x - h * .32, y, h * .5, h, h * .35); c.fill();
     c.save(); c.translate(x + w / 2 + h * .1, y + h / 2 + fs * .04); c.transform(1, 0, -.16, 1, 0, 0);
-    c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillStyle = b.tone === 'gold' ? '#f2c230' : '#ffffff'; c.fillText(b.text, 0, 0);
+    c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillStyle = b.tone === 'gold' ? '#f2c230' : '#ffffff'; c.fillText(btx, 0, 0);
     c.restore(); c.globalAlpha = 1;
   }
 }
@@ -856,7 +860,7 @@ function cutFx(c, k, cx, cy, H, col, t, u) {   // фон за портретом
 }
 function drawCutin(c) {
   if (!cutin) return;
-  const { p, team, act, t, life } = cutin, u = clamp(cssW / 820, .7, 1.3), cd = CUT[p.num] || { title: 'ОЧКО!', nick: '', role: '', col: '#2fd0d8', fx: 'burst' };
+  const { p, team, t, life } = cutin, act = L(cutin.act), u = clamp(cssW / 820, .7, 1.3), cd = CUT[p.num] || { title: 'ОЧКО!', nick: '', role: '', col: '#2fd0d8', fx: 'burst' };
   const ein = easeOut(clamp(t / .26, 0, 1)), eout = clamp((life - t) / .26, 0, 1), eo = easeOut(eout);
   const H = Math.min(cssH * .44, 150 * u), y = cssH * .53 - H / 2;
   const W = Math.min(cssW * .9, 640 * u), sk = H * .32;
@@ -906,19 +910,19 @@ function drawCutin(c) {
   c.fillStyle = '#f2c230'; c.font = `600 ${Math.min(15 * u, H * .11)}px ${CFONT}`; c.fillText(act, tx, y + H * .27);
   // титул удара: крупно справа, с «ударом» масштаба на входе
   const tpop = 1 + clamp(1 - (t - .12) / .2, 0, 1) * .7;
-  let ts = Math.min(H * .46, 54 * u); c.font = `700 italic ${ts}px ${CFONT}`; const tw0 = c.measureText(cd.title).width, tmax = room * .62;
+  let ts = Math.min(H * .46, 54 * u); c.font = `700 italic ${ts}px ${CFONT}`; const ctl = L(cd.title), tw0 = c.measureText(ctl).width, tmax = room * .62;
   if (tw0 > tmax) { ts *= tmax / tw0; c.font = `700 italic ${ts}px ${CFONT}`; }
-  const tw = c.measureText(cd.title).width;
+  const tw = c.measureText(ctl).width;
   c.save(); c.translate(tr - tw / 2, y + H * .68); c.rotate(-.05); c.scale(tpop, tpop); c.textAlign = 'center';
-  c.lineJoin = 'round'; c.lineWidth = ts * .14; c.strokeStyle = '#0b0d12'; c.strokeText(cd.title, 0, 0);
-  c.fillStyle = acc; c.fillText(cd.title, 0, 0); c.restore();
+  c.lineJoin = 'round'; c.lineWidth = ts * .14; c.strokeStyle = '#0b0d12'; c.strokeText(ctl, 0, 0);
+  c.fillStyle = acc; c.fillText(ctl, 0, 0); c.restore();
   // имя
   const nm = nameOf(p.num) || ('№' + p.num), nroom = Math.max(60 * u, room - tw - 14 * u);
   let fs = Math.min(46 * u, H * .36); c.font = `700 ${fs}px ${CFONT}`;
   const w0 = c.measureText(nm).width; if (w0 > nroom) { fs *= nroom / w0; c.font = `700 ${fs}px ${CFONT}`; }
   c.textAlign = 'left'; c.fillStyle = '#ffffff'; c.fillText(nm, tx, y + H * .66);
   c.fillStyle = 'rgba(255,255,255,.75)'; c.font = `500 ${Math.min(12.5 * u, H * .09)}px ${CFONT}`;
-  const sub = [cd.nick ? '«' + cd.nick + '»' : '', cd.role, '№' + p.num, hudSide(team)].filter(Boolean).join('  ·  ');
+  const sub = [cd.nick ? Q(L(cd.nick)) : '', L(cd.role), '№' + p.num, hudSide(team)].filter(Boolean).join('  ·  ');
   c.fillText(sub, tx, y + H * .88, room);
   c.restore();
 }
@@ -993,7 +997,7 @@ function render() {
       if (nm) { out.lineWidth = 1.1; out.strokeStyle = 'rgba(0,0,0,.6)'; out.strokeText(nm, cx, y); out.fillStyle = ours ? '#ffffff' : '#e3f6f7'; out.fillText(nm, cx, y); cx += nw + 1.2; }
       out.fillStyle = ours ? '#e8701c' : '#118a92'; rrect(out, cx, y - 2.1, bw, 4.2, 1.2); out.fill();
       out.fillStyle = '#ffffff'; out.fillText(ns, cx + 1.1, y + .1); cx += bw + .9;
-      if (lw) { out.fillStyle = '#f2c230'; rrect(out, cx, y - 2.1, lw, 4.2, 1.2); out.fill(); out.fillStyle = '#16181d'; out.fillText('Л', cx + 1, y + .1); }
+      if (lw) { out.fillStyle = '#f2c230'; rrect(out, cx, y - 2.1, lw, 4.2, 1.2); out.fill(); out.fillStyle = '#16181d'; out.fillText(L('Л'), cx + 1, y + .1); }
     }
     if (state === 'play' || state === 'serve') {   // маркер активного игрока: синий — этот игрок (или игрок 1), красно-оранжевый — второй человек
       for (const [p, col] of [[active, '#4da3ff'], [active2, '#ff5436']]) {

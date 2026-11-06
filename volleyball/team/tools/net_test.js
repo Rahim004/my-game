@@ -60,7 +60,7 @@ const LOGGER = `(() => { window.__log = []; let lastSv = 0; window.__serves = []
 async function pair(ctx, base, kind, errs, routeFn) {
   const hp = await ctx.newPage(), gp = await ctx.newPage();
   for (const [n, p] of [['host', hp], ['guest', gp]]) { p.on('pageerror', e => errs.push(n + ': ' + e.message)); p.on('console', m => { if (m.type() === 'error' && !/net::ERR/.test(m.text())) errs.push(n + ' console: ' + m.text()); }); if (routeFn) await routeFn(p); }
-  await hp.goto(base + '/test.html'); await gp.goto(base + '/test.html'); await sleep(500);
+  await hp.goto(base + '/test.html?lang=ru'); await gp.goto(base + '/test.html?lang=ru'); await sleep(500);
   await hp.evaluate(() => { window.__vb.target = 7; });
   const code = await hp.evaluate(k => window.__vb.netHost(k), kind);
   const joined = await gp.evaluate(([c, k]) => window.__vb.netJoin(c, k), [code, kind]);
@@ -158,7 +158,7 @@ async function pair(ctx, base, kind, errs, routeFn) {
     ctx = await b.newContext({ viewport: { width: 844, height: 390 } });
     const p5 = await ctx.newPage(); p5.on('pageerror', e => errs.push('p5: ' + e.message));
     await p5.route(/unpkg\.com|cdn\.jsdelivr\.net|cdnjs\.cloudflare\.com/, rt => rt.abort());   // все зеркала PeerJS недоступны
-    await p5.goto(base + '/test.html'); await sleep(400);
+    await p5.goto(base + '/test.html?lang=ru'); await sleep(400);
     const c5 = await p5.evaluate(async () => { const c = await window.__vb.netHost('peer'); const j = await window.__vb.netJoin('ABCDE', 'peer'); return { c, j, st: window.__vb.statuses }; });
     check(c5.c === null && c5.j === false && c5.st.some(t => t.includes('версии на GitHub')), 'без PeerJS: статусы ' + JSON.stringify(c5.st));
     await ctx.close();
@@ -201,7 +201,7 @@ async function pair(ctx, base, kind, errs, routeFn) {
     ctx = await b.newContext({ viewport: { width: 844, height: 390 } });
     const p7 = await ctx.newPage(); p7.on('pageerror', e => errs.push('p7: ' + e.message));
     await p7.route('**/peerjs.min.js', rt => setTimeout(() => rt.fulfill({ contentType: 'application/javascript', body: MOCK_PEER }), 1200));
-    await p7.goto(base + '/test.html'); await sleep(400);
+    await p7.goto(base + '/test.html?lang=ru'); await sleep(400);
     await p7.evaluate(() => { window.__r = window.__vb.netHost('peer'); });
     await sleep(300);
     await p7.evaluate(() => window.__vb.netLeave());
@@ -220,7 +220,7 @@ async function pair(ctx, base, kind, errs, routeFn) {
     ctx = await b.newContext({ viewport: { width: 844, height: 390 } });
     const route8 = p => p.route('**/peerjs.min.js', rt => rt.fulfill({ contentType: 'application/javascript', body: MOCK_PEER }));
     const h8 = await ctx.newPage(), g8 = await ctx.newPage(), d8 = await ctx.newPage();
-    for (const [n, p] of [['h8', h8], ['g8', g8], ['d8', d8]]) { p.on('pageerror', e => errs.push(n + ': ' + e.message)); await route8(p); await p.goto(base + '/test.html'); }
+    for (const [n, p] of [['h8', h8], ['g8', g8], ['d8', d8]]) { p.on('pageerror', e => errs.push(n + ': ' + e.message)); await route8(p); await p.goto(base + '/test.html?lang=ru'); }
     await sleep(400);
     const code8 = await h8.evaluate(() => window.__vb.netHost('peer'));
     await d8.evaluate(async c => { await window.__vb.netJoin('ABCDE', 'peer').catch(() => 0); const P = new window.Peer(); await new Promise(r => P.on('open', r)); P.connect('vb4x10-' + c, { noopen: true }); }, code8);

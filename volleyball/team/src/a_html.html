@@ -373,9 +373,14 @@ body[data-tut="act"] .ctl.act, body[data-tut="hit"] .ctl.hit { animation: tutp .
 @media (orientation: landscape) and (max-height: 540px) { .dly .dcond { font-size: 20px; } .rlist { max-height: calc(100vh - 218px); } .rr { min-height: 40px; } .rsort button { min-height: 40px; } }
 .errbox { position: fixed; left: 12px; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); z-index: 20; padding: 10px 12px; border-radius: 10px; background: #3a1414; border: 1px solid #a33; color: #ffd9d9; font-size: 13px; line-height: 1.4; }
 /* прокачка и музыка */
-.row2 { display: grid; grid-template-columns: 1.1fr 1.2fr .8fr; gap: 8px; }
+.row2 { display: grid; grid-template-columns: 1.1fr 1.2fr .8fr 58px; gap: 8px; }
+.lang-btn { font-size: 13px !important; letter-spacing: .03em; white-space: nowrap; }
+.lang-btn i { font-style: normal; opacity: .4; margin: 0 2px; }
+.lang-btn span { opacity: .55; }
+.lang-btn span.on { opacity: 1; color: var(--gold); }
+html[lang="en"] .row2 .ghost { font-size: 12.5px; letter-spacing: 0; }
 .row2 .ghost { min-height: 44px; padding: 8px 4px; font-size: 14px; }
-@media (max-width: 400px) { .row2 { grid-template-columns: 1fr 1fr; } .row2 #musBtn { grid-column: 1 / -1; } }
+@media (max-width: 400px) { .row2 { grid-template-columns: 1fr 1fr; } .row2 #musBtn { grid-column: 1 / 2; } .row2 #langBtn { grid-column: 2 / 3; } }
 .up-open span { color: var(--orange); }
 .upsh { max-width: 760px; }
 .up-note { margin: 4px 0 10px; font-size: 13px; }
@@ -428,7 +433,7 @@ body[data-tut="act"] .ctl.act, body[data-tut="hit"] .ctl.hit { animation: tutp .
       <button class="ctl p2" data-key2="right" aria-label="Игрок 2: вправо"><svg viewBox="0 0 24 24"><path d="m8 4 10 8-10 8z"/></svg></button>
     </div>
   </div>
-  <p class="hint" id="hint"><kbd>←</kbd> <kbd>→</kbd> бег · <kbd>↑</kbd> прыжок · <kbd>Пробел</kbd> удар · <kbd>↓</kbd> приём / силовая подача · <kbd>P</kbd> пауза</p>
+  <p class="hint" id="hint" data-h><kbd>←</kbd> <kbd>→</kbd> бег · <kbd>↑</kbd> прыжок · <kbd>Пробел</kbd> удар · <kbd>↓</kbd> приём / силовая подача · <kbd>P</kbd> пауза</p>
 
   <div class="overlay" id="menu">
     <div class="sheet menu">
@@ -458,10 +463,11 @@ body[data-tut="act"] .ctl.act, body[data-tut="hit"] .ctl.hit { animation: tutp .
           <button class="ghost up-open" id="upBtn" type="button">ПРОКАЧКА <span id="upPts"></span></button>
           <button class="ghost dly-open" id="dailyBtn" type="button">ВЫЗОВ ДНЯ <i class="dly-dot" id="dailyDot" hidden>●</i></button>
           <button class="ghost" id="musBtn" type="button"></button>
+          <button class="ghost lang-btn" id="langBtn" type="button" aria-label="Language"><span data-l="ru">RU</span><i>/</i><span data-l="en">EN</span></button>
         </div>
         <details class="rules">
           <summary>Как играть</summary>
-          <p>Когда партнёр набросит мяч к сетке, жми <strong>УДАР</strong> — игрок выпрыгнет, и ещё раз <strong>УДАР</strong> в воздухе — пробьёт. Стрелка во время удара меняет направление: к сетке — коротко, назад — в глубину. <strong>ПРЫЖОК</strong> у сетки — блок. <strong>ПРИЁМ</strong> в момент подлёта мяча — точный приём, только так достаётся сильная атака. На своей подаче эта кнопка становится <strong>СИЛОВОЙ</strong> — подача в прыжке, быстрая, но может уйти в аут. <strong>ПРИЁМ + стрелка</strong> — скольжение: спасает дальний мяч, но потом игрок поднимается с пола. <strong>ПРИЁМ в прыжке</strong> — скидка: стрелка к сетке — коротко за блок, от сетки — в угол. Блок в верхней точке прыжка надёжнее. Каждое «ИДЕАЛЬНО!» заполняет шкалу <strong>СИНХРОН</strong> — полная даёт усиленный удар. Твой игрок — под синей стрелкой, игрок друга — под красной.</p>
+          <p data-h>Когда партнёр набросит мяч к сетке, жми <strong>УДАР</strong> — игрок выпрыгнет, и ещё раз <strong>УДАР</strong> в воздухе — пробьёт. Стрелка во время удара меняет направление: к сетке — коротко, назад — в глубину. <strong>ПРЫЖОК</strong> у сетки — блок. <strong>ПРИЁМ</strong> в момент подлёта мяча — точный приём, только так достаётся сильная атака. На своей подаче эта кнопка становится <strong>СИЛОВОЙ</strong> — подача в прыжке, быстрая, но может уйти в аут. <strong>ПРИЁМ + стрелка</strong> — скольжение: спасает дальний мяч, но потом игрок поднимается с пола. <strong>ПРИЁМ в прыжке</strong> — скидка: стрелка к сетке — коротко за блок, от сетки — в угол. Блок в верхней точке прыжка надёжнее. Каждое «ИДЕАЛЬНО!» заполняет шкалу <strong>СИНХРОН</strong> — полная даёт усиленный удар. Твой игрок — под синей стрелкой, игрок друга — под красной.</p>
           <button class="ghost" id="tutBtn" type="button">ТРЕНИРОВКА · 60 С</button>
         </details>
       </div>

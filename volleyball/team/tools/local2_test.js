@@ -8,7 +8,7 @@ const path = require('path'), fs = require('fs');
   const b = await chromium.launch();
   const p = await b.newPage({ viewport: { width: W, height: H }, hasTouch: true, isMobile: W < 1000, deviceScaleFactor: 1 });
   const errs = []; p.on('pageerror', e => errs.push(e.message));
-  await p.goto('file://' + path.join(dir, 'test.html')); await p.waitForTimeout(600);
+  await p.goto('file://' + path.join(dir, 'test.html') + '?lang=ru'); await p.waitForTimeout(600);
   await p.evaluate(() => { window.__vb.target = 7; window.__vb.startMatch('local2'); });
   const info = await p.evaluate(() => ({ mode: window.__vb.mode, human: [window.__vb.TL.human, window.__vb.TR.human] }));
   console.log('start', JSON.stringify(info));

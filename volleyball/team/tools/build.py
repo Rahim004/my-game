@@ -4,7 +4,11 @@
 import re, subprocess, sys, pathlib
 root = pathlib.Path(__file__).resolve().parent.parent
 parts = ['a_html.html', 'a2_lang.js', 'a3_story_en.js', 'b_core.js', 'c_ai.js', 'd_chars.js', 'e_scene.js', 'g_net.js', 'h_story.js', 'i_daily.js', 'f_ui.js']
-src = '\n'.join((root / 'src' / p).read_text(encoding='utf-8') for p in parts)
+def _part(p):
+    t = (root / 'src' / p).read_text(encoding='utf-8')
+    # a2_lang.js и a3_story_en.js — чистый JS: оборачиваем в отдельный <script> (глобальные const видны основному скрипту)
+    return '<script>\n' + t + '\n</script>' if p in ('a2_lang.js', 'a3_story_en.js') and not t.lstrip().startswith('<script') else t
+src = '\n'.join(_part(p) for p in parts)
 # mqtt.js встроен отдельным <script> перед основным кодом: window.mqtt доступен сразу, без CDN (в части стран они заблокированы)
 mq = (root / 'assets' / 'mqtt.min.js').read_text(encoding='utf-8').strip()
 mq = mq.replace('</script', '<\\/script')
