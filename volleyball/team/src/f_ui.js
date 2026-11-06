@@ -199,7 +199,7 @@ $('stSkip').addEventListener('click', e => { e.stopPropagation(); storyDone(); }
 
 /* ================= screens ================= */
 let pausedFrom = null;
-function show(id) { if (id === 'pause' || id === 'end') { try { syncClipUi(); } catch (e) {} } ['menu', 'pause', 'end', 'online', 'leave', 'story', 'ups', 'prof', 'daily'].forEach(k => $(k).hidden = k !== id); if (id === 'menu') { try { syncDailyDot(); } catch (e) {} } }
+function show(id) { if (id === 'pause' || id === 'end') { try { syncClipUi(); } catch (e) {} } ['menu', 'pause', 'end', 'online', 'leave', 'story', 'ups', 'prof', 'daily'].forEach(k => $(k).hidden = k !== id); document.body.classList.toggle('playing', !id); if (id) document.body.classList.remove('rot-off'); if (id === 'menu') { try { syncDailyDot(); } catch (e) {} } }
 
 /* ================= ежедневный вызов: экран, запуск, итог ================= */
 let dailyRun = null, dailyTm = 0;   // dailyRun: { ch, save: { TARGET, diff, arenaPick } } пока идёт матч вызова
@@ -295,7 +295,7 @@ function startMatch(m) {
   if (m !== 'solo' && m !== 'local2') m = 'solo';
   if (mode === 'host' || mode === 'guest') netLeave();
   endDaily(); endCamp(); setArena(arenaPick);
-  mode = m; audio(); newMatch(); show(null); updateCamera(0, true);
+  mode = m; audio(); newMatch(); show(null); updateCamera(0, true); window.__lockLandscape && window.__lockLandscape(true);
 }
 function showEnd() {
   const me = myTeam(), win = me.score > other(me).score; if (state !== 'over') recStat(win); state = 'over';
@@ -310,7 +310,7 @@ function showEnd() {
 }
 function pauseGame() { if (isOnline()) return; if (!['serve', 'play', 'point'].includes(state)) return; pausedFrom = state; state = 'paused'; show('pause'); }
 function resumeGame() { if (state !== 'paused') return; state = pausedFrom; last = performance.now(); show(null); }
-function toMenu() { if (mode === 'host' || mode === 'guest') netLeave(); mode = 'solo'; state = 'menu'; tut = null; tim = null; stopStory(); champ = false; clearInterval(champTimer); $('end').classList.remove('lite'); endDaily(); endCamp(); setArena(arenaPick); syncMode(); cutin = null; TL = TR = null; active = null; banners = []; confetti = []; show('menu'); updateCamera(0, true); }
+function toMenu() { window.__lockLandscape && window.__lockLandscape(false); if (mode === 'host' || mode === 'guest') netLeave(); mode = 'solo'; state = 'menu'; tut = null; tim = null; stopStory(); champ = false; clearInterval(champTimer); $('end').classList.remove('lite'); endDaily(); endCamp(); setArena(arenaPick); syncMode(); cutin = null; TL = TR = null; active = null; banners = []; confetti = []; show('menu'); updateCamera(0, true); }
 function syncSeg() {
   document.querySelectorAll('[data-diff]').forEach(x => x.setAttribute('aria-pressed', String(x.dataset.diff === diff)));
   document.querySelectorAll('[data-target]').forEach(x => x.setAttribute('aria-pressed', String(+x.dataset.target === TARGET)));
@@ -846,6 +846,28 @@ bindButtons('data-key', press);
   ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(ev => joy.addEventListener(ev, e => { if (e.pointerId === pid) end(); }));
 })();
 bindButtons('data-key2', press2);
+/* ================= экран: сенсорный ли ввод, клавиатура, поворот ================= */
+(() => {
+  const B = document.body, mm = q => { try { return matchMedia(q).matches; } catch (e) { return false; } };
+  // сенсорные кнопки — если основной указатель палец; ноутбук с тачскрином и мышью остаётся без кнопок, пока по экрану не коснутся
+  const touchy = mm('(pointer: coarse)') || ('ontouchstart' in window && !mm('(any-pointer: fine)'));
+  B.classList.toggle('touch', touchy);
+  window.addEventListener('touchstart', () => { if (!B.classList.contains('touch')) { B.classList.add('touch'); resize(); } }, { passive: true, once: true });
+  // экранная клавиатура сжимает видимую область (в новых Chrome — не раскладку): подгоняем высоту приложения и показываем поле ввода
+  const app = $('app'), vv = window.visualViewport;
+  const fit = () => {
+    if (vv && window.innerHeight - vv.height > 120 && /^(INPUT|TEXTAREA)$/.test((document.activeElement || {}).tagName)) { app.style.height = Math.round(vv.height) + 'px'; app.style.transform = 'translateY(' + Math.round(vv.offsetTop) + 'px)'; }
+    else { app.style.height = ''; app.style.transform = ''; }
+  };
+  if (vv) { vv.addEventListener('resize', fit); vv.addEventListener('scroll', fit); }
+  document.addEventListener('focusin', e => { if (/^(INPUT|TEXTAREA)$/.test(e.target.tagName)) { setTimeout(() => { fit(); try { e.target.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (_) {} }, 280); } });
+  document.addEventListener('focusout', () => setTimeout(fit, 120));
+  $('rotOff').addEventListener('click', () => B.classList.add('rot-off'));
+  const ori = () => { if (innerWidth >= innerHeight) B.classList.remove('rot-off'); };
+  addEventListener('resize', ori); addEventListener('orientationchange', ori);
+  // если система разрешает (приложение на весь экран) — фиксируем альбомную ориентацию на время матча
+  window.__lockLandscape = on => { try { const o = screen.orientation; if (!o || !touchy) return; if (on) { const r = o.lock && o.lock('landscape'); r && r.catch && r.catch(() => {}); } else if (o.unlock) o.unlock(); } catch (e) {} };
+})();
 const KEYMAP = { ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right', ArrowUp: 'jump', KeyW: 'jump', ArrowDown: 'act', KeyS: 'act', Space: 'hit', KeyJ: 'hit', KeyK: 'hit' };
 const KEYMAP_P1 = { KeyA: 'left', KeyD: 'right', KeyW: 'jump', KeyF: 'hit', KeyS: 'act' };   // local2, игрок 1 (слева)
 const KEYMAP_P2 = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'jump', KeyL: 'hit', Enter: 'hit', NumpadEnter: 'hit', ArrowDown: 'act' };   // local2, игрок 2 (справа)
@@ -906,7 +928,7 @@ function updNetLink(now) {   // плашка связи в онлайне: пи�
   if (cls !== netLinkCls) { netLinkCls = cls; netLinkEl.className = cls; }
 }
 /* ================= loop ================= */
-let last = performance.now(), staticDone = false, perfAcc = 0, perfN = 0, perfSkip = 0;
+let last = performance.now(), staticDone = false, seenGen = 0, perfAcc = 0, perfN = 0, perfSkip = 0;
 const ovMenu = $('menu'), ovPause = $('pause'), ovEnd = $('end');
 function frame(now) {
   requestAnimationFrame(frame);
@@ -930,6 +952,7 @@ function frame(now) {
     if (am !== actMode) { actMode = am; setActLabel(actBtns1, am === 'serve'); }
     const am2 = state === 'serve' && TR && servingTeam === TR && mode === 'local2' ? 'serve' : 'recv';   // подача второго игрока (только local2: в онлайне вторая кнопка не нужна)
     if (am2 !== actMode2) { actMode2 = am2; setActLabel(actBtns2, am2 === 'serve'); }
+    if (seenGen !== resizeGen) { seenGen = resizeGen; staticDone = false; }   // холст пересоздан (поворот, окно): перерисовать кадр под окном меню
     const overlay = !ovMenu.hidden || !ovPause.hidden || (!ovEnd.hidden && !champ) || !ovOnline.hidden || !$('story').hidden;
     clipTick(live && !overlay);
     if (!overlay) { render(); staticDone = false; out.setTransform(dpr, 0, 0, dpr, 0, 0); timingFx(out); syncHud(out); if (tut) drawTutorial(out); }

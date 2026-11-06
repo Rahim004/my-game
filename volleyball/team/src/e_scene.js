@@ -715,10 +715,10 @@ function shadow(c, x, lane, rx, a) { c.globalAlpha = Math.min(1, a / .3); c.draw
 
 /* ================= camera & display ================= */
 const cv = $('cv'), out = cv.getContext('2d'), stage = $('stage'), screenEl = $('screen');
-let cssW = 800, cssH = 400, dpr = 1, qScale = 1;
+let cssW = 800, cssH = 400, dpr = 1, qScale = 1, resizeGen = 0;
 const cam = { x: 240, top: 90, scale: 2, z: 0 };
 function updateCamera(dt, snap) {
-  const aspect = cssW / cssH, zb = aspect < 1.7 ? 1.0 : aspect < 1.95 ? 1.15 : 1.3;
+  const aspect = cssW / cssH, zb = aspect < 1.3 ? 1.0 : aspect < 1.5 ? 1.18 : aspect < 1.7 ? 1.07 : aspect < 1.95 ? 1.15 : aspect < 2.35 ? 1.3 : Math.min(1.3, 3.06 / aspect);   // очень широкий экран: показываем больше по ширине, высота кадра не уже, чем при 2.35
   // мягкий наезд: сильная атака/блок (punch) и подача — цель зума; быстро входим, плавно возвращаемся; амплитуда ограничена
   const zt = REDUCED ? 0 : Math.min(.1, punch * 1.2) + (TL && state === 'serve' ? .05 : 0);
   cam.z = snap ? zt : cam.z + (zt - cam.z) * (1 - Math.exp(-dt * (zt > cam.z ? 14 : 2.6)));
@@ -735,18 +735,25 @@ function updateCamera(dt, snap) {
   const a = snap ? 1 : 1 - Math.exp(-dt * 3), b = snap ? 1 : 1 - Math.exp(-dt * 2.2);
   cam.x += (tx - cam.x) * a; cam.top += (tt - cam.top) * b;
 }
+/* Холст занимает всё место сцены: в альбомной ориентации — весь экран (без полос), в портрете — по ширине (не уже 1.25:1), управление под ним.
+   Чёткость: devicePixelRatio (не больше 2) × qScale, но не больше ~2.6 Мпикс на кадр — на больших экранах и 4K иначе тормозит. */
 function resize() {
   const r = stage.getBoundingClientRect();
   let w = r.width, h = r.height;
-  if (w / h < 1.55) h = w / 1.55;
-  if (w / h > 2.35) w = h * 2.35;
+  if (w / h < 1.25) h = w / 1.25;
   cssW = Math.max(200, Math.floor(w)); cssH = Math.max(120, Math.floor(h));
-  dpr = Math.max(.75, Math.min(window.devicePixelRatio || 1, 2) * qScale);
+  const raw = Math.min(window.devicePixelRatio || 1, 2), cap = Math.sqrt(2.6e6 / (cssW * cssH));
+  dpr = Math.max(.75, Math.min(raw, Math.max(1, cap)) * qScale);
+  const cw = Math.round(cssW * dpr), ch = Math.round(cssH * dpr);
+  if (cv.width === cw && cv.height === ch && screenEl.style.width === cssW + 'px' && screenEl.style.height === cssH + 'px') return;   // ничего не поменялось: холст не пересоздаём
   screenEl.style.width = cssW + 'px'; screenEl.style.height = cssH + 'px';
-  cv.width = Math.round(cssW * dpr); cv.height = Math.round(cssH * dpr);
+  cv.width = cw; cv.height = ch;
+  resizeGen++;
   updateCamera(0, true);
 }
 new ResizeObserver(resize).observe(stage);
+for (const t of ['resize', 'orientationchange', 'fullscreenchange', 'webkitfullscreenchange']) window.addEventListener(t, () => { resize(); setTimeout(resize, 250); });   // поворот/полный экран: размеры устаканиваются не сразу
+if (window.visualViewport) window.visualViewport.addEventListener('resize', resize);
 resize();
 
 /* ================= HUD (screen space, css px) ================= */
