@@ -28,96 +28,96 @@ body {
 }
 button { font: inherit; color: inherit; cursor: pointer; }
 button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
+/* Размеры управления считаются от меньшей стороны экрана (vmin): --cu — круглая кнопка, --cu2 — кнопка в режиме «вдвоём». */
 .app {
-  height: 100%; position: relative; display: flex; flex-direction: column; gap: 6px;
-  padding-left: max(16px, env(safe-area-inset-left, 0px));
-  padding-right: max(16px, env(safe-area-inset-right, 0px));
-  padding-block: 6px;
+  height: 100%; position: relative; display: flex; flex-direction: column; overflow: hidden;
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+  --cu: clamp(52px, 14.5vmin, 92px);
+  --cu2: clamp(42px, 12vmin, 76px);
 }
-.stage { flex: 1; min-height: 0; display: grid; place-items: center; }
-.screen { position: relative; border-radius: 12px; overflow: hidden; background: #1b1517; box-shadow: 0 10px 30px rgba(0, 0, 0, .45); }
+@media (orientation: landscape) { .app { --cu: clamp(56px, 17vmin, 98px); --cu2: clamp(44px, 14vmin, 82px); } }
+.stage { flex: 1; min-height: 0; position: relative; overflow: hidden; }
+.screen { position: absolute; inset: 0; margin: auto; overflow: hidden; background: #1b1517; }
 .screen canvas { display: block; width: 100%; height: 100%; }
 .pausebtn {
-  position: absolute; top: 6px; right: 6px; width: 56px; height: 56px; border-radius: 12px;
+  position: absolute; top: max(6px, env(safe-area-inset-top, 0px)); right: 8px; width: clamp(52px, 11vmin, 68px); height: clamp(52px, 11vmin, 68px); border-radius: 12px;
   background: rgba(15, 17, 21, .6); border: 1px solid rgba(255, 255, 255, .22); color: #fff;
-  font-family: var(--display); font-weight: 600; font-size: 15px; letter-spacing: .06em;
+  font-family: var(--display); font-weight: 600; font-size: clamp(15px, 3.2vmin, 20px); letter-spacing: .06em;
   -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
 }
-body.online .pausebtn { font-size: 12px; letter-spacing: 0; }
-.netlink { position: absolute; top: 66px; right: 6px; z-index: 3; padding: 3px 7px; border-radius: 8px; background: rgba(15, 17, 21, .6); color: #cfe9d6; font: 600 11px/1.2 system-ui, sans-serif; pointer-events: none; white-space: nowrap; }
+body.online .pausebtn { font-size: clamp(11px, 2.6vmin, 14px); letter-spacing: 0; }
+.netlink { position: absolute; top: calc(max(6px, env(safe-area-inset-top, 0px)) + clamp(52px, 11vmin, 68px) + 6px); right: 8px; z-index: 3; padding: 3px 7px; border-radius: 8px; background: rgba(15, 17, 21, .6); color: #cfe9d6; font: 600 11px/1.2 system-ui, sans-serif; pointer-events: none; white-space: nowrap; }
 .netlink.mid { color: #ffd66b; }
 .netlink.slow { color: #ff8a7a; }
-.netlink.warn { top: 38%; right: auto; left: 50%; transform: translateX(-50%); padding: 10px 16px; border-radius: 12px; background: rgba(15, 17, 21, .82); border-left: 3px solid #ff8a7a; color: #fff; font-size: 15px; }
+.netlink.warn { top: 38%; right: auto; left: 50%; transform: translateX(-50%); padding: 10px 16px; border-radius: 12px; background: rgba(15, 17, 21, .82); border-left: 3px solid #ff8a7a; color: #fff; font-size: 15px; max-width: 86%; white-space: normal; text-align: center; }
 [hidden] { display: none !important; }
 
-/* thumb controls */
-.controls { display: none; justify-content: space-between; align-items: center; gap: 12px; padding-bottom: 4px; }
+/* thumb controls: в портрете — полоса под сценой, в альбомной — поверх сцены по нижним углам */
+.controls, .controls2 { display: none; flex: none; justify-content: space-between; align-items: flex-end; gap: 12px; padding: 8px 16px calc(12px + env(safe-area-inset-bottom, 0px)); }
 body.touch .controls { display: flex; }
 body.local2 .controls { display: none !important; }
-.controls2 { display: none; justify-content: space-between; align-items: center; gap: 12px; padding-bottom: 4px; }
 body.touch.local2 .controls2 { display: flex; }
 .ctl.p1 { border-color: var(--blue); border-width: 3px; }
 .ctl.p2 { border-color: var(--hot); border-width: 3px; }
-body.local2 .ctl.act { font-size: 9px; letter-spacing: 0; }
-body.local2 .ctl { width: 58px; height: 58px; }
-body.local2 .ctl.hit { width: 68px; height: 68px; }
-.pad { display: flex; gap: 14px; align-items: center; }
+.pad { display: flex; gap: calc(var(--cu) * .16); align-items: center; }
+.controls2 .pad { gap: calc(var(--cu2) * .12); }
+@media (orientation: portrait) { .controls2 { flex-wrap: wrap; justify-content: center; row-gap: 6px; } .controls2 .ctl { width: calc(var(--cu2) * .92); height: calc(var(--cu2) * .92); } .controls2 .ctl.hit { width: calc(var(--cu2) * 1.05); height: calc(var(--cu2) * 1.05); } }
 .ctl {
-  width: 70px; height: 70px; border-radius: 50%; touch-action: none;
+  width: var(--cu); height: var(--cu); border-radius: 50%; touch-action: none; flex: none;
   background: rgba(20, 23, 30, .62); border: 2px solid rgba(255, 255, 255, .26); color: #fff;
   -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
-  font-family: var(--display); font-weight: 600; font-size: 13px; letter-spacing: .06em;
-  display: grid; place-items: center; transition: transform .06s, background .06s;
+  font-family: var(--display); font-weight: 600; font-size: clamp(10px, calc(var(--cu) * .19), 17px); letter-spacing: .04em;
+  display: grid; place-items: center; transition: transform .06s, background .06s; pointer-events: auto;
 }
-.ctl svg { width: 24px; height: 24px; fill: currentColor; }
-.ctl.hit { width: 86px; height: 86px; background: rgba(240, 122, 34, .94); border-color: rgba(255, 255, 255, .55); color: #1d0f04; font-size: 17px; }
+.ctl svg { width: 38%; height: 38%; fill: currentColor; }
+.ctl.hit { width: calc(var(--cu) * 1.22); height: calc(var(--cu) * 1.22); background: rgba(240, 122, 34, .94); border-color: rgba(255, 255, 255, .55); color: #1d0f04; font-size: clamp(11px, calc(var(--cu) * .23), 20px); }
+.controls2 .ctl { width: var(--cu2); height: var(--cu2); font-size: clamp(8px, calc(var(--cu2) * .17), 13px); letter-spacing: 0; }
+.controls2 .ctl.hit { width: calc(var(--cu2) * 1.18); height: calc(var(--cu2) * 1.18); }
 .ctl.on { transform: scale(.92); background: rgba(255, 255, 255, .34); }
 .ctl.hit.on { background: #ffa65e; }
 .ctl.act { background: rgba(19, 143, 151, .82); border-color: rgba(255, 255, 255, .45); }
 .ctl.act.serve { background: rgba(242, 194, 48, .95); color: #1d1404; }
 .ctl.act.on { background: #5fd3da; }
 /* джойстик и круглые кнопки с иконками (одиночная игра и онлайн) */
-.joy { position: relative; width: 120px; height: 120px; border-radius: 50%; touch-action: none; pointer-events: auto;
+.joy { position: relative; flex: none; width: calc(var(--cu) * 1.9); height: calc(var(--cu) * 1.9); border-radius: 50%; touch-action: none; pointer-events: auto;
   background: radial-gradient(circle, rgba(255,255,255,.10) 0 38%, rgba(20,23,30,.45) 39%); border: 2px solid rgba(255,255,255,.22);
   -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
 .joyarr { position: absolute; inset: 0; width: 100%; height: 100%; fill: rgba(255,255,255,.55); }
-.joyknob { position: absolute; left: 50%; top: 50%; width: 52px; height: 52px; margin: -26px 0 0 -26px; border-radius: 50%;
+.joyknob { position: absolute; left: 50%; top: 50%; width: 44%; height: 44%; margin: -22% 0 0 -22%; border-radius: 50%;
   background: rgba(255,255,255,.82); box-shadow: 0 2px 8px rgba(0,0,0,.35); transition: transform .08s; }
 .joy.on .joyknob { transition: none; background: #fff; }
 .rbtns { align-items: flex-end; }
 .ctl.ic { flex-direction: column; gap: 1px; padding-top: 4px; display: flex; align-items: center; justify-content: center; }
 .ctl.ic svg { width: 46%; height: 46%; fill: currentColor; }
-.ctl.ic .lb { font-family: var(--body); font-weight: 600; font-size: 9.5px; letter-spacing: .02em; line-height: 1; }
+.ctl.ic .lb { font-family: var(--body); font-weight: 600; font-size: clamp(8px, calc(var(--cu) * .135), 14px); letter-spacing: 0; line-height: 1; white-space: nowrap; text-align: center; }
 .ctl.ic.hit { color: #1d0f04; }
 .ctl.ic.slide { background: rgba(20, 23, 30, .62); }
-.ctl.ic .lb { white-space: nowrap; text-align: center; }
-.ctl.ic.hit .lb { font-size: 9px; line-height: 1.05; }
-.hint, .turn { margin: 0; text-align: center; color: var(--muted); font-size: 13px; }
-.hint { display: none; }
-body:not(.touch) .hint { display: block; }
-.turn { display: none; }
-@media (orientation: portrait) { body.touch .turn { display: block; } }
-@media (orientation: portrait) { body.touch.local2 .controls2 { flex-wrap: wrap; justify-content: center; } }
+.ctl.ic.hit .lb { font-size: clamp(8.5px, calc(var(--cu) * .14), 13px); line-height: 1.05; }
+.hint { margin: 0; text-align: center; color: var(--muted); font-size: 13px; display: none; }
+body:not(.touch) .hint { display: block; flex: none; padding: 6px 12px; }
 kbd { font-family: var(--body); font-weight: 500; color: var(--ink); background: var(--panel-2); border: 1px solid var(--line); border-radius: 4px; padding: 0 6px; }
-@media (orientation: landscape) and (max-height: 540px) {
-  .app { padding-block: 4px; }
+@media (orientation: landscape) {
   .controls, .controls2 {
     position: absolute; left: 0; right: 0; bottom: 0; pointer-events: none; z-index: 2;
-    padding-left: max(28px, env(safe-area-inset-left, 0px));
-    padding-right: max(28px, env(safe-area-inset-right, 0px));
-    padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+    padding: 0 max(18px, env(safe-area-inset-right, 0px)) calc(10px + env(safe-area-inset-bottom, 0px)) max(18px, env(safe-area-inset-left, 0px));
   }
-  .controls2 { padding-left: max(14px, env(safe-area-inset-left, 0px)); padding-right: max(14px, env(safe-area-inset-right, 0px)); padding-bottom: calc(5px + env(safe-area-inset-bottom, 0px)); }
-  .ctl { pointer-events: auto; width: 60px; height: 60px; font-size: 10.5px; letter-spacing: .02em; }
-  body.local2 .ctl { width: 58px; height: 58px; }
-  body.local2 .ctl.hit { width: 68px; height: 68px; }
-  .pad { gap: 10px; }
-  .ctl.hit { width: 76px; height: 76px; }
-  .ctl.ic { width: 66px; height: 66px; }
-  .ctl.ic.hit { width: 80px; height: 80px; }
-  .joy { width: 112px; height: 112px; }
-  .turn, .hint { display: none !important; }
+  .controls2 { padding-inline: max(12px, env(safe-area-inset-left, 0px)) max(12px, env(safe-area-inset-right, 0px)); padding-bottom: calc(6px + env(safe-area-inset-bottom, 0px)); }
+  /* подсказка клавиш — полоска поверх нижнего края сцены; гаснет через 10 с */
+  body:not(.touch) .hint { position: absolute; left: 50%; bottom: 6px; transform: translateX(-50%); z-index: 2; max-width: calc(100% - 24px); padding: 4px 12px; border-radius: 8px; background: rgba(15, 17, 21, .62); color: #d6d9e2; font-size: clamp(11px, 1.6vmin, 14px); pointer-events: none; animation: hintfade .8s 10s forwards; }
 }
+@keyframes hintfade { to { opacity: 0; visibility: hidden; } }
+body:not(.playing) .hint { display: none !important; }
+
+/* портрет: просьба повернуть телефон поверх сцены (можно закрыть и играть так) */
+.rot { display: none; position: absolute; inset: 0; z-index: 4; align-items: center; justify-content: center; flex-direction: column; gap: 14px; padding: 24px 24px calc(24px + env(safe-area-inset-bottom, 0px)); text-align: center; background: rgba(10, 12, 16, .9); touch-action: manipulation; }
+@media (orientation: portrait) { body.touch.playing:not(.rot-off) .rot { display: flex; } }
+.rot svg { width: clamp(84px, 30vw, 140px); height: auto; fill: none; stroke: var(--gold); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; animation: rotph 2.4s ease-in-out infinite; transform-origin: 50% 50%; }
+@keyframes rotph { 0%, 20% { transform: rotate(0); } 60%, 85% { transform: rotate(-90deg); } 100% { transform: rotate(-90deg); } }
+.rot b { font-family: var(--display); font-weight: 700; font-size: clamp(28px, 9vw, 44px); letter-spacing: .04em; line-height: 1.05; }
+.rot span { color: var(--muted); font-size: 15px; line-height: 1.4; }
+.rot .ghost { margin-top: 8px; padding-inline: 22px; }
+@media (prefers-reduced-motion: reduce) { .rot svg { animation: none; transform: rotate(-90deg); } .hint { animation: none !important; } }
 
 /* overlays */
 .overlay {
@@ -236,6 +236,67 @@ h1 .x { color: var(--gold); }
   .mode { padding-block: 5px; gap: 1px; }
 }
 .menu-l .rules { padding: 4px 14px; }
+
+/* низкий экран в альбомной ориентации (телефон 640–844 × 360–390): всё меню без прокрутки */
+@media (orientation: landscape) and (max-height: 400px) {
+  .overlay { padding-block: 6px; }
+  .sheet.menu { gap: 14px; }
+  .menu-l, .menu-r { gap: 6px; }
+  .menu-l .kicker { font-size: 11px; }
+  .menu-l h1 { font-size: 36px; margin-top: 0; }
+  .menu-l .sub, .team p, .mode small, .mode.sm small { display: none; }
+  .menu-l .polaroid { width: 46px; }
+  .team { padding: 5px; gap: 0; border-radius: 11px; }
+  .team canvas { aspect-ratio: 6 / 1; }
+  .label { font-size: 10.5px; margin-bottom: 3px; }
+  .nm input { padding-block: 6px; font-size: 14px; }
+  .seg button { min-height: 36px; padding-block: 4px; font-size: 13px; }
+  .menu-r .seg button { min-height: 34px; }
+  .row2 .ghost, .menu-l .ghost { min-height: 40px; padding-block: 4px; }
+  .rules summary { min-height: 26px; font-size: 13px; }
+  .mode { min-height: 52px; padding-block: 4px; }
+  .mode svg { width: 22px; height: 22px; }
+  .mode b { font-size: 15px; }
+  .mode.sm { min-height: 40px; padding-block: 3px; }
+  .mode.sm svg { width: 22px; height: 22px; }
+  .modes { gap: 6px; }
+  .note { margin-top: 3px; font-size: 12px; min-height: 1.2em; }
+  .menu-r .play { min-height: 44px; padding-block: 6px; font-size: 18px; }
+  .campinfo { min-height: 44px; padding-block: 3px; }
+  .profchip { min-height: 40px; }
+  .profchip .av.s { width: 34px; height: 34px; }
+}
+
+/* одна колонка (портрет, узкое окно): компактно, «ИГРАТЬ» — липкая панель внизу */
+@media (orientation: portrait), (max-width: 639px) {
+  .overlay { padding-block: 10px 0; }
+  .sheet.menu { gap: 10px; padding-bottom: 0; }
+  .menu-l, .menu-r { display: contents; }
+  .menu-l > .profchip { order: 0; position: absolute; top: 0; right: 0; z-index: 2; padding: 4px; }
+  .menu-l > .profchip span { display: none; }
+  .sheet.menu { position: relative; }
+  .menu-l .title { order: 1; gap: 12px; padding-right: 54px; }
+  .menu-l .polaroid { width: 54px; padding: 3px 3px 9px; }
+  .menu-l h1 { font-size: clamp(34px, 10vw, 46px); }
+  .menu-l .sub { display: none; }
+  .modebox { order: 2; }
+  .modes { gap: 6px; }
+  .mode { min-height: 70px; }
+  .mode.sm { min-height: 46px; }
+  .note { min-height: 1.3em; margin-top: 4px; }
+  #opts, #campInfo { order: 3; }
+  .nmbox { order: 4; }
+  .team { order: 5; padding: 6px; }
+  .team canvas { aspect-ratio: 5 / 1; }
+  .team p { display: none; }
+  .row2 { order: 6; }
+  .rules { order: 7; }
+  #playRow { order: 9; position: sticky; bottom: 0; z-index: 3; margin: 0 -16px; padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px)); background: var(--bg); box-shadow: 0 -10px 18px rgba(0, 0, 0, .45); border-top: 1px solid var(--line); }
+  #playRow .play { min-height: 54px; }
+}
+/* большие экраны: меню и экраны крупнее */
+@media (min-width: 900px) and (min-height: 640px) { .overlay:not(.story) .sheet { zoom: 1.2; } }
+@media (min-width: 1500px) and (min-height: 900px) { .overlay:not(.story) .sheet { zoom: 1.45; } }
 
 /* story scene (visual novel) */
 .overlay.story { flex-direction: column; justify-content: space-between; align-items: stretch; gap: 8px; overflow: hidden; cursor: pointer; touch-action: manipulation; padding-block: 10px;
@@ -409,7 +470,19 @@ body[data-tut="act"] .ctl.act, body[data-tut="hit"] .ctl.hit { animation: tutp .
 .up-pips i.on { background: var(--orange); }
 .up-st button { grid-row: 1 / span 2; grid-column: 2; min-width: 54px; min-height: 36px; border: 0; border-radius: 9px; background: var(--orange); color: #fff; font-family: var(--display); font-size: 14px; }
 .up-st button:disabled { background: var(--line); color: var(--muted); }
-@media (max-width: 640px) { .up-list { grid-template-columns: 1fr; } }
+@media (orientation: portrait), (max-width: 520px) { .up-list { grid-template-columns: 1fr; } }
+@media (orientation: landscape) and (max-height: 400px) {
+  .upsh { gap: 6px; }
+  .upsh .onl-head h2 { font-size: 22px; margin: 0; }
+  .upsh .onl-head .ghost { min-height: 40px; padding-block: 4px; }
+  .up-note { margin: 0; font-size: 11.5px; line-height: 1.3; }
+  .up-list { gap: 6px; }
+  .up-hero { padding: 6px 8px; gap: 3px; }
+  .up-hero h3 { font-size: 15px; }
+  .up-st { row-gap: 2px; }
+  .up-st button { min-height: 30px; }
+}
+
 </style>
 
 <div class="app" id="app">
@@ -421,7 +494,12 @@ body[data-tut="act"] .ctl.act, body[data-tut="hit"] .ctl.hit { animation: tutp .
     </div>
   </div>
 
-  <p class="turn">Поверни телефон горизонтально — арена станет больше</p>
+  <div class="rot" id="rot" role="dialog" aria-label="Поверни телефон">
+    <svg viewBox="0 0 64 64" aria-hidden="true"><rect x="19" y="6" width="26" height="46" rx="5"/><path d="M28 46h8"/><path d="M12 58c10 5 30 5 40 0M47 54l5 4-6 3"/></svg>
+    <b>ПОВЕРНИ ТЕЛЕФОН</b>
+    <span>Играть удобнее горизонтально: арена станет больше.</span>
+    <button class="ghost" id="rotOff" type="button">ВСЁ РАВНО ИГРАТЬ</button>
+  </div>
   <div class="controls">
     <div class="pad">
       <div class="joy" id="joy" role="slider" aria-label="Движение влево-вправо" aria-valuemin="-1" aria-valuemax="1" aria-valuenow="0">
@@ -467,7 +545,7 @@ body[data-tut="act"] .ctl.act, body[data-tut="hit"] .ctl.hit { animation: tutp .
           <canvas id="teamCv"></canvas>
           <p>Рэй №10 · Арис №9 · Дан №4 (либеро)</p>
         </div>
-        <div>
+        <div class="nmbox">
           <p class="label">Имена игроков</p>
           <div class="names">
             <label class="nm"><span>№4</span><input id="n4" maxlength="12" placeholder="Имя" autocomplete="off"></label>
@@ -487,7 +565,7 @@ body[data-tut="act"] .ctl.act, body[data-tut="hit"] .ctl.hit { animation: tutp .
         </details>
       </div>
       <div class="menu-r">
-        <div>
+        <div class="modebox">
           <p class="label">Как играем</p>
           <div class="modes" role="group" aria-label="Режим игры">
             <button class="mode" data-mode="solo" aria-pressed="true">
