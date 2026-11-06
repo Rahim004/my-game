@@ -5353,7 +5353,7 @@ codeIn.addEventListener('input', () => { const v = fixCode(codeIn.value); if (co
 codeIn.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); doJoin(); } });
 function checkInvite() { const c = roomFromHash(); if (c && state === 'menu' && !isOnline() && !netInfo()) openOnline(c); }   // уже есть сессия (netInfo) — приглашение игнорируем
 addEventListener('hashchange', checkInvite);
-checkInvite();
+setTimeout(checkInvite, 0);   // после загрузки всего кода (профиль P объявлен ниже): иначе ссылка-приглашение роняла игру
 
 /* ================= профиль и друзья (всё в localStorage, без сервера) ================= */
 const FC_SET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';   // без 0/O/1/I
