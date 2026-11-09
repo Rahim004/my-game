@@ -1247,7 +1247,7 @@ function ring(kind) { rings.push({ x: ball.x, h: ball.h, lane: ball.lane, t: 0, 
 function spray(n, cols, sp, life) {
   for (let i = 0; i < n; i++) {
     const a = Math.random() * 6.283, v = sp * (.35 + Math.random() * .8);
-    parts.push({ x: ball.x, h: ball.h, lane: ball.lane, vx: Math.cos(a) * v, vh: Math.sin(a) * v, g: 0, t: 0, life: life * (.6 + Math.random() * .5), col: cols[i % cols.length], size: .5 + Math.random() * .6 });
+    parts.push({ x: ball.x, h: ball.h, lane: ball.lane, vx: Math.cos(a) * v, vh: Math.sin(a) * v, g: 0, t: 0, life: life * (.6 + Math.random() * .5), col: cols[i % cols.length], size: .5 + Math.random() * .6, hot: true });
   }
 }
 function dust(x, lane, n) { dustRaw(x, lane, n); }   // сетевая обёртка в g_net.js пересылает dust гостю
@@ -1279,7 +1279,10 @@ function receive(p, perfect, em = 1) {   // em — множитель ошибк
   timeRecv(p, perfect, rw); tutEvt('recv', p, perfect);
   const setter = pickSetter(T, p);
   T.roles = { setter, hitter: pickHitter(T, setter) };
-  passTo(mirror(T, SET_X) + (Math.random() * 2 - 1) * (perfect ? 1 : T.D.err * em), 42, 1.15);
+  // человек со стрелкой выбирает сторону приёма: пас сдвигается туда, а тип атаки задаётся сразу (к сетке — квик, назад — пайп)
+  const hd = T.human && p === T.act ? (T.hdir || 0) : 0;
+  T.recvPick = -T.side * hd;   // +1 — к сетке, −1 — назад, 0 — без выбора
+  passTo(mirror(T, SET_X) + 22 * hd + (Math.random() * 2 - 1) * (perfect ? 1 : T.D.err * em), 42, 1.15);
   aimLane(setter, 1.15); sfx.pass(); ring('w');
   if (perfect) { p.recvWin = 0; spray(12, ['#f2c230', '#ffffff'], 70, .4); banner('ОТЛИЧНЫЙ ПРИЁМ!', 'gold', 1.0, true); }
 }
@@ -1311,6 +1314,7 @@ function chooseAtk(T) {
   return 'open';
 }
 function humanAtk(T, h) {   // тип атаки человека — по положению нападающего: к сетке — квик/темп, назад — пайп, стоит — open
+  if (T.recvPick) return T.recvPick > 0 ? 'quick' : 'pipe';   // выбор при приёме важнее положения
   if (!(T.moving || clock - T.lastMove < 1.0)) return 'open';
   const d = Math.abs(h.x - NETX);
   return d <= 40 ? 'quick' : d <= 68 ? 'tempo' : d >= 100 ? 'pipe' : 'open';
@@ -1319,7 +1323,7 @@ function setBall(p, low) {
   const T = p.team; snapBall(p, low ? 'receive' : 'set', 14); touch(p, low ? 'receive' : 'set');
   let h = T.roles.hitter; if (!h || h === p) h = pickHitter(T, p);
   T.roles.hitter = h;
-  T.atk = T.human ? humanAtk(T, h) : (T.plan || chooseAtk(T));
+  T.atk = T.human ? humanAtk(T, h) : (T.plan || chooseAtk(T)); T.recvPick = 0;
   const A = ATK[T.atk]; T.setH = A.h; T.plan = null;
   passTo(NETX + T.side * A.d + (Math.random() * 2 - 1) * T.D.err * .6, A.h, A.t);
   aimLane(h, A.t); sfx.set(); ring('w'); tutEvt('set', p);
@@ -1402,8 +1406,9 @@ function startPowerServe(p) {
 function powerServe(p) {
   const T = p.team, O = other(T), o = -T.side;
   snapBall(p, 'spike', 22); touch(p, 'spike'); T.touches = 3; p.toss = 0; p.jumpServe = false; T.lastHit = { p, type: 'pserve' }; msOf(T).powerServes++;
-  const fault = Math.random() < (T === TL ? .1 : .15);
-  const xt = NETX + o * (fault ? 224 + Math.random() * 22 : 70 + Math.random() * 140);
+  const hd = T.human ? (T.hdir || 0) * o : 0;   // человек со стрелкой целится: >0 — в глубину (рискованно), <0 — к сетке; без стрелки — как раньше
+  const fault = !hd && Math.random() < (T === TL ? .1 : .15);
+  const xt = NETX + o * (fault ? 224 + Math.random() * 22 : hd > 0 ? 176 + Math.random() * 34 : hd < 0 ? 84 + Math.random() * 40 : 70 + Math.random() * 140);
   let flight = 1;
   for (let sp = T.D.power + 12 * upLv(p, 'pow') + 40; sp >= 160; sp -= 20) {
     const vx = Math.sign(xt - ball.x) * sp, t = (xt - ball.x) / vx, vh = (0 - ball.h + .5 * G * t * t) / t;
@@ -1426,10 +1431,14 @@ function powerServe(p) {
 }
 function serveBall(p) {
   if (p.jumpServe) { powerServe(p); return; }
-  const T = p.team; snapBall(p, 'serve', 10); touch(p, 'serve'); T.touches = 3; p.toss = 0;
-  passTo(NETX - T.side * (60 + Math.random() * 130), 0, 1.45);
-  aimLaneTeam(other(T), 1.45);
+  const T = p.team, o = -T.side, hd = T.human ? (T.hdir || 0) * o : 0;   // человек со стрелкой: >0 — в глубину, <0 — к сетке
+  snapBall(p, 'serve', 10); touch(p, 'serve'); T.touches = 3; p.toss = 0;
+  const xt = NETX + o * (hd > 0 ? 170 + Math.random() * 36 : hd < 0 ? 80 + Math.random() * 30 : 60 + Math.random() * 130);
+  let fl = 1.45;   // подбираем время полёта так, чтобы мяч перелетел сетку (как в tip)
+  for (; fl < 2.2; fl += .05) { passTo(xt, 0, fl); const tn = (NETX - ball.x) / ball.vx; if (tn <= 0 || ball.h + ball.vh * tn - .5 * G * tn * tn > NET_H + BR + 4) break; }
+  aimLaneTeam(other(T), fl);
   state = 'play'; sfx.serve(); ring('w');
+  if (T === TL && hd) banner(hd > 0 ? 'ПОДАЧА В ГЛУБИНУ' : 'ПОДАЧА К СЕТКЕ', 'gold', .8, true, 'L');
 }
 
 function checkContacts() {
@@ -1487,9 +1496,15 @@ function checkBlock() {
       const stuff = hum ? Math.abs(b.vh) < 60 && Math.random() < .9 : Math.random() < .4 + def.D.block * .4;
       if (hum) timeMark(b, Math.abs(b.vh) < 60 ? 'ИДЕАЛЬНО!' : b.vh > 0 ? 'Рано' : 'Поздно');
       if (stuff) {
-        ball.vx = -ball.vx * .32; ball.vh = -70; ball.x = NETX + att.side * (BR + 1);
+        ball.x = NETX + att.side * (BR + 1);
+        // человек в верхней точке блока со стрелкой: «жёсткий» блок — мяч уходит в глубину площадки соперника, «мягкий» (стрелка к сетке) — падает у сетки
+        const steer = hum && Math.abs(b.vh) < 60 && (def.hdir || 0) !== 0;
+        if (steer) {
+          const deep = def.hdir * att.side > 0;
+          passTo(NETX + att.side * (deep ? 190 : 95), 0, deep ? .72 : .5);
+        } else { ball.vx = -ball.vx * .32; ball.vh = -70; }
         att.touches = 0; att.roles = {}; aimLaneTeam(att, .5);
-        banner('БЛОК!', def === TL ? 'gold' : 'teal', 1.0);
+        banner(steer ? (def.hdir * att.side > 0 ? 'ЖЁСТКИЙ БЛОК!' : 'МЯГКИЙ БЛОК!') : 'БЛОК!', def === TL ? 'gold' : 'teal', 1.0);
       } else { ball.vh = 160; ball.vx *= .22; aimLaneTeam(def, .9); banner('КАСАНИЕ БЛОКА', 'teal', .8, true); }
       sfx.block(); spray(12, ['#ffffff', '#9fd8ff'], 90, .3); ring('w');
       if (!REDUCED) shake = 2.5;
@@ -3765,14 +3780,24 @@ function render() {
     }
     drawBall(out);
     drawPost(out, NEAR_Y + 7, true);
-    for (const q of parts) { const sl = sOf(q.lane); out.globalAlpha = Math.max(0, 1 - q.t / q.life); out.fillStyle = q.col; out.beginPath(); out.arc(PX(q.x, q.lane), q.lane - q.h * sl, q.size, 0, 6.283); out.fill(); }
+    for (const q of parts) {   // искры удара (hot) светятся аддитивно: мягкий ореол поверх яркого ядра
+      const sl = sOf(q.lane), px = PX(q.x, q.lane), py = q.lane - q.h * sl, a = Math.max(0, 1 - q.t / q.life);
+      out.globalAlpha = a; out.fillStyle = q.col;
+      if (q.hot && fancy) { out.globalCompositeOperation = 'lighter'; out.globalAlpha = a * .3; out.beginPath(); out.arc(px, py, q.size * 3.4, 0, 6.283); out.fill(); out.globalAlpha = a; }
+      out.beginPath(); out.arc(px, py, q.size, 0, 6.283); out.fill();
+      out.globalCompositeOperation = 'source-over';
+    }
     out.globalAlpha = 1;
     for (const rg of rings) {
       const a = 1 - rg.t / .45, sl = sOf(rg.lane), x = PX(rg.x, rg.lane);
       out.strokeStyle = `rgba(255,255,255,${.85 * a})`; out.lineWidth = .7;
       out.beginPath();
-      if (rg.kind === 'floor') out.ellipse(x, rg.lane, 2 + rg.t * 34, (2 + rg.t * 34) * .3, 0, 0, 6.283);
-      else out.arc(x, rg.lane - rg.h * sl, 2 + rg.t * 22, 0, 6.283);
+      if (rg.kind === 'floor') {   // след приземления: тёмный «отпечаток» на полу под кольцом
+        const rx = 2 + rg.t * 34;
+        out.ellipse(x, rg.lane, rx, rx * .3, 0, 0, 6.283);
+        if (fancy) { out.fillStyle = `rgba(8,18,40,${.26 * a})`; out.fill(); }
+        out.beginPath(); out.ellipse(x, rg.lane, rx, rx * .3, 0, 0, 6.283);
+      } else out.arc(x, rg.lane - rg.h * sl, 2 + rg.t * 22, 0, 6.283);
       out.stroke();
     }
     out.font = '700 3.7px Oswald, "Arial Narrow", sans-serif'; out.textAlign = 'left'; out.textBaseline = 'middle'; out.lineJoin = 'round';

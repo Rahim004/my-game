@@ -982,14 +982,24 @@ function render() {
     }
     drawBall(out);
     drawPost(out, NEAR_Y + 7, true);
-    for (const q of parts) { const sl = sOf(q.lane); out.globalAlpha = Math.max(0, 1 - q.t / q.life); out.fillStyle = q.col; out.beginPath(); out.arc(PX(q.x, q.lane), q.lane - q.h * sl, q.size, 0, 6.283); out.fill(); }
+    for (const q of parts) {   // искры удара (hot) светятся аддитивно: мягкий ореол поверх яркого ядра
+      const sl = sOf(q.lane), px = PX(q.x, q.lane), py = q.lane - q.h * sl, a = Math.max(0, 1 - q.t / q.life);
+      out.globalAlpha = a; out.fillStyle = q.col;
+      if (q.hot && fancy) { out.globalCompositeOperation = 'lighter'; out.globalAlpha = a * .3; out.beginPath(); out.arc(px, py, q.size * 3.4, 0, 6.283); out.fill(); out.globalAlpha = a; }
+      out.beginPath(); out.arc(px, py, q.size, 0, 6.283); out.fill();
+      out.globalCompositeOperation = 'source-over';
+    }
     out.globalAlpha = 1;
     for (const rg of rings) {
       const a = 1 - rg.t / .45, sl = sOf(rg.lane), x = PX(rg.x, rg.lane);
       out.strokeStyle = `rgba(255,255,255,${.85 * a})`; out.lineWidth = .7;
       out.beginPath();
-      if (rg.kind === 'floor') out.ellipse(x, rg.lane, 2 + rg.t * 34, (2 + rg.t * 34) * .3, 0, 0, 6.283);
-      else out.arc(x, rg.lane - rg.h * sl, 2 + rg.t * 22, 0, 6.283);
+      if (rg.kind === 'floor') {   // след приземления: тёмный «отпечаток» на полу под кольцом
+        const rx = 2 + rg.t * 34;
+        out.ellipse(x, rg.lane, rx, rx * .3, 0, 0, 6.283);
+        if (fancy) { out.fillStyle = `rgba(8,18,40,${.26 * a})`; out.fill(); }
+        out.beginPath(); out.ellipse(x, rg.lane, rx, rx * .3, 0, 0, 6.283);
+      } else out.arc(x, rg.lane - rg.h * sl, 2 + rg.t * 22, 0, 6.283);
       out.stroke();
     }
     out.font = '700 3.7px Oswald, "Arial Narrow", sans-serif'; out.textAlign = 'left'; out.textBaseline = 'middle'; out.lineJoin = 'round';
