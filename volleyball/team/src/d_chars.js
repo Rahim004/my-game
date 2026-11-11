@@ -744,9 +744,12 @@ const SC_ATK = Object.assign({ air: 'air', cock: 'air', hit: 'hit', follow: 'hit
 const SC_OPP = Object.assign({ air: 'air', cock: 'air', block: 'air', hit: 'hit', follow: 'hit2', sad: 'stand' }, SC_RUN);   /* соперники: 2 кадра удара, без блока */
 const scFrames = (names, rects) => { const f = {}; names.split(' ').forEach((k, i) => f[k] = rects[i]); return f; };
 const SC_SPR = {
-  10: { img: 'hero10sc', kit: 'blk', map: SC_ATK, hp: { air: [8, 39], hit: [15.93, 39.19] },
-    f: scFrames('stand run recv set air hit block joy', [[0, 0, 140, 215, 70, 214], [142, 0, 195, 219, 110, 218], [339, 0, 136, 185, 68, 184], [477, 0, 105, 232, 57, 231],
-      [584, 0, 120, 216, 57, 215], [706, 0, 151, 215, 62, 214], [859, 0, 92, 240, 47, 239], [0, 242, 181, 222, 94, 221]]) },
+  /* №10: рендер 3D-модели Blender (player10.blend, скрипт player10_sprites.py) — все позы, включая нырок и скольжение */
+  10: { img: 'hero10sc', kit: 'blk', hp: { air: [3.43, 43.23], hit: [3.39, 42.55] },
+    map: Object.assign({ sad: 'sad', dive: 'dive', slide0: 'dive', slideF: 'slide', slideB: 'slide', rise: 'rise' }, SC_ATK),
+    f: scFrames('stand run recv set air hit block joy sad dive slide rise', [[0, 0, 83, 214, 15, 213], [85, 0, 147, 200, 79, 199], [234, 0, 101, 199, 14, 198],
+      [337, 0, 64, 237, 28, 236], [403, 0, 74, 231, 44, 230], [479, 0, 94, 228, 39, 227], [575, 0, 50, 259, 25, 258], [627, 0, 70, 237, 28, 236],
+      [699, 0, 68, 217, 18, 216], [0, 261, 251, 70, 122, 69], [253, 261, 249, 71, 119, 70], [504, 261, 119, 198, 59, 197]]) },
   9: { img: 'hero9sc', kit: 'org', map: SC_ATK, hp: { hit: [16.71, 39.63] },
     f: scFrames('stand run recv set air hit block joy', [[0, 0, 69, 217, 33, 216], [71, 0, 182, 206, 102, 205], [255, 0, 127, 175, 64, 174], [384, 0, 103, 215, 55, 214],
       [489, 0, 101, 205, 54, 204], [592, 0, 145, 207, 58, 206], [739, 0, 89, 238, 45, 237], [830, 0, 169, 207, 88, 206]]) },
@@ -841,12 +844,12 @@ function drawBall(c) {
     c.lineCap = 'round';
     for (let i = 1; i < tr.length; i++) {
       const a = tr[i - 1], b = tr[i], al = 1 - i / tr.length;
-      c.strokeStyle = ball.spiked ? `rgba(255,${(140 + 90 * al) | 0},60,${.6 * al})` : `rgba(255,255,255,${.25 * al})`;
+      c.strokeStyle = ball.spiked ? (ball.perf ? `rgba(${(120 + 135 * al) | 0},235,255,${.75 * al})` : `rgba(255,${(140 + 90 * al) | 0},60,${.6 * al})`) : `rgba(255,255,255,${.25 * al})`;
       c.lineWidth = r * 1.9 * al; c.beginPath(); c.moveTo(a.sx, a.sy); c.lineTo(b.sx, b.sy); c.stroke();
     }
   }
   if (ball.spiked && state === 'play') {
-    const gl = c.createRadialGradient(x, y, r * .5, x, y, r * 4); gl.addColorStop(0, 'rgba(255,170,60,.55)'); gl.addColorStop(1, 'rgba(255,120,30,0)');
+    const gl = c.createRadialGradient(x, y, r * .5, x, y, r * 4); gl.addColorStop(0, ball.perf ? 'rgba(140,230,255,.7)' : 'rgba(255,170,60,.55)'); gl.addColorStop(1, ball.perf ? 'rgba(60,160,255,0)' : 'rgba(255,120,30,0)');   // shortcut: гость онлайн видит обычный след (ball.perf нет в снимке), добавить в buildSnap при необходимости
     c.fillStyle = gl; c.beginPath(); c.arc(x, y, r * 4, 0, 6.2832); c.fill();
   }
   const bs = img('ball_strip');

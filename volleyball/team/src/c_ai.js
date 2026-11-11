@@ -165,7 +165,7 @@ function humanAction(p, retry) {
     if (live && spikeReach(p, rem ? 23 : 17)) {
       p.hitBuf = 0;
       const boost = T.sync >= 3 && ball.h >= 52;   // шкала была полной до этого удара
-      timeMark(p, hd < 6.5 ? 'ИДЕАЛЬНО!' : 'Хорошо'); if (ball.h >= 52) spike(p, true, boost); else tip(p);
+      timeMark(p, hd < 6.5 ? 'ИДЕАЛЬНО!' : 'Хорошо'); if (ball.h >= 52) spike(p, true, boost, hd < 6.5); else tip(p);
     }
     else if (rem && !retry) p.hitBuf = clock + lagWin();   // у гостя нажатие приходит позже: держим «намерение ударить» и бьём, как только мяч в досягаемости
     else if (!retry) { p.swing = SW; p.swingType = 'spike'; if (live && T.touches === 2 && hd < 45) timeMark(p, ball.h > hh ? 'Рано' : 'Поздно'); }

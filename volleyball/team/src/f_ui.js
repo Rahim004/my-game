@@ -940,7 +940,7 @@ function frame(now) {
     if (document.body.dataset.tut !== tk) document.body.dataset.tut = tk;
     const live = state === 'serve' || state === 'play' || state === 'point';
     if (mode === 'guest') netGuestFrame(dt);   // гость не считает игру: показывает снимки хоста
-    else if (live) { if (freeze > 0) freeze -= dt; else update(dt); }
+    else if (live) { if (freeze > 0) freeze -= dt; else if (slowmo > 0) { slowmo -= dt; update(dt * .3); } else update(dt); }
     updateFx(dt);
     mvpTick();
     if (TL && state !== 'paused' && mode !== 'guest') for (const T of [TL, TR]) for (const p of T.players) blendPose(p, dt);

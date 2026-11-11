@@ -17,12 +17,14 @@ const path = require('path'), fs = require('fs');
     setInterval(() => {
       const v = window.__vb; if (!v.TL) return;
       const st = v.state, TL = v.TL, ball = v.ball, a = v.active;
+      if (v.banners.some(q => q.text === 'ИДЕАЛЬНЫЙ УДАР!')) window.__perf = true;   // идеальный тайминг удара хотя бы раз за матч
       if (st === 'serve' && a && !a.toss) { served++; key(served % 2 ? 'ArrowDown' : 'Space'); return; }
       if (st === 'play' && ball.x < 240 && TL.touches === 0 && ball.vh < 0 && ball.h < 40 && ball.h > 20 && a && a.ground && !a.recvWin) key('ArrowDown');
       const h = TL.roles.hitter;
       if (st === 'play' && h && TL.touches === 2 && ball.x < 240) {
         if (h.ground && ball.vh < 0 && ball.h < 112 && ball.h > 86) key('Space');
-        if (!h.ground && Math.hypot(ball.x - (h.x + 5), ball.h - (h.h + 47)) < 14) key('Space');
+        const k = h.look.tall, d = Math.hypot(ball.x - (h.x + 5 * k), ball.h - (h.h + 47 * k));   // точка удара как в handPoint
+        if (!h.ground && (d < 6 || (d < 14 && h.vh < -40))) key('Space');   // сначала ждём идеальный тайминг, на спуске бьём как получится
       }
     }, 16);
   });
@@ -34,6 +36,7 @@ const path = require('path'), fs = require('fs');
     if (s !== last) { console.log(s); last = s; }
     if (s.startsWith('over')) break;
   }
+  console.log('perfect spike seen: ' + await p.evaluate(() => !!window.__perf));
   console.log(errs.length ? 'ERRORS:\n' + errs.join('\n') : 'NO ERRORS');
   await b.close();
   process.exit(errs.length ? 1 : 0);

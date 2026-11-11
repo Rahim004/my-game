@@ -288,7 +288,7 @@ let state = 'menu', timer = 0, serveT = 0, clock = 0, frameDt = 0;
 let ARENA = 'hall';   // площадка: 'hall' — зал, 'beach' — пляж. Менять только через setArena() (e_scene.js)
 let lastToucher = null, lastTeam = null, blockDone = false, netHitThisRally = false, pointWinner = null;
 let banners = [], parts = [], confetti = [], marks = [], rings = [];
-let freeze = 0, flash = 0, shake = 0, punch = 0, speedLines = null, hype = 0, setHints = 0, netShake = 0, wipe = 0;
+let freeze = 0, flash = 0, shake = 0, punch = 0, speedLines = null, hype = 0, setHints = 0, netShake = 0, wipe = 0, slowmo = 0;   // slowmo — секунды замедления после идеального/усиленного удара
 let active = null, active2 = null, stats = null, led = null, cutin = null;
 const scorePop = [0, 0];
 /* mode: 'solo' (TL человек, TR ИИ) | 'local2' (двое на одном устройстве) | 'host' (онлайн, симуляция тут) | 'guest' (онлайн, только показ).
@@ -513,7 +513,7 @@ function tip(p, dir = 0) {   // dir: +1 — к сетке (коротко за �
   if (T === TL) banner(dir > 0 ? 'ОБМАН ЗА БЛОК!' : dir < 0 ? 'НАКАТ В УГОЛ!' : 'ОБМАН!', 'org', .8);
 }
 const blockUp = T => T.players.some(q => !q.ground && Math.abs(q.x - NETX) < 26);   // у команды T поставлен блок
-function spike(p, human, boost = false) {   // boost — усиленный удар по полной шкале «СИНХРОН» (+40 силы)
+function spike(p, human, boost = false, perf = false) {   // perf — удар человека с таймингом «ИДЕАЛЬНО!»: +25 силы и замедление   // boost — усиленный удар по полной шкале «СИНХРОН» (+40 силы)
   const T = p.team, O = other(T), o = -T.side;
   snapBall(p, 'spike', 18);
   let xt;
@@ -533,13 +533,13 @@ function spike(p, human, boost = false) {   // boost — усиленный уд
   }
   touch(p, 'spike'); { T.lastHit.atk = T.atk; const m = msOf(T); m.spikes++; if (m.spikeTypes[T.atk] !== undefined) m.spikeTypes[T.atk]++; }
   let ok = false, flight = .5;
-  for (let sp = T.D.power + 12 * upLv(p, 'pow') + (T.atk === 'pipe' ? 30 : 0) + (boost ? 40 : 0); sp >= 160; sp -= 20) {
+  for (let sp = T.D.power + 12 * upLv(p, 'pow') + (T.atk === 'pipe' ? 30 : 0) + (boost ? 40 : 0) + (perf ? 25 : 0); sp >= 160; sp -= 20) {
     const vx = Math.sign(xt - ball.x) * sp, t = (xt - ball.x) / vx, vh = (0 - ball.h + .5 * G * t * t) / t;
     const tn = (NETX - ball.x) / vx, hn = ball.h + vh * tn - .5 * G * tn * tn;
     if (tn < 0 || hn > NET_H + BR + 2) { ball.vx = vx; ball.vh = vh; ok = true; flight = t; break; }
   }
   if (!ok) { passTo(xt, 0, 1.0); flight = 1; }
-  ball.spiked = true; O.digRoll = Math.random(); O.tick = O.D.react + .12;
+  ball.spiked = true; ball.perf = perf || boost; O.digRoll = Math.random(); O.tick = O.D.react + .12;
   aimLaneTeam(O, flight * .9);
   const speed = Math.hypot(ball.vx, ball.vh) / 24 * 3.6 * 1.35, reach = (p.h + 47 * p.look.tall) / 24 * 1.12;
   stats = { text: `ВЫСОТА УДАРА ${reach.toFixed(2).replace('.', ',')} М   ·   СКОРОСТЬ ${speed.toFixed(1).replace('.', ',')} КМ/Ч`, t: 0 };
@@ -554,7 +554,9 @@ function spike(p, human, boost = false) {   // boost — усиленный уд
     cutin = { p, team: T, act: 'СИНХРОН-УДАР', t: 0, life: 1.1 };
     if (!REDUCED) { freeze = .11; shake = 3.2; }
   }
-  if (human) { if (!boost) banner(Math.random() < .5 ? 'АТАКА!' : 'МОЩНО!', 'org', .9); tutEvt('spike', p); }
+  if ((perf || boost) && !REDUCED) { slowmo = boost ? .3 : .2; shake = Math.max(shake, 3); }
+  if (perf && !boost) spray(14, ['#ffffff', '#9fe8ff', '#4fc3ff'], 150, .4);
+  if (human) { if (!boost) banner(perf ? 'ИДЕАЛЬНЫЙ УДАР!' : Math.random() < .5 ? 'АТАКА!' : 'МОЩНО!', perf ? 'gold' : 'org', .9); tutEvt('spike', p); }
   else if (O === TL && recvHints < 3) { recvHints++; banner('ЖМИ «ПРИЁМ»!', 'gold', .9, true, 'L'); }
 }
 function startToss(p) {
