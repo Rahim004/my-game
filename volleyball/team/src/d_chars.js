@@ -744,9 +744,10 @@ const SC_ATK = Object.assign({ air: 'air', cock: 'air', hit: 'hit', follow: 'hit
 const SC_OPP = Object.assign({ air: 'air', cock: 'air', block: 'air', hit: 'hit', follow: 'hit2', sad: 'stand' }, SC_RUN);   /* соперники: 2 кадра удара, без блока */
 const scFrames = (names, rects) => { const f = {}; names.split(' ').forEach((k, i) => f[k] = rects[i]); return f; };
 const SC_SPR = {
-  10: { img: 'hero10sc', kit: 'blk', map: SC_ATK, hp: { air: [8, 39], hit: [15.93, 39.19] },
-    f: scFrames('stand run recv set air hit block joy', [[0, 0, 140, 215, 70, 214], [142, 0, 195, 219, 110, 218], [339, 0, 136, 185, 68, 184], [477, 0, 105, 232, 57, 231],
-      [584, 0, 120, 216, 57, 215], [706, 0, 151, 215, 62, 214], [859, 0, 92, 240, 47, 239], [0, 242, 181, 222, 94, 221]]) },
+  /* №10: лист перерисован в Higgsfield (Seedream) по прежним кадрам SpriteCook; u — во сколько раз лист крупнее масштаба SPR_U */
+  10: { img: 'hero10sc', kit: 'blk', map: SC_ATK, u: 1.451, hp: { air: [8, 39], hit: [15.93, 39.19] },
+    f: scFrames('stand run recv set air hit block joy', [[0, 0, 200, 312, 100, 311], [202, 0, 278, 317, 157, 316], [482, 0, 192, 268, 96, 267], [676, 0, 149, 335, 81, 334],
+      [827, 0, 171, 312, 81, 311], [0, 337, 219, 318, 90, 317], [221, 337, 132, 369, 67, 368], [355, 337, 263, 328, 137, 327]]) },
   9: { img: 'hero9sc', kit: 'org', map: SC_ATK, hp: { hit: [16.71, 39.63] },
     f: scFrames('stand run recv set air hit block joy', [[0, 0, 69, 217, 33, 216], [71, 0, 182, 206, 102, 205], [255, 0, 127, 175, 64, 174], [384, 0, 103, 215, 55, 214],
       [489, 0, 101, 205, 54, 204], [592, 0, 145, 207, 58, 206], [739, 0, 89, 238, 45, 237], [830, 0, 169, 207, 88, 206]]) },
@@ -796,7 +797,8 @@ function drawPlayerAt(c, p, x, y, sl, mirror) {
     const lq = p.landT > 0 && p.ground ? Math.min(1, p.landT / .2) : 0, st = p.ground === false ? Math.abs(clamp((p.vh || 0) / JUMP_V, -1, 1)) : 0;
     const sx = 1 + .09 * lq - .035 * st, sy = 1 - .08 * lq + .05 * st;
     const R = sat ? S.f[sn] : H.f[fr];
-    c.save(); c.translate(x, y); c.scale(p.face * sl * sx / SPR_U, sl * sy / SPR_U);
+    const su = SPR_U * (sat && S.u || 1);   // у листа может быть свой масштаб (S.u)
+    c.save(); c.translate(x, y); c.scale(p.face * sl * sx / su, sl * sy / su);
     c.drawImage(sat || atl, R[0], R[1], R[2], R[3], -R[4], -R[5], R[2], R[3]);
     c.restore();
     if (mirror) return;
