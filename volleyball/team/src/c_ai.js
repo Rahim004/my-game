@@ -101,7 +101,7 @@ function stepPlayer(p, dir, jump, dt, slow) {
 /* ================= метка тайминга (только локальный визуал; рисует timingFx в f_ui.js) ================= */
 function addSync(T) {   // шкала «СИНХРОН»: +1 за «ИДЕАЛЬНО!» человека, на 3 — следующий удар усиленный
   if (T.sync >= 3) return;
-  if (++T.sync === 3) sfx.sync();
+  if (++T.sync === 3) { sfx.sync(); if (T === TL) banner('СУПЕРСИЛА ГОТОВА!', 'gold', 1.1, true, 'L'); }
 }
 function timeMark(p, text) {   // метка у игрока, которым управляет человек на этом устройстве
   if (text === 'ИДЕАЛЬНО!' && p && p.team.human && p === p.team.act && !tut) addSync(p.team);   // шкалу копят обе человеческие команды (и гость в онлайне)

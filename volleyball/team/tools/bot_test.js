@@ -17,7 +17,8 @@ const path = require('path'), fs = require('fs');
     setInterval(() => {
       const v = window.__vb; if (!v.TL) return;
       const st = v.state, TL = v.TL, ball = v.ball, a = v.active;
-      if (v.banners.some(q => q.text === 'ИДЕАЛЬНЫЙ УДАР!')) window.__perf = true;   // идеальный тайминг удара хотя бы раз за матч
+      if (v.banners.some(q => q.text === 'ИДЕАЛЬНЫЙ УДАР!')) window.__perf = true;
+      for (const q of v.banners) if (['ГРОМ!', 'СТЕНА!', 'ЯКОРЬ!'].includes(q.text)) (window.__pw = window.__pw || {})[q.text] = 1;   // суперсилы героев, сработавшие за матч   // идеальный тайминг удара хотя бы раз за матч
       if (st === 'serve' && a && !a.toss) { served++; key(served % 2 ? 'ArrowDown' : 'Space'); return; }
       if (st === 'play' && ball.x < 240 && TL.touches === 0 && ball.vh < 0 && ball.h < 40 && ball.h > 20 && a && a.ground && !a.recvWin) key('ArrowDown');
       const h = TL.roles.hitter;
@@ -37,6 +38,7 @@ const path = require('path'), fs = require('fs');
     if (s.startsWith('over')) break;
   }
   console.log('perfect spike seen: ' + await p.evaluate(() => !!window.__perf));
+  console.log('super powers seen: ' + await p.evaluate(() => Object.keys(window.__pw || {}).join(' ')));
   console.log(errs.length ? 'ERRORS:\n' + errs.join('\n') : 'NO ERRORS');
   await b.close();
   process.exit(errs.length ? 1 : 0);
