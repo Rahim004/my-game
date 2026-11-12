@@ -288,7 +288,7 @@ let state = 'menu', timer = 0, serveT = 0, clock = 0, frameDt = 0;
 let ARENA = 'hall';   // площадка: 'hall' — зал, 'beach' — пляж. Менять только через setArena() (e_scene.js)
 let lastToucher = null, lastTeam = null, blockDone = false, netHitThisRally = false, pointWinner = null;
 let banners = [], parts = [], confetti = [], marks = [], rings = [];
-let freeze = 0, flash = 0, shake = 0, punch = 0, speedLines = null, hype = 0, setHints = 0, netShake = 0, wipe = 0, slowmo = 0;   // slowmo — секунды замедления после идеального/усиленного удара
+let freeze = 0, flash = 0, shake = 0, punch = 0, speedLines = null, hype = 0, setHints = 0, netShake = 0, wipe = 0, slowmo = 0, ghosts = [], ghostSrc = null;   // slowmo — секунды замедления после идеального/усиленного удара
 let active = null, active2 = null, stats = null, led = null, cutin = null;
 const scorePop = [0, 0];
 /* mode: 'solo' (TL человек, TR ИИ) | 'local2' (двое на одном устройстве) | 'host' (онлайн, симуляция тут) | 'guest' (онлайн, только показ).
@@ -539,7 +539,7 @@ function spike(p, human, boost = false, perf = false) {   // perf — удар �
     if (tn < 0 || hn > NET_H + BR + 2) { ball.vx = vx; ball.vh = vh; ok = true; flight = t; break; }
   }
   if (!ok) { passTo(xt, 0, 1.0); flight = 1; }
-  ball.spiked = true; ball.perf = perf || boost; O.digRoll = Math.random(); O.tick = O.D.react + .12;
+  ball.spiked = true; ball.perf = perf || boost; O.digRoll = Math.random() + (ball.perf ? .2 : 0);   /* сильный удар труднее принять: шанс приёма ИИ −20 п.п. */ O.tick = O.D.react + .12;
   aimLaneTeam(O, flight * .9);
   const speed = Math.hypot(ball.vx, ball.vh) / 24 * 3.6 * 1.35, reach = (p.h + 47 * p.look.tall) / 24 * 1.12;
   stats = { text: `ВЫСОТА УДАРА ${reach.toFixed(2).replace('.', ',')} М   ·   СКОРОСТЬ ${speed.toFixed(1).replace('.', ',')} КМ/Ч`, t: 0 };
@@ -554,7 +554,7 @@ function spike(p, human, boost = false, perf = false) {   // perf — удар �
     cutin = { p, team: T, act: 'СИНХРОН-УДАР', t: 0, life: 1.1 };
     if (!REDUCED) { freeze = .11; shake = 3.2; }
   }
-  if ((perf || boost) && !REDUCED) { slowmo = boost ? .3 : .2; shake = Math.max(shake, 3); }
+  if ((perf || boost) && !REDUCED) { slowmo = boost ? .3 : .2; shake = Math.max(shake, 3); ghostSrc = p; p.ghostT = .3; }   // ghostT — сколько ещё оставлять силуэты-шлейф за бьющим
   if (perf && !boost) spray(14, ['#ffffff', '#9fe8ff', '#4fc3ff'], 150, .4);
   if (human) { if (!boost) banner(perf ? 'ИДЕАЛЬНЫЙ УДАР!' : Math.random() < .5 ? 'АТАКА!' : 'МОЩНО!', perf ? 'gold' : 'org', .9); tutEvt('spike', p); }
   else if (O === TL && recvHints < 3) { recvHints++; banner('ЖМИ «ПРИЁМ»!', 'gold', .9, true, 'L'); }
@@ -595,11 +595,20 @@ function powerServe(p) {
   banner('СИЛОВАЯ ПОДАЧА!', T === TL ? 'org' : 'teal', 1.0, T !== TL);
   if (O === TL && recvHints < 3) { recvHints++; banner('ЖМИ «ПРИЁМ»!', 'gold', .9, true, 'L'); }
 }
+function aiServeX(T, o) {   // ИИ подаёт туда, где меньше всего игроков приёма: 6 точек, лучшая — самая далёкая от соперников; ошибка — по сложности
+  const O = other(T); let best = -1, bx = NETX + o * 120;
+  for (let i = 0; i < 6; i++) {
+    const x = NETX + o * (70 + Math.random() * 140);
+    const d = Math.min(...O.players.map(q => Math.abs(q.x - x))) + (T.D.err >= 12 ? Math.random() * 90 : 0);
+    if (d > best) { best = d; bx = x; }
+  }
+  return bx;
+}
 function serveBall(p) {
   if (p.jumpServe) { powerServe(p); return; }
   const T = p.team, o = -T.side, hd = T.human ? (T.hdir || 0) * o : 0;   // человек со стрелкой: >0 — в глубину, <0 — к сетке
   snapBall(p, 'serve', 10); touch(p, 'serve'); T.touches = 3; p.toss = 0;
-  const xt = NETX + o * (hd > 0 ? 170 + Math.random() * 36 : hd < 0 ? 80 + Math.random() * 30 : 60 + Math.random() * 130);
+  const xt = hd ? NETX + o * (hd > 0 ? 170 + Math.random() * 36 : 80 + Math.random() * 30) : T.human ? NETX + o * (60 + Math.random() * 130) : aiServeX(T, o);
   let fl = 1.45;   // подбираем время полёта так, чтобы мяч перелетел сетку (как в tip)
   for (; fl < 2.2; fl += .05) { passTo(xt, 0, fl); const tn = (NETX - ball.x) / ball.vx; if (tn <= 0 || ball.h + ball.vh * tn - .5 * G * tn * tn > NET_H + BR + 4) break; }
   aimLaneTeam(other(T), fl);
@@ -707,7 +716,9 @@ function land() {
   if (x >= COURT_L && x < NETX) W = TR; else if (x > NETX && x <= COURT_R) W = TL;
   else { out = true; W = lastTeam ? other(lastTeam) : (x < NETX ? TR : TL); }
   sfx.floor(); buzz(40); if (!REDUCED) shake = Math.max(shake, 3);
-  marks.push({ x, lane: ball.lane, t: 0 }); dust(x, ball.lane, 14); ring('floor');
+  const heavy = ball.spiked && ball.perf;   // сильный удар в пол: больше пыли, искры, тряска и короткий стоп-кадр
+  marks.push({ x, lane: ball.lane, t: 0 }); dust(x, ball.lane, heavy ? 30 : 14); ring('floor');
+  if (heavy) { spray(18, ['#ffffff', '#9fe8ff', '#4fc3ff'], 130, .45); if (!REDUCED) { shake = 4.5; freeze = Math.max(freeze, .05); punch = Math.max(punch, .07); } buzz(70); }
   pointTo(W, out ? 'АУТ' : '');
 }
 function pointTo(W, reason) {

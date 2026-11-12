@@ -265,6 +265,8 @@ function updateFx(dt) {
   if (cutin && (cutin.t += dt) > cutin.life) cutin = null;
   if (tim && (tim.t += dt) > tim.life) tim = null;
   for (const b of banners) b.t += dt; banners = banners.filter(b => b.t < b.life);
+  for (const g of ghosts) g.t += dt; ghosts = ghosts.filter(g => g.t < .2);
+  if (ghostSrc && ghostSrc.ghostT > 0) { const p = ghostSrc, sl = sOf(p.lane); p.ghostT -= dt; ghosts.push({ p, x: PX(p.x, p.lane), y: p.lane - p.h * sl, sl, t: 0 }); }
   for (const r of rings) r.t += dt; rings = rings.filter(r => r.t < .45);
   for (const m of marks) m.t += dt; marks = marks.filter(m => m.t < 1.4);
   flash = Math.max(0, flash - dt); shake = Math.max(0, shake - dt * 14); punch = Math.max(0, punch - dt * .35);

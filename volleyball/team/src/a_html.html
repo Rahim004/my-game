@@ -104,7 +104,7 @@ kbd { font-family: var(--body); font-weight: 500; color: var(--ink); background:
   }
   .controls2 { padding-inline: max(12px, env(safe-area-inset-left, 0px)) max(12px, env(safe-area-inset-right, 0px)); padding-bottom: calc(6px + env(safe-area-inset-bottom, 0px)); }
   /* подсказка клавиш — полоска поверх нижнего края сцены; гаснет через 10 с */
-  body:not(.touch) .hint { position: absolute; left: 50%; bottom: 6px; transform: translateX(-50%); z-index: 2; max-width: calc(100% - 24px); padding: 4px 12px; border-radius: 8px; background: rgba(15, 17, 21, .62); color: #d6d9e2; font-size: clamp(11px, 1.6vmin, 14px); pointer-events: none; animation: hintfade .8s 10s forwards; }
+  body:not(.touch) .hint { position: absolute; left: 50%; bottom: 6px; transform: translateX(-50%); z-index: 2; width: max-content; max-width: calc(100% - 24px); padding: 4px 12px; border-radius: 8px; background: rgba(15, 17, 21, .62); color: #d6d9e2; font-size: clamp(11px, 1.6vmin, 14px); pointer-events: none; animation: hintfade .8s 10s forwards; }
 }
 @keyframes hintfade { to { opacity: 0; visibility: hidden; } }
 body:not(.playing) .hint { display: none !important; }

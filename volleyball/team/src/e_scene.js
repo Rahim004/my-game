@@ -720,7 +720,7 @@ const cam = { x: 240, top: 90, scale: 2, z: 0 };
 function updateCamera(dt, snap) {
   const aspect = cssW / cssH, zb = aspect < 1.3 ? 1.0 : aspect < 1.5 ? 1.18 : aspect < 1.7 ? 1.07 : aspect < 1.95 ? 1.15 : aspect < 2.35 ? 1.3 : Math.min(1.3, 3.06 / aspect);   // очень широкий экран: показываем больше по ширине, высота кадра не уже, чем при 2.35
   // мягкий наезд: сильная атака/блок (punch) и подача — цель зума; быстро входим, плавно возвращаемся; амплитуда ограничена
-  const zt = REDUCED ? 0 : Math.min(.1, punch * 1.2) + (TL && state === 'serve' ? .05 : 0);
+  const zt = REDUCED ? 0 : Math.min(.1, punch * 1.2) + (slowmo > 0 ? .08 : 0) + (TL && state === 'serve' ? .05 : 0);
   cam.z = snap ? zt : cam.z + (zt - cam.z) * (1 - Math.exp(-dt * (zt > cam.z ? 14 : 2.6)));
   const visW = VW / (zb + cam.z), sc = cssW / visW, visH = cssH / sc;
   cam.scale = sc;
@@ -973,6 +973,8 @@ function render() {
     }
     let netDone = false;
     const net = () => { if (netShake > 0) drawNet(out, Math.sin(clock * 55) * netShake * 1.4); else out.drawImage(netL, NLX0, NLY0, NLX1 - NLX0, NLY1 - NLY0); };
+    for (const g of ghosts) { out.globalAlpha = .32 * (1 - g.t / .2); drawPlayerAt(out, g.p, g.x, g.y, g.sl); }   // шлейф силуэтов за бьющим (идеальный/синхрон-удар)
+    out.globalAlpha = 1;
     for (const p of all) { if (!netDone && p.lane >= LANE0) { net(); netDone = true; } drawPlayer(out, p); }
     if (!netDone) net();
     for (const p of all) {
