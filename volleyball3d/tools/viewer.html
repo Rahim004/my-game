@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><title>Просмотрщик героев</title>
+<style>html,body{margin:0;height:100%;background:#2b2150;overflow:hidden;font:600 13px system-ui;color:#fff}
+canvas{position:fixed;inset:0;width:100vw;height:100vh}.lb{position:fixed;transform:translateX(-50%);text-shadow:0 0 4px #000}</style></head>
+<body><canvas id="c"></canvas><div id="labels"></div>
+<script src="../assets/lib/three.min.js"></script><script src="../assets/lib/GLTFLoader.js"></script><script src="../assets/lib/SkeletonUtils.js"></script>
+<script src="../assets/anime.js"></script>
+<script>
+// ?id=rei&view=front|side|back|three&poses=idle:0,run:.25,spike:.5&expr=neutral&zoom=1&at=0 (at: центр кадра по высоте)
+const q=new URLSearchParams(location.search),id=q.get('id')||'rei',view=q.get('view')||'front',expr=q.get('expr')||'neutral';
+const poses=(q.get('poses')||'idle:0,ready:.5,run:0,run:.5,jump:1,fall:1,spike:.0,spike:.4,spike:.6,block:1,receive:1,set:1,serve:.45,celebrate:.5').split(',').map(s=>{const[a,b]=s.split(':');return[a,+b||0];});
+const ALL={rei:{skin:'#f6d2ac',hair:'#e9eef8',hair2:'#2f7bff',eye:'#38a8ff'},saki:{skin:'#ffe0c8',hair:'#ff8fc7',hair2:'#ff4f9a',eye:'#ff5fa8'},aris:{skin:'#c98f62',hair:'#242433',hair2:'#ffd23f',eye:'#ffcc33'},
+ rin:{skin:'#f0c39a',hair:'#6a2c1c',hair2:'#ff6a3d',eye:'#ff7a3a'},bo:{skin:'#e2ad80',hair:'#b9bfd0',hair2:'#b9bfd0',eye:'#7a8cff'},yuki:{skin:'#fbe3d3',hair:'#c9a7ff',hair2:'#7b4dff',eye:'#9d6bff'},
+ kage:{skin:'#d9a67a',hair:'#1a1a30',hair2:'#a35bff',eye:'#c58bff'},ryu:{skin:'#f0c39a',hair:'#ffcf40',hair2:'#ff6a00',eye:'#ff3b2f'},kai:{skin:'#d9a67a',hair:'#d7442c',hair2:'#d7442c',eye:'#ffcf40'}};
+const ch=ALL[id],team={c:'#1fb6ff',s:'#0b4f8a'};
+const r=new THREE.WebGLRenderer({canvas:document.getElementById('c'),antialias:true});r.outputEncoding=THREE.sRGBEncoding;r.setPixelRatio(1);
+const sc=new THREE.Scene();sc.background=new THREE.Color('#2b2150');
+sc.add(new THREE.HemisphereLight('#ffe9f5','#5a4678',.9));const sun=new THREE.DirectionalLight('#fff0d2',.9);sun.position.set(3,6,5);sc.add(sun);
+const cam=new THREE.PerspectiveCamera(30,1,.1,100);
+function size(){r.setSize(innerWidth,innerHeight,false);cam.aspect=innerWidth/innerHeight;cam.updateProjectionMatrix();}size();
+new THREE.GLTFLoader().load('../assets/chars/'+id+'.glb',g=>{
+  window.G=g;const names=g.animations.map(a=>a.name+':'+a.duration.toFixed(2));console.log('ANIMS',names.join(' '));
+  const sp=1.0,n=poses.length,mix=[];
+  poses.forEach(([nm,fr],i)=>{
+    const m=THREE.SkeletonUtils.clone(g.scene);(view==='side'?m.position.z=-(i-(n-1)/2)*sp:m.position.x=(i-(n-1)/2)*sp);
+    const look=ANIME.dress(m,ch,team);look.setFace(expr);sc.add(m);
+    const clip=g.animations.find(a=>a.name===nm);const mx=new THREE.AnimationMixer(m);
+    if(clip){const a=mx.clipAction(clip);a.play();mx.setTime(fr*clip.duration);}
+    mix.push(m);(window.MX=window.MX||[]).push(mx);
+    const d=document.createElement('div');d.className='lb';d.textContent=nm+' '+fr;d.dataset.x=m.position.x;d.dataset.z=m.position.z;document.getElementById('labels').appendChild(d);
+  });
+  const w=n*sp,dist=Math.max(5,w/ (2*Math.tan(cam.fov*Math.PI/360)*cam.aspect))*1.05/(+q.get('zoom')||1);
+  const at=+q.get('at')||.95;
+  const d={front:[0,0,1],back:[0,0,-1],side:[1,0,0],three:[.7,.15,.7]}[view];
+  cam.position.set(d[0]*dist,at+d[1]*dist,d[2]*dist);cam.lookAt(0,at,0);
+  const f=new THREE.Mesh(new THREE.PlaneGeometry(40,40),new THREE.MeshBasicMaterial({color:'#3a2f6d'}));f.rotation.x=-Math.PI/2;sc.add(f);
+  const loop=()=>{r.render(sc,cam);requestAnimationFrame(loop);};loop();
+  document.querySelectorAll('.lb').forEach(e=>{const v=new THREE.Vector3(+e.dataset.x,0,+e.dataset.z).project(cam);e.style.left=((v.x*.5+.5)*innerWidth)+'px';e.style.top=((-v.y*.5+.5)*innerHeight+8)+'px';});
+  document.title='READY '+names.join(' ');
+},undefined,e=>{document.title='LOADERR '+e.message;});
+</script></body></html>
