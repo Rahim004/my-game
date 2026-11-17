@@ -1012,7 +1012,7 @@ function updNetLink(now) {   // плашка связи в онлайне: пи�
   const L = state === 'menu' ? null : netLink();
   if (L) {
     if (L.warn) { txt = L.warn; cls += ' warn'; }
-    else if (L.ms > 0) { txt = '● ' + Math.round(L.ms) + ' мс'; cls += L.ms > 600 ? ' slow' : L.ms > 300 ? ' mid' : ''; }
+    else if (L.ms > 0) { txt = '● пинг ' + Math.round(L.ms) + ' мс' + (L.route ? ' · ' + L.route : ''); cls += L.ms > 600 ? ' slow' : L.ms > 300 ? ' mid' : ''; }
   }
   if (txt !== netLinkTxt) { netLinkTxt = txt; netLinkEl.textContent = txt; netLinkEl.hidden = !txt; }
   if (cls !== netLinkCls) { netLinkCls = cls; netLinkEl.className = cls; }
