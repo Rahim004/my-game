@@ -106,7 +106,7 @@ window.claude?.hot?.snapshot?.(() => ({ diff, target: TARGET, names }));
 /* ================= прокачка героев: очки за матчи, 4 характеристики по 5 уровней =================
    Действует только в режимах против компьютера (Один, Турнир, Колизей) и только на нашу команду:
    онлайн и «вдвоём» играют на равных, сеть не затрагивается. */
-const UP_MAX = 5;
+const UP_MAX = 6;   // 6-й уровень открывает только ранг S+ (GRADE_CAP)
 const UP_STATS = [['pow', 'СИЛА УДАРА', '+12 к скорости удара и силовой подачи'], ['jmp', 'ПРЫЖОК', '+2,5% к высоте прыжка'],
   ['spd', 'СКОРОСТЬ', '+3% к бегу'], ['dig', 'ПРИЁМ', '+3,5% к шансу достать сильный удар']];
 let ups = (() => {
@@ -116,7 +116,58 @@ let ups = (() => {
   return u;
 })();
 const upSave = () => { try { localStorage.setItem('vb-up', JSON.stringify(ups)); } catch (e) {} };
-const upLv = (p, k) => typeof mode !== 'undefined' && mode === 'solo' && p && p.team === TL && ups.h[p.num] ? ups.h[p.num][k] : 0;
+const upLv = (p, k) => typeof mode !== 'undefined' && mode === 'solo' && p && p.team === TL && ups.h[p.num] ? ups.h[p.num][k] + .1 * heroes[p.num].g : 0;   // + малый бонус ранга (D = 0, S+ = +1 уровень)
+
+/* ================= рост героев и игрока (этап 2 SPIKE_PLAN) =================
+   vb-heroes { h: { 10: { xp, pts, mt } } } — опыт, очки мастерства, выданная ступень мастерства. Уровень и ранг считаются из xp.
+   vb-league { pts } — очки лиги игрока. Действует против компьютера и онлайн; «вдвоём» не считается. */
+const HEROES = [10, 9, 4], MAX_LV = 30;
+const GRADES = ['D', 'C', 'B−', 'B', 'B+', 'A−', 'A', 'A+', 'S−', 'S', 'S+'];
+const GRADE_COL = ['#8a93a6', '#6bbf7a', '#3fc7a8', '#3fa9f5', '#6f8cff', '#b07cff', '#e05cff', '#ff6fae', '#ff9a3c', '#ffc83a', '#fff06a'];
+const GRADE_CAP = [1, 2, 2, 3, 3, 4, 4, 5, 5, 5, 6];   // сколько уровней прокачки открыто рангом
+const gradeOf = lv => lv >= MAX_LV ? 10 : Math.min(9, Math.floor((lv - 1) / 3));
+const heroNeed = lv => 80 + 20 * lv;   // XP до следующего уровня
+const upCap = (g, have) => Math.max(GRADE_CAP[g], have | 0);   // уже купленное не отнимаем
+const needGrade = lv => GRADE_CAP.findIndex(c => c >= lv);   // ранг, с которого доступен уровень прокачки lv
+const SUPER_NM = { 10: 'ГРОМ', 9: 'СТЕНА', 4: 'ЯКОРЬ' };
+const MAST_AT = [0, 30, 100, 300, 800], MAST_NM = ['Новичок', 'Ветеран', 'Элита', 'Легенда', 'Чемпион'], MAST_RW = [0, 5, 10, 20, 40];
+const MAST_COL = ['#f2c230', '#ffd84a', '#ff9a3c', '#ff5c7a', '#ffffff'];
+function heroSync(q) { let xp = q.xp, lv = 1; while (lv < MAX_LV && xp >= heroNeed(lv)) { xp -= heroNeed(lv); lv++; } q.lv = lv; q.g = gradeOf(lv); q.cur = lv >= MAX_LV ? 1 : xp; q.need = lv >= MAX_LV ? 1 : heroNeed(lv); }
+const heroes = (() => {
+  const h = {}; let v = null; try { v = JSON.parse(localStorage.getItem('vb-heroes') || 'null'); } catch (e) {}
+  for (const n of HEROES) { const q = v && v.h && v.h[n] || {}; h[n] = { xp: Math.max(0, +q.xp | 0), pts: Math.max(0, +q.pts | 0), mt: clamp(+q.mt | 0, 0, 4), lv: 1, g: 0, cur: 0, need: 100 }; heroSync(h[n]); }
+  return h;
+})();
+const heroSave = () => { try { const h = {}; for (const n of HEROES) h[n] = { xp: heroes[n].xp, pts: heroes[n].pts, mt: heroes[n].mt }; localStorage.setItem('vb-heroes', JSON.stringify({ h })); } catch (e) {} };
+const mastTier = pts => MAST_AT.reduce((t, a, i) => pts >= a ? i : t, 0);
+const solo1 = p => typeof mode !== 'undefined' && mode === 'solo' && p && p.team === TL && heroes[p.num];   // прокачка и супер-уровни — только наша команда против компьютера
+const superLv = p => solo1(p) ? (heroes[p.num].g >= 10 ? 3 : heroes[p.num].g >= 8 ? 2 : 1) : 1;
+const superTag = (nm, p) => solo1(p) ? nm + ' LV.' + superLv(p) : nm;
+const LG_NM = ['ПЕСОК', 'ДЕРЕВО', 'СТАЛЬ', 'КРИСТАЛЛ', 'МАСТЕР', 'ЛЕГЕНДА'], LG_COL = ['#d8b36a', '#a8743c', '#aab4c4', '#5fd4ff', '#b36bff', '#ffcf3a'];
+let leaguePts = (() => { try { const v = JSON.parse(localStorage.getItem('vb-league') || 'null'); return Math.max(0, v ? +v.pts | 0 : 0); } catch (e) { return 0; } })();
+function leagueAt(pts) {   // 18 ступеней по 100 очков: Песок 3 … Легенда 1; «Кубок» (этап 3) открывается с Дерево 3, то есть idx >= 3
+  const idx = Math.min(17, Math.floor(pts / 100)), tier = idx / 3 | 0, sub = 3 - idx % 3;
+  return { idx, tier, sub, pts, name: LG_NM[tier] + ' ' + sub, col: LG_COL[tier], base: idx * 100 };
+}
+const leagueTier = () => leagueAt(leaguePts);
+window.leagueTier = leagueTier;
+const matchXp = (bn, win) => { bn = bn || {}; return 30 + (win ? 40 : 0) + 5 * (bn.pts | 0) + 3 * (bn.kills | 0) + 4 * (bn.aces | 0) + 3 * (bn.perf | 0); };
+/* итог матча: опыт героев, мастерство, лига. Один вызов на матч; возвращает данные для экрана итогов */
+function growEnd(win, my, opp, setDiff) {
+  const r = { win, xp: [], mast: [], lg: null };
+  for (const n of HEROES) {
+    const q = heroes[n], bn = matchStats && matchStats.byNum && matchStats.byNum[n], f = { n, gain: matchXp(bn, win), lv0: q.lv, cur0: q.cur, need0: q.need, g0: q.g };
+    q.xp += f.gain; q.pts += bn ? bn.pts | 0 : 0; heroSync(q); f.lv1 = q.lv; f.cur1 = q.cur; f.need1 = q.need; f.g1 = q.g; r.xp.push(f);
+    const t = mastTier(q.pts);
+    if (t > q.mt) { let rw = 0; for (let i = q.mt + 1; i <= t; i++) rw += MAST_RW[i]; q.mt = t; ups.pts += rw; r.mast.push({ n, tier: t, rw }); }
+  }
+  const a = leagueAt(leaguePts), d = clamp(my - opp, -10, 10);
+  leaguePts = Math.max(a.base, leaguePts + (win ? 25 + Math.max(0, d) + (setDiff > 1 ? 5 : 0) : -(6 + clamp(-d, 0, 6))));   // ниже начала текущей ступени не падаем
+  const b = leagueAt(leaguePts); r.lg = { a, b, dl: leaguePts - a.pts, up: b.idx > a.idx };
+  heroSave(); upSave(); try { localStorage.setItem('vb-league', JSON.stringify({ pts: leaguePts })); } catch (e) {}
+  return r;
+}
+
 
 /* ================= audio ================= */
 let ac = null;
@@ -299,6 +350,30 @@ const input = { left: false, right: false, jump: false, hit: false, act: false, 
 const input2 = { left: false, right: false, jump: false, hit: false, act: false, slide: false, jumpQ: false, hitQ: false, actQ: false, slideQ: false };
 const myTeam = () => mode === 'guest' ? TR : TL;
 let recvHints = 0, serveHints = 0, atkHints = 0;
+/* ================= матч «как в The Spike»: сеты, тайм-ауты, запас сил, состояния игроков =================
+   T (он же MT — внутри функций, где T — команда) читает меню/HUD: sets — до скольких сетов (опция 'vb-sets', 1 или 2), setNo, setsWon [лево, право],
+   tos — тайм-ауты [лево, право], toT — секунды паузы, serveHold 0..1 — удержание при подаче, over/setEnd — конец матча/сета. */
+const T = { sets: 1, setNo: 1, setsWon: [0, 0], tos: [2, 2], toT: 0, serveHold: 0, sk: null, over: false, setEnd: false, lost: [0, 0], aiTo: [false, false] };
+const MT = T;
+const COND = { hype: { atk: 1.06, spd: 1.05, def: .92, jmp: .96 }, zone: { atk: 1.12, spd: 1.1, def: 1.15, jmp: 1.08 }, lost: { spd: .9, def: .88 }, down: { atk: .92, spd: .92, def: .9, jmp: .94 } };
+const TEND = { 10: { hype: 1.4, zone: 1.4 }, 9: { lost: .7, down: .8 }, 4: { down: .6, hype: .7 } };   // характер героя: множитель шанса состояния
+const condMul = (p, k) => (p.cond && COND[p.cond][k]) || 1;
+const CRANK = { lost: 1, hype: 2, down: 3, zone: 4 };
+function setCond(p, c) {   // слабое состояние не перебивает сильное; «в зоне» перебивает всё
+  if (p.cond && CRANK[c] < CRANK[p.cond] && !(p.cond === 'hype' && c === 'down')) return false;
+  p.cond = c; p.condT = 20 + Math.random() * 20; return true;
+}
+const tryCond = (p, c, prob) => p && Math.random() < prob * ((TEND[p.num] && TEND[p.num][c]) || 1) && setCond(p, c);
+const readSets = () => { try { return +JSON.parse(localStorage.getItem('vb-sets') || '1') === 2 ? 2 : 1; } catch (e) { return 1; } };
+/* модификаторы забега «Колизея» (f_ui.js): суммы эффектов карт и штрафа; null вне забега. Действуют только на команду игрока (TL) */
+let RUN = null;
+const rm = (T, k) => RUN && T === TL ? (RUN[k] || 0) : 0;
+const recvDmg = (p, pw) => clamp(Math.round(27 * Math.pow(pw / 430, 1.6) * .5 / Math.max(.15, (p.team.D.dig + .035 * upLv(p, 'dig')) * condMul(p, 'def'))), 5, 45);   // урон запасу: сила удара против защиты
+function agileTry(p) {   // «ЛОВКОСТЬ!»: быстрый игрок иногда достаёт мяч без сил / после провала
+  const sp = p.team.D.speed * (1 + .03 * upLv(p, 'spd')) * condMul(p, 'spd');
+  if (Math.random() < clamp(.15 + (sp - .8) * .96, .15, .4)) { p.agile = 1.0; return true; }
+  return false;
+}
 let tut = null, tim = null;   // tut — состояние обучения (c_ai.js: tutTick/tutFeed/tutEvt), tim — метка тайминга у игрока (timeMark, рисует f_ui.js)
 
 const mirror = (T, x) => T.side < 0 ? x : VW - x;
@@ -318,15 +393,16 @@ function mkPlayer(team, idx, num, kitName) {
     job: team.side < 0 ? { org: 'set', blk: 'hit', lib: 'lib' }[kitName] : undefined, lib: kitName === 'lib', x: 0, lane: LANES[idx], h: 0, vx: 0, vh: 0, ground: true, goal: 0,
     swing: 0, swingType: '', cd: 0, run: 0, aiJump: false, forceJump: false, blocking: false,
     landT: 0, toss: 0, diveDone: false, pose: null,
-    slide: 0, slideDir: team.side < 0 ? 1 : -1, rise: 0, slideHit: 0, aiSlide: 0, fxT: 0 };   // slide/rise — сек до конца скольжения / подъёма с пола
+    slide: 0, slideDir: team.side < 0 ? 1 : -1, rise: 0, slideHit: 0, aiSlide: 0, fxT: 0,
+    sta: 100, rg: null, agile: 0, shield: 0, cond: null, condT: 0, blkCh: 0, blkHold: 0, blkBad: 0, idle: 0, touchedR: false, agTry: -1, serveKind: 'float', tossQ: 0 };   // slide/rise — сек до конца скольжения / подъёма с пола
   p.x = homeOf(p); p.goal = p.x; return p;
 }
 /* ================= счётчики матча (хост / одиночная игра) ================= */
 const mkSide = () => ({ points: 0, aces: 0, powerServes: 0, spikes: 0, spikeTypes: { quick: 0, tempo: 0, open: 0, pipe: 0 }, kills: 0, killTypes: { quick: 0, tempo: 0, open: 0, pipe: 0 },
-  tipKills: 0, blocks: 0, tips: 0, digs: 0, errs: 0, maxStreak: 0, streak: 0, longestRally: 0, maxDef: 0, comeback: false });   // errs — собственные ошибки (очко соперника); kills включает очки обманом, killTypes — только ударами
+  tipKills: 0, slides: 0, perfs: 0, supers: 0, touts: 0, blocks: 0, tips: 0, digs: 0, errs: 0, maxStreak: 0, streak: 0, longestRally: 0, maxDef: 0, comeback: false });   // errs — собственные ошибки (очко соперника); kills включает очки обманом, killTypes — только ударами
 let matchStats = { L: mkSide(), R: mkSide(), byNum: {} }, rallyN = 0;
 const msOf = T => matchStats[T.side < 0 ? 'L' : 'R'];
-const msNum = p => matchStats.byNum[p.num] || (matchStats.byNum[p.num] = { kills: 0, blocks: 0, digs: 0, aces: 0 });
+const msNum = p => matchStats.byNum[p.num] || (matchStats.byNum[p.num] = { kills: 0, blocks: 0, digs: 0, aces: 0, pts: 0, perf: 0 });
 function newMatch() {
   matchStats = { L: mkSide(), R: mkSide(), byNum: {} }; rallyN = 0;
   const twoHumans = mode !== 'solo'; tut = null; tim = null;
@@ -338,7 +414,8 @@ function newMatch() {
   active = active2 = null;
   TL.players = [mkPlayer(TL, 0, 9, 'org'), mkPlayer(TL, 1, 10, 'blk'), mkPlayer(TL, 2, 4, 'lib')];
   TR.players = [mkPlayer(TR, 0, 2, 'wht'), mkPlayer(TR, 1, 5, 'wht'), mkPlayer(TR, 2, 8, 'wht')];
-  ball = { x: 0, h: 0, vx: 0, vh: 0, rot: 0, spiked: false, lane: LANE0, laneT: 0, laneDur: 1, laneTarget: null, laneTeam: null, trail: [] };
+  ball = { x: 0, h: 0, vx: 0, vh: 0, rot: 0, spiked: false, lane: LANE0, laneT: 0, laneDur: 1, laneTarget: null, laneTeam: null, trail: [], landX: null, landLane: LANE0, path: null, pathT: 0, atkPow: 0 };
+  MT.sets = mode === 'solo' || mode === 'local2' ? readSets() : 1; MT.setNo = 1; MT.setsWon = [0, 0]; MT.tos = [2, 2]; MT.toT = 0; MT.serveHold = 0; MT.sk = null; MT.over = MT.setEnd = false; MT.lost = [0, 0]; MT.aiTo = [false, false];
   servingTeam = TL; TL.serveIdx = 1; server = TL.players[1];
   setHints = 0; cutin = null; parts = []; confetti = []; marks = []; rings = []; banners = []; stats = null; led = null;
   resetServe();
@@ -350,9 +427,11 @@ function resetServe() {
       p.x = homeOf(p); p.h = 0; p.vx = p.vh = 0; p.ground = true; p.swing = 0; p.goal = p.x;
       p.blocking = false; p.toss = 0; p.landT = 0; p.diveDone = false; p.cd = 0; p.jumpServe = false; p.jsJumped = false; p.recvWin = 0;
       p.slide = 0; p.rise = 0; p.slideHit = 0; p.aiSlide = 0;
+      p.blkCh = p.blkHold = 0; p.agTry = -1; p.serveKind = 'float'; p.tossQ = 0;
     }
     T.slideChk = false;
   }
+  MT.serveHold = 0; MT.sk = null; ball.landX = null; ball.path = null; ball.pathT = 0;
   server.x = servingTeam.side < 0 ? 8 : VW - 8; server.goal = server.x;
   state = 'serve'; serveT = 0; lastToucher = null; lastTeam = null; blockDone = false; netHitThisRally = false; pointWinner = null; rallyN = 0;
   ball.spiked = false; ball.trail = []; ball.laneTarget = server; ball.laneTeam = null;
@@ -377,6 +456,15 @@ function predict(hT) {
   let x = ball.x, h = ball.h, vx = ball.vx, vh = ball.vh, t = 0; const dt = 1 / 120;
   for (let i = 0; i < 600; i++) { vh -= G * dt; x += vx * dt; h += vh * dt; t += dt; if (vh < 0 && h <= hT) return { x, t }; }
   return { x, t };
+}
+function landLane(l) {   // дорожка, куда придёт мяч: у принимающего (или ближайшего) игрока
+  const lt = ball.laneTeam, r = ball.laneTarget || (lt && (lt.receiver || closest(lt, l, null)));
+  return r ? r.lane : LANE0;
+}
+function calcPath() {   // линия траектории удара/подачи: до 24 точек [x, высота, дорожка] от руки до пола; показывается ball.pathT секунд
+  const land = predict(BR), n = 23, tl = Math.max(.05, land.t), l1 = landLane(land.x), pts = [], r1 = v => Math.round(v * 10) / 10;
+  for (let i = 0; i <= n; i++) { const t = tl * i / n; pts.push([r1(ball.x + ball.vx * t), r1(Math.max(BR, ball.h + ball.vh * t - .5 * G * t * t)), r1(ball.lane + (l1 - ball.lane) * i / n)]); }
+  ball.path = pts; ball.pathT = .9;
 }
 function closest(T, x, excl) {
   let b = null, d = 1e9;
@@ -422,7 +510,7 @@ function dustRaw(x, lane, n) {   // локальная пыль без пере�
 /* ================= touches ================= */
 function touch(p, type) {
   const T = p.team; rallyN++; T.touches++; lastToucher = p; lastTeam = T; ball.spiked = false; T.lastHit = { p, type };
-  p.swing = SW; p.swingType = type; p.cd = .22; slideReset();
+  p.swing = SW; p.swingType = type; p.cd = .22; p.touchedR = true; slideReset();
 }
 function slideReset() { for (const T of [TL, TR]) { T.slideChk = false; for (const q of T.players) q.aiSlide = 0; } }   // новое касание — ИИ заново решает про скольжение
 const byJob = (T, j) => T.players.find(q => q.job === j);
@@ -437,8 +525,29 @@ function pickHitter(T, p) {   // p — исключаемый (пасующий 
   if (p !== hi) return hi;
   return p !== st ? st : byJob(T, 'lib');   // Рэй недоступен — Арис, затем Дан
 }
-function receive(p, perfect, em = 1) {   // em — множитель ошибки паса (поздний скользящий приём — 2)
-  const T = p.team, rw = p.recvWin; if (ball.spiked) { msOf(T).digs++; msNum(p).digs++; }
+function shank(p) {   // «мимо»: мяч не поднят, улетает за свою заднюю линию (аут)
+  const T = p.team; snapBall(p, 'receive', 16); touch(p, 'receive'); T.touches = 3;
+  passTo(T.side < 0 ? COURT_L - 12 - Math.random() * 30 : COURT_R + 12 + Math.random() * 30, 0, .85); aimLaneTeam(T, .85); sfx.pass();
+  p.rg = { g: 'miss', dmg: 0, t: 1.2 };
+}
+function receive(p, perfect, em = 1, force = false) {   // em — множитель ошибки паса (поздний скользящий приём — 2); force — идеальная оценка без окна (ЯКОРЬ)
+  const Tm = p.team, rw = p.recvWin, sp = ball.spiked, slid = p.slide > 0; let g = null, dmg = 0;
+  if (sp && slid) g = p.slideHit === 2 ? 'perfect' : em > 1 ? 'bad' : 'good';   // скольжение запас не тратит
+  else if (sp) {
+    if (force || (perfect && rw >= .27)) g = 'perfect';
+    else if (perfect) g = 'good';
+    else if (!Tm.human) { const q = Tm.digRoll / Math.max(.05, Tm.D.dig + .035 * upLv(p, 'dig')); g = q < .3 ? 'perfect' : q < .75 ? 'good' : 'bad'; }   // ИИ: качество приёма по броску
+    else g = 'bad';
+    if (p.sta <= 0 || p.agNow) { if (p.agNow || agileTry(p)) { g = 'bad'; } else { p.agNow = false; shank(p); return; } }
+    p.agNow = false;
+    dmg = g === 'perfect' ? 0 : p.sta <= 0 ? 0 : Math.round(recvDmg(p, ball.atkPow || 400) * (g === 'bad' ? 1.5 : 1));
+    if (g === 'bad') em *= 2.2;
+    if (dmg) dmg = Math.round(dmg * Math.max(.2, 1 - rm(Tm, 'dmgR')));
+    if (rm(Tm, 'shield') && !Tm.shUsed) { Tm.shUsed = true; dmg = 0; }   // карта «щит»: первый приём розыгрыша без урона
+    p.sta = Math.max(0, p.sta - dmg); if (g === 'perfect') { p.shield = 1.2; if (p.team === TL && matchStats) { msNum(p).perf++; msOf(TL).perfs++; } }
+  }
+  if (g) p.rg = { g, dmg, t: 1.2 };
+  const T = Tm; if (sp) { msOf(T).digs++; msNum(p).digs++; }
   snapBall(p, 'receive', perfect ? 22 : 16); touch(p, 'receive');
   timeRecv(p, perfect, rw); tutEvt('recv', p, perfect);
   const setter = pickSetter(T, p);
@@ -455,7 +564,7 @@ function startSlide(p, dir) {   // ПРИЁМ + стрелка (человек) 
   if (state !== 'play' || !p.ground || p.slide > 0 || p.rise > 0 || !dir) return false;
   p.slide = p.slideMax = SLIDE_DUR; p.slideDir = dir < 0 ? -1 : 1; p.slideHit = 0; p.aiSlide = 0; p.fxT = 0;   // slideMax/riseMax — для фазы позы в d_chars.js
   p.recvWin = 0; p.forceJump = p.aiJump = false; p.diveDone = true; p.vx = p.slideDir * SLIDE_V;
-  sfx.slide(); dust(p.x, p.lane, 4);
+  sfx.slide(); dust(p.x, p.lane, 4); if (matchStats && p.team === TL) msOf(TL).slides++;
   if (!REDUCED) punch = Math.max(punch, .035);
   return true;
 }
@@ -515,32 +624,34 @@ function tip(p, dir = 0) {   // dir: +1 — к сетке (коротко за �
 const blockUp = T => T.players.some(q => !q.ground && Math.abs(q.x - NETX) < 26);   // у команды T поставлен блок
 function spike(p, human, boost = false, perf = false) {   // perf — удар человека с таймингом «ИДЕАЛЬНО!»: +25 силы и замедление   // boost — усиленный удар по полной шкале «СИНХРОН» (+40 силы)
   const T = p.team, O = other(T), o = -T.side;
+  const dep = clamp(Math.abs(ball.x - handPoint(p, 'spike')[0]) / 12, 0, 1);   // 0 — мяч у руки (глубоко), 1 — далеко от руки (короткий у сетки)
   snapBall(p, 'spike', 18);
   let xt;
   if (human) {
     const inp = T.inp || input;   // экранное нажатие в сторону сетки = короткий удар, от сетки = глубокий (o — знак направления полёта)
     const hd = ((inp.right ? 1 : 0) - (inp.left ? 1 : 0)) * o;
     const pipe = T.atk === 'pipe';
-    const [lo, hi] = hd > 0 ? (pipe ? [60, 110] : [26, 82]) : hd < 0 ? [150, 206] : pipe ? [90, 200] : [55, 195];
-    xt = NETX + o * (lo + Math.random() * (hi - lo));
+    const [lo, hi] = hd > 0 ? (pipe ? [60, 110] : [26, 82]) : hd < 0 ? [150, 206] : pipe ? [60, 206] : [26, 206];
+    xt = NETX + o * (hd ? lo + Math.random() * (hi - lo) : clamp(lerp(hi - 12, lo + 12, dep) + (Math.random() - .5) * 24, lo, hi));   // стрелки главнее; без них глубину задаёт расстояние до мяча
   } else {
     let best = -1; xt = NETX + o * 120;
+    const d0 = lerp(190, 40, dep);
     for (let i = 0; i < 6; i++) {
-      const x = NETX + o * (T.atk === 'pipe' ? 90 + Math.random() * 116 : T.atk === 'open' ? 28 + Math.random() * 178 : 65 + Math.random() * 141);
+      const x = NETX + o * clamp(d0 + (Math.random() * 2 - 1) * 40, T.atk === 'pipe' ? 90 : 26, 206);
       const d = Math.min(...O.players.map(q => Math.abs(q.x - x))) + (T.D.err >= 12 ? Math.random() * 90 : 0);
       if (d > best) { best = d; xt = x; }
     }
   }
-  touch(p, 'spike'); { T.lastHit.atk = T.atk; const m = msOf(T); m.spikes++; if (m.spikeTypes[T.atk] !== undefined) m.spikeTypes[T.atk]++; }
+  touch(p, 'spike'); { T.lastHit.atk = T.atk; T.lastHit.sup = !!boost; const m = msOf(T); m.spikes++; if (m.spikeTypes[T.atk] !== undefined) m.spikeTypes[T.atk]++; }
   let ok = false, flight = .5;
-  for (let sp = T.D.power + 12 * upLv(p, 'pow') + (T.atk === 'pipe' ? 30 : 0) + (boost ? (p.job === 'hit' ? 60 : 40) : 0) + (perf ? 25 : 0); sp >= 160; sp -= 20) {
+  for (let sp = (T.D.power + 12 * upLv(p, 'pow') + (T.atk === 'pipe' ? 30 : 0) + (boost ? (p.job === 'hit' ? 60 + 8 * (superLv(p) - 1) : 40) : 0) + (perf ? 25 : 0) + rm(T, 'pow')) * condMul(p, 'atk'); sp >= 160; sp -= 20) {
     const vx = Math.sign(xt - ball.x) * sp, t = (xt - ball.x) / vx, vh = (0 - ball.h + .5 * G * t * t) / t;
     const tn = (NETX - ball.x) / vx, hn = ball.h + vh * tn - .5 * G * tn * tn;
     if (tn < 0 || hn > NET_H + BR + 2) { ball.vx = vx; ball.vh = vh; ok = true; flight = t; break; }
   }
   if (!ok) { passTo(xt, 0, 1.0); flight = 1; }
   ball.spiked = true; ball.perf = perf || boost; O.digRoll = Math.random() + (ball.perf ? .2 : 0);   /* сильный удар труднее принять: шанс приёма ИИ −20 п.п. */ O.tick = O.D.react + .12;
-  aimLaneTeam(O, flight * .9);
+  aimLaneTeam(O, flight * .9); ball.atkPow = Math.hypot(ball.vx, ball.vh); calcPath();
   const speed = Math.hypot(ball.vx, ball.vh) / 24 * 3.6 * 1.35, reach = (p.h + 47 * p.look.tall) / 24 * 1.12;
   stats = { text: `ВЫСОТА УДАРА ${reach.toFixed(2).replace('.', ',')} М   ·   СКОРОСТЬ ${speed.toFixed(1).replace('.', ',')} КМ/Ч`, t: 0 };
   led = { text: speed.toFixed(2).replace('.', ','), t: 0 };
@@ -552,7 +663,7 @@ function spike(p, human, boost = false, perf = false) {   // perf — удар �
   if (boost) {
     const nm = p.job === 'hit' ? 'ГРОМ' : 'СИНХРОН-УДАР';   // суперсила нападающего (Рэй): +60 силы вместо +40
     T.sync = 0; banner(nm + '!', T === TL ? 'gold' : 'teal', 1.1);
-    cutin = { p, team: T, act: nm, t: 0, life: 1.1 };
+    cutin = { p, team: T, act: p.job === 'hit' ? superTag(nm, p) : nm, t: 0, life: 1.1 };
     if (!REDUCED) { freeze = .11; shake = 3.2; }
   }
   if ((perf || boost) && !REDUCED) { slowmo = boost ? .3 : .2; shake = Math.max(shake, 3); ghostSrc = p; p.ghostT = .3; }   // ghostT — сколько ещё оставлять силуэты-шлейф за бьющим
@@ -560,31 +671,35 @@ function spike(p, human, boost = false, perf = false) {   // perf — удар �
   if (human) { if (!boost) banner(perf ? 'ИДЕАЛЬНЫЙ УДАР!' : Math.random() < .5 ? 'АТАКА!' : 'МОЩНО!', perf ? 'gold' : 'org', .9); tutEvt('spike', p); }
   else if (O === TL && recvHints < 3) { recvHints++; banner('ЖМИ «ПРИЁМ»!', 'gold', .9, true, 'L'); }
 }
-function startToss(p) {
+/* три подачи: 'basic' — обычная стоя (ниже, медленнее, почти без риска), 'float' — планирующая (прежняя обычная), 'power' — силовая в прыжке.
+   hq 0..1 — высота подброса (удержание): оптимум зависит от прыжка подающего, выше — слабее и риск ошибки. */
+const tossOpt = p => clamp((.55 + .08 * upLv(p, 'jmp')) * condMul(p, 'jmp'), .4, .95);
+function tossPow(p, hq) { const th = tossOpt(p); return { pf: hq <= th ? 1 + .12 * hq / th : 1.12 - .25 * (hq - th) / (1.01 - th), flt: hq > th ? (hq - th) * 1.2 : 0 }; }
+function startToss(p, kind = 'float', hq = 0) {
   if (p.toss > 0 || state !== 'serve') return;
-  p.toss = .001; ball.vx = -p.face * 11; ball.vh = (46 * p.look.tall - ball.h + 165 * .09) / .3; sfx.toss();
+  p.toss = .001; p.serveKind = kind; p.tossQ = hq; ball.vx = -p.face * 11; ball.vh = (46 * p.look.tall + (kind === 'basic' ? -6 : 18 * hq) - ball.h + 165 * .09) / .3; sfx.toss();
 }
-function startPowerServe(p) {
+function startPowerServe(p, hq = 0) {
   if (p.toss > 0 || state !== 'serve') return;
-  p.toss = .001; p.jumpServe = true; p.jsJumped = false;
+  p.toss = .001; p.jumpServe = true; p.jsJumped = false; p.serveKind = 'power'; p.tossQ = hq;
   const k = p.look.tall;
-  passTo(p.x + p.face * (50 * .555 + 5 * k), 80 * k, .555); sfx.toss();
+  passTo(p.x + p.face * (50 * .555 + 5 * k), (80 + 14 * hq) * k, .555); sfx.toss();
 }
 function powerServe(p) {
   const T = p.team, O = other(T), o = -T.side;
   snapBall(p, 'spike', 22); touch(p, 'spike'); T.touches = 3; p.toss = 0; p.jumpServe = false; T.lastHit = { p, type: 'pserve' }; msOf(T).powerServes++;
   const hd = T.human ? (T.hdir || 0) * o : 0;   // человек со стрелкой целится: >0 — в глубину (рискованно), <0 — к сетке; без стрелки — как раньше
-  const fault = !hd && Math.random() < (T === TL ? .1 : .15);
+  const tp = tossPow(p, p.tossQ || 0), fault = (!hd && Math.random() < (T === TL ? .1 : .15)) || Math.random() < tp.flt;
   const xt = NETX + o * (fault ? 224 + Math.random() * 22 : hd > 0 ? 176 + Math.random() * 34 : hd < 0 ? 84 + Math.random() * 40 : 70 + Math.random() * 140);
   let flight = 1;
-  for (let sp = T.D.power + 12 * upLv(p, 'pow') + 40; sp >= 160; sp -= 20) {
+  for (let sp = (T.D.power + 12 * upLv(p, 'pow') + 40) * tp.pf * condMul(p, 'atk'); sp >= 160; sp -= 20) {
     const vx = Math.sign(xt - ball.x) * sp, t = (xt - ball.x) / vx, vh = (0 - ball.h + .5 * G * t * t) / t;
     const tn = (NETX - ball.x) / vx, hn = ball.h + vh * tn - .5 * G * tn * tn;
     if (hn > NET_H + BR + 3) { ball.vx = vx; ball.vh = vh; flight = t; break; }
     if (sp <= 160) { passTo(xt, 0, 1.2); flight = 1.2; }
   }
   ball.spiked = true; blockDone = true; O.digRoll = Math.random() * .9; O.tick = O.D.react + .1;
-  aimLaneTeam(O, flight * .9); state = 'play';
+  aimLaneTeam(O, flight * .9); state = 'play'; ball.atkPow = Math.hypot(ball.vx, ball.vh) * .85; calcPath();
   const speed = Math.hypot(ball.vx, ball.vh) / 24 * 3.6 * 1.35;
   stats = { text: `СИЛОВАЯ ПОДАЧА   ·   СКОРОСТЬ ${speed.toFixed(1).replace('.', ',')} КМ/Ч`, t: 0 };
   led = { text: speed.toFixed(2).replace('.', ','), t: 0 };
@@ -607,11 +722,13 @@ function aiServeX(T, o) {   // ИИ подаёт туда, где меньше �
 }
 function serveBall(p) {
   if (p.jumpServe) { powerServe(p); return; }
-  const T = p.team, o = -T.side, hd = T.human ? (T.hdir || 0) * o : 0;   // человек со стрелкой: >0 — в глубину, <0 — к сетке
+  const T = p.team, o = -T.side, hd = T.human ? (T.hdir || 0) * o : 0, basic = p.serveKind === 'basic';   // человек со стрелкой: >0 — в глубину, <0 — к сетке
+  const tp = tossPow(p, p.tossQ || 0), fault = !basic && Math.random() < tp.flt;
   snapBall(p, 'serve', 10); touch(p, 'serve'); T.touches = 3; p.toss = 0;
-  const xt = hd ? NETX + o * (hd > 0 ? 170 + Math.random() * 36 : 80 + Math.random() * 30) : T.human ? NETX + o * (60 + Math.random() * 130) : aiServeX(T, o);
-  let fl = 1.45;   // подбираем время полёта так, чтобы мяч перелетел сетку (как в tip)
-  for (; fl < 2.2; fl += .05) { passTo(xt, 0, fl); const tn = (NETX - ball.x) / ball.vx; if (tn <= 0 || ball.h + ball.vh * tn - .5 * G * tn * tn > NET_H + BR + 4) break; }
+  const xt = fault ? NETX + o * (228 + Math.random() * 20) : hd ? NETX + o * (hd > 0 ? 170 + Math.random() * 36 : 80 + Math.random() * 30)
+    : basic ? NETX + o * (75 + Math.random() * (T.human ? 90 : 70)) : T.human ? NETX + o * (60 + Math.random() * 130) : aiServeX(T, o);
+  let fl = basic ? 1.9 : 1.45 / (basic ? 1 : tp.pf);   // подбираем время полёта так, чтобы мяч перелетел сетку (как в tip); обычная — медленно и с запасом над сеткой
+  for (; fl < 2.6; fl += .05) { passTo(xt, 0, fl); const tn = (NETX - ball.x) / ball.vx; if (tn <= 0 || ball.h + ball.vh * tn - .5 * G * tn * tn > NET_H + BR + (basic ? 16 : 4)) break; }
   aimLaneTeam(other(T), fl);
   state = 'play'; sfx.serve(); ring('w');
   if (T === TL && hd) banner(hd > 0 ? 'ПОДАЧА В ГЛУБИНУ' : 'ПОДАЧА К СЕТКЕ', 'gold', .8, true, 'L');
@@ -619,6 +736,7 @@ function serveBall(p) {
 
 function checkContacts() {
   for (const T of [TL, TR]) {
+    if (tut && tut.drill && T === TR) continue;   // тренировка: соперник мяч не берёт
     if (!ownLoose(T, ball.x) || T.touches >= 3) continue;
     for (const p of T.receiver && T.touches === 0 ? [T.receiver, ...T.players.filter(q => q !== T.receiver)] : T.players) {
       if (p === lastToucher || p.cd > 0 || p.rise > 0) continue;   // поднимается после скольжения — мяч не берёт
@@ -638,9 +756,9 @@ function checkContacts() {
         continue;
       }
       if (!p.ground) continue;
-      if (T.human && T.sync >= 3 && p.job === 'lib' && T.touches === 0 && ball.spiked && ball.vh < 0 && ball.h < 40 && ball.h > 3 && dxp < 32) {   // суперсила либеро (Дан): «ЯКОРЬ» — сам достаёт любой удар в широкой зоне идеальным приёмом
-        T.sync = 0; receive(p, true); p.swing = .5; p.swingType = 'dive';
-        banner('ЯКОРЬ!', 'gold', 1.1); cutin = { p, team: T, act: 'ЯКОРЬ', t: 0, life: 1.1 };
+      if (T.human && T.sync >= 3 && p.job === 'lib' && T.touches === 0 && ball.spiked && ball.vh < 0 && ball.h < 40 && ball.h > 3 && dxp < 32 + 4 * (superLv(p) - 1)) {   // суперсила либеро (Дан): «ЯКОРЬ» — сам достаёт любой удар в широкой зоне идеальным приёмом
+        T.sync = 0; receive(p, true, 1, true); p.swing = .5; p.swingType = 'dive';
+        banner('ЯКОРЬ!', 'gold', 1.1); cutin = { p, team: T, act: superTag('ЯКОРЬ', p), t: 0, life: 1.1 };
         if (!REDUCED) { freeze = .08; slowmo = .2; } return;
       }
       if (T.touches === 0 && p.recvWin > 0 && ball.vh < 0 && ball.h < 36 && ball.h > 3 && dxp < 18) {
@@ -648,9 +766,13 @@ function checkContacts() {
       }
       if (T.touches === 0 && ball.vh < 0 && ball.h < 30 && ball.h > 4) {
         if (ball.spiked) {
-          const dg = T.D.dig + .035 * upLv(p, 'dig');
+          const dg = (T.D.dig + .035 * upLv(p, 'dig')) * condMul(p, 'def');
           if (dxp < 7 && T.digRoll < dg) { receive(p); return; }
-          if (dxp < 18 && !p.diveDone && T.digRoll >= dg) { p.diveDone = true; p.swing = .5; p.swingType = 'dive'; }
+          if (dxp < 18 && !p.diveDone && T.digRoll >= dg) {
+            p.diveDone = true;
+            if (p.agTry !== rallyN && (p.agTry = rallyN, agileTry(p))) { p.agNow = true; receive(p, false, 2); return; }   // «ЛОВКОСТЬ!» вытянула проваленный приём
+            p.swing = .5; p.swingType = 'dive'; p.rg = { g: 'miss', dmg: 0, t: 1.2 };
+          }
           continue;
         }
         if (dxp < 10) { receive(p); return; }
@@ -669,13 +791,13 @@ function checkBlock() {
   for (const b of def.players) {
     const hum = def.human && b === def.act, sh = hum ? (def.hdir || 0) * 4 : 0;   // человек: стрелка в полёте сдвигает руки на ±4
     const wall = def.human && def.sync >= 3 && b.job === 'set';   // суперсила связующего (Арис): «СТЕНА» — шире руки, блок без промаха, мяч вбивается в пол
-    if (b.ground || Math.abs(b.x + sh - NETX) > (wall ? 30 : 22)) continue;
+    if (b.ground || Math.abs(b.x + sh - NETX) > (wall ? 30 + 3 * (superLv(b) - 1) : 22)) continue;
     const k = b.look.tall;
     if (ball.h > b.h + (wall ? 25 : 33) * k && ball.h < b.h + (wall ? 66 : 58) * k) {
-      blockDone = true; ball.spiked = false; lastToucher = null; lastTeam = def; def.lastHit = { p: b, type: 'block' }; rallyN++; slideReset();
+      blockDone = true; ball.spiked = false; lastToucher = null; lastTeam = def; def.lastHit = { p: b, type: 'block' }; rallyN++; slideReset(); b.touchedR = true;
       b.swing = SW; b.swingType = 'set'; ball.lane = b.lane;
       // человек: блок в верхней точке прыжка (|vh| < 60) — «БЛОК!» в 90%, иначе только касание; ИИ — шанс по сложности (≈ прежние 55%)
-      const stuff = wall || (hum ? Math.abs(b.vh) < 60 && Math.random() < .9 : Math.random() < .4 + def.D.block * .4);
+      const stuff = wall || Math.random() < rm(def, 'blk') || (hum ? Math.abs(b.vh) < 60 && Math.random() < .9 - (b.blkBad > 0 ? .3 : 0) : Math.random() < .4 + def.D.block * .4);
       if (hum) timeMark(b, Math.abs(b.vh) < 60 ? 'ИДЕАЛЬНО!' : b.vh > 0 ? 'Рано' : 'Поздно');
       if (stuff) {
         ball.x = NETX + att.side * (BR + 1);
@@ -683,7 +805,7 @@ function checkBlock() {
         const steer = hum && Math.abs(b.vh) < 60 && (def.hdir || 0) !== 0;
         if (wall) {
           passTo(NETX + att.side * 60, 0, .32); def.sync = 0;
-          cutin = { p: b, team: def, act: 'СТЕНА', t: 0, life: 1.1 };
+          cutin = { p: b, team: def, act: superTag('СТЕНА', b), t: 0, life: 1.1 };
           if (!REDUCED) { freeze = .1; slowmo = .25; punch = .08; }
         } else if (steer) {
           const deep = def.hdir * att.side > 0;
@@ -692,7 +814,7 @@ function checkBlock() {
         att.touches = 0; att.roles = {}; aimLaneTeam(att, .5);
         banner(wall ? 'СТЕНА!' : steer ? (def.hdir * att.side > 0 ? 'ЖЁСТКИЙ БЛОК!' : 'МЯГКИЙ БЛОК!') : 'БЛОК!', def === TL ? 'gold' : 'teal', 1.0);
       } else { ball.vh = 160; ball.vx *= .22; aimLaneTeam(def, .9); banner('КАСАНИЕ БЛОКА', 'teal', .8, true); }
-      sfx.block(); spray(12, ['#ffffff', '#9fd8ff'], 90, .3); ring('w');
+      tutEvt('block', b, !!stuff); sfx.block(); spray(12, ['#ffffff', '#9fd8ff'], 90, .3); ring('w');
       if (!REDUCED) shake = 2.5;
       return;
     }
@@ -738,25 +860,74 @@ function pointTo(W, reason) {
   if (W !== servingTeam) { do W.serveIdx = (W.serveIdx + 1) % 3; while (W.players[W.serveIdx].lib); servingTeam = W; }
   server = W.players[W.serveIdx];
   hype = 1; sfx.whistle(); setTimeout(() => sfx.crowd(W === TL ? .22 : .12), 150);
-  const over = W.score >= TARGET;
+  const wi = W === TL ? 0 : 1, setWin = W.score >= TARGET && W.score - other(W).score >= (MT.sets > 1 ? 2 : 0);   // в матче из нескольких сетов — баланс в 2 очка без потолка
+  const over = setWin && MT.setsWon[wi] + 1 >= MT.sets;
+  MT.over = over; MT.setEnd = setWin && !over; if (setWin) MT.setsWon[wi]++;
+  if (MT.setEnd) timer = 3.4;
+  try { afterPoint(W); } catch (e) { showErr(e); }
   if (reason) banner(reason, 'teal', 1.2, true);
+  if (MT.setEnd) banner('СЕТ ' + MT.setNo + ' · ' + MT.setsWon[0] + ':' + MT.setsWon[1], W === TL ? 'gold' : 'teal', 2.2);
   if (over) banner('МАТЧ!', W === TL ? 'gold' : 'teal', 2.0);
   const lh = W.lastHit, scorer = lh ? lh.p : W.players[2];
   let act = lh ? ({ spike: 'АТАКА', tip: 'ОБМАН', serve: 'ЭЙС', pserve: 'СИЛОВАЯ ПОДАЧА', block: 'БЛОК' }[lh.type] || 'ОЧКО') : 'ОЧКО';
   if (reason && lastTeam && lastTeam !== W) act = 'ОШИБКА СОПЕРНИКА';
   cutin = { p: scorer, team: W, act: act + (over ? ' · МАТЧ' : ''), t: 0, life: 1.95 };
+  if (W === TL && mode === 'solo' && lh && lastTeam === W && heroes[scorer.num] && ['spike', 'serve', 'pserve'].includes(lh.type) && (!other(W).lastHit || ['serve', 'pserve', 'spike', 'tip'].includes(other(W).lastHit.type))) {   // очко без касания соперника: заставка по мастерству героя
+    const bn = matchStats.byNum[scorer.num], m = mastTier(heroes[scorer.num].pts + (bn ? bn.pts : 0));
+    if (m > 0) { cutin.m = m; cutin.act += ' · ' + MAST_NM[m].toUpperCase(); cutin.life = 2.2; }
+  }
   if (W === TL || mode === 'local2') makeConfetti();
 }
+function afterPoint(W) {   // запас сил, состояния игроков и серии пропущенных очков после очка
+  const O = other(W), lh = W.lastHit, wi = W === TL ? 0 : 1, oi = 1 - wi;
+  MT.lost[wi] = 0; MT.lost[oi]++;
+  for (const T of [TL, TR]) for (const p of T.players) { p.sta = Math.min(100, p.sta + 8 + rm(T, 'rec') + (T === TL && W !== TL ? rm(T, 'wind') : 0)); T.shUsed = false; p.idle = p.touchedR ? 0 : p.idle + 1; p.touchedR = false; }
+  if (lh && lastTeam === W && rallyN > 0) {   // очко своим действием
+    const t = lh.type;
+    if (rallyN <= 1 && (t === 'serve' || t === 'pserve')) { if (!tryCond(lh.p, 'zone', .35)) tryCond(lh.p, 'hype', .4); }
+    else if (t === 'spike') tryCond(lh.p, 'zone', .2);
+    else if (t === 'tip') tryCond(lh.p, 'zone', .1);
+    else if (t === 'block') tryCond(lh.p, 'zone', .3);
+  } else if (lastTeam === O && O.lastHit) {   // ошибка проигравшего
+    const ll = O.lastHit, t = ll.type;
+    if (t === 'spike' || t === 'tip' || t === 'pserve') { if (!tryCond(ll.p, 'down', .45)) tryCond(ll.p, 'hype', .3); }
+    else if (t === 'serve') tryCond(ll.p, 'down', .2);
+    else if (t === 'receive') tryCond(ll.p, 'down', .3);
+  }
+  for (const p of O.players) if (p.rg && p.rg.g === 'miss' && p.rg.t > .4) tryCond(p, 'down', .35);   // провалил приём
+  if (MT.lost[oi] >= 3) for (const p of O.players) tryCond(p, 'down', .22);
+  for (const T of [TL, TR]) for (const p of T.players) if (p.idle >= 5) { p.idle = 0; tryCond(p, 'lost', .6); }   // давно не касался мяча
+}
+function nextSet() {   // после сета: подача у проигравшего, счёт и запас сил заново, матч продолжается
+  const L = other(pointWinner);
+  MT.setNo++; MT.setEnd = false; MT.tos = [2, 2]; MT.lost = [0, 0]; MT.aiTo = [false, false];
+  TL.score = TR.score = 0;
+  for (const T of [TL, TR]) for (const p of T.players) { p.sta = 100; p.cond = null; p.condT = 0; p.rg = null; p.shield = 0; p.idle = 0; }
+  if (servingTeam !== L) { do L.serveIdx = (L.serveIdx + 1) % 3; while (L.players[L.serveIdx].lib); servingTeam = L; }
+  server = L.players[L.serveIdx];
+  wipe = .5; resetServe(); banner('СЕТ ' + MT.setNo, 'gold', 1.6, true);
+}
+function callTimeout(side) {   // side: TL / TR, либо 0 / -1 — левая команда, 1 — правая. Только между розыгрышами, 2 на сет
+  if (!TL || mode === 'guest' || tut || MT.toT > 0 || MT.over || MT.setEnd || !(state === 'serve' || state === 'point')) return false;
+  const Tm = side === TR || side === 1 ? TR : TL, i = Tm === TL ? 0 : 1;
+  if (MT.tos[i] <= 0) return false;
+  MT.tos[i]--; MT.toT = 2.5; if (matchStats) msOf(Tm).touts++;
+  for (const p of Tm.players) { p.cond = null; p.condT = 0; p.sta = Math.min(100, p.sta + 30); }
+  banner('ТАЙМ-АУТ', Tm === TL ? 'gold' : 'teal', 2.2, true); sfx.whistle();
+  return true;
+}
+window.callTimeout = callTimeout;
 function msPoint(W) {   // учёт очка: кто и чем его принёс (lastTeam !== W — ошибка проигравшего)
   const O = other(W), mw = msOf(W), mo = msOf(O), lh = W.lastHit;
   mw.points++; mw.streak++; mo.streak = 0; if (mw.streak > mw.maxStreak) mw.maxStreak = mw.streak;
   mw.longestRally = Math.max(mw.longestRally, rallyN); mo.longestRally = Math.max(mo.longestRally, rallyN);
   if (lastTeam && lastTeam !== W) mo.errs++;
   else if (lh && lastTeam === W) {
-    const t = lh.type;
+    const t = lh.type; msNum(lh.p).pts++;
     if (rallyN <= 1 && (t === 'serve' || t === 'pserve')) { mw.aces++; msNum(lh.p).aces++; }
     else if (t === 'spike' || t === 'tip') {
       mw.kills++; msNum(lh.p).kills++;
+      if (lh.sup) mw.supers++;
       if (t === 'tip') mw.tipKills++; else if (mw.killTypes[lh.atk] !== undefined) mw.killTypes[lh.atk]++;
     } else if (t === 'block') { mw.blocks++; msNum(lh.p).blocks++; }
   }

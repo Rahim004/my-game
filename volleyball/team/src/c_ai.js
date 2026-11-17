@@ -48,7 +48,7 @@ function planTeam(T) {
     const oh = O.roles.hitter;
     if (oh && !oh.ground && oh.vh > 0 && Math.abs(oh.x - NETX) < (O.atk === 'pipe' ? 150 : 50) && T.blocker.ground && Math.abs(T.blocker.x - NETX) < 26) {
       T.blockUsed = true;
-      if (T.blockRoll < D.block) { T.blocker.aiJump = true; T.blocker.blocking = true; }
+      if (T.blockRoll < D.block) { T.blocker.aiJump = true; T.blocker.blocking = true; T.blocker.blkCh = Math.min(1, Math.random() * (.3 + D.block * 1.2)); }   // ИИ: заряд блока случайный, у сильного выше
     }
   }
 }
@@ -69,6 +69,7 @@ function aiSlideTick(T, D) {   // ИИ-приёмщик решает сколь�
   r.aiSlide = Math.max(.001, land.t - .18 + (Math.random() * 2 - 1) * D.err * .004);   // касание ≈ на .18 с скольжения
 }
 function pickActive(T) {   // каким игроком команды T управляет человек
+  if (tut && tut.who && T === TL && state !== 'serve') return tut.who;   // упражнение «Удар»/«Блок»: всегда Рэй
   if (state === 'serve' && servingTeam === T) return server;
   if (T.roles.hitter && ownSide(T, ball.x) && T.touches >= 1) return T.roles.hitter;
   if (T.receiver) return T.receiver;
@@ -77,11 +78,14 @@ function pickActive(T) {   // каким игроком команды T упр�
 
 /* ================= simulation ================= */
 function stepPlayer(p, dir, jump, dt, slow) {
-  const sp = SPEED * p.team.D.speed * slow * (1 + .03 * upLv(p, 'spd')),sl = p.slide > 0, ri = p.rise > 0;
+  const sp = SPEED * p.team.D.speed * slow * (1 + .03 * upLv(p, 'spd') + rm(p.team, 'spd')) * condMul(p, 'spd'), sl = p.slide > 0, ri = p.rise > 0;
   if (sl) { p.vx = p.slideDir * SLIDE_V * Math.exp(-slideK() * (SLIDE_DUR - p.slide)); jump = false; }
   else if (ri) { p.vx = 0; jump = false; }   // лежит после скольжения: не бежит и не прыгает
   else if (p.ground) p.vx = dir * sp;
-  if (jump && p.ground && (state === 'play' || p.jumpServe)) { p.vh = JUMP_V * (1 + .025 * upLv(p, 'jmp')); p.ground = false; if (p.team.human && p === p.team.act) sfx.jump(); }
+  if (jump && p.ground && (state === 'play' || p.jumpServe)) {
+    const bm = p.blocking ? (p.blkBad > 0 ? .88 : 1 + .15 * (p.blkCh || 0)) : 1;   // блок: заряд 0..1 даёт +15% высоты, передержка — прыжок ниже
+    p.vh = JUMP_V * (1 + .025 * upLv(p, 'jmp') + rm(p.team, 'jmp')) * condMul(p, 'jmp') * bm; p.blkCh = 0; p.ground = false; if (p.team.human && p === p.team.act) sfx.jump();
+  }
   if (jump && p.ground && state === 'point' && p.team === pointWinner) { p.vh = 150; p.ground = false; }
   if (!p.ground) p.vh -= GP * dt;
   p.x += p.vx * dt; p.h += p.vh * dt;
@@ -96,12 +100,12 @@ function stepPlayer(p, dir, jump, dt, slow) {
   if (sl) { p.slide = Math.max(0, p.slide - dt); if (!p.slide) { p.vx = 0; p.rise = p.riseMax = p.slideHit === 2 ? .3 : p.slideHit ? .45 : .7; } }
   else if (ri) p.rise = Math.max(0, p.rise - dt);
   if (p.ground && !sl) p.run += p.vx * p.face * dt * .3;
-  p.cd = Math.max(0, p.cd - dt); p.recvWin = Math.max(0, (p.recvWin || 0) - dt);
+  p.cd = Math.max(0, p.cd - dt); p.recvWin = Math.max(0, (p.recvWin || 0) - dt); if (p.blkBad > 0) p.blkBad -= dt;
 }
 /* ================= метка тайминга (только локальный визуал; рисует timingFx в f_ui.js) ================= */
 function addSync(T) {   // шкала «СИНХРОН»: +1 за «ИДЕАЛЬНО!» человека, на 3 — следующий удар усиленный
   if (T.sync >= 3) return;
-  if (++T.sync === 3) { sfx.sync(); if (T === TL) banner('СУПЕРСИЛА ГОТОВА!', 'gold', 1.1, true, 'L'); }
+  T.sync = Math.min(3, T.sync + (rm(T, 'sync') && Math.random() < rm(T, 'sync') ? 2 : 1)); if (T.sync === 3) { sfx.sync(); if (T === TL) banner('СУПЕРСИЛА ГОТОВА!', 'gold', 1.1, true, 'L'); }
 }
 function timeMark(p, text) {   // метка у игрока, которым управляет человек на этом устройстве
   if (text === 'ИДЕАЛЬНО!' && p && p.team.human && p === p.team.act && !tut) addSync(p.team);   // шкалу копят обе человеческие команды (и гость в онлайне)
@@ -122,12 +126,14 @@ function tutDone() {
 }
 function tutEvt(k, p, a) {   // события игры → шаги обучения (только действия команды TL)
   if (!tut || tut.done || !p || p.team !== TL) return;
+  if (tut.drill) { drillEvt(k, p, a); return; }
   if (k === 'recv') {
     if (tut.step === 0) { if (a || ++tut.miss >= 2) tutNext(); else tutMsg('Почти! Жми ПРИЁМ, когда мяч уже низко.'); }
   } else if (k === 'set') { if (tut.step === 1) tutNext(); }
   else if (k === 'spike') { if (tut.step === 2) tutDone(); }
 }
 function tutLand() {   // мяч упал: очко не засчитывается, тренер бросает снова
+  if (tut.drill) { drillLand(); return; }   // упражнения тренировки (j_modes.js)
   if (tut.wait < 0 && !tut.done) {
     tut.wait = 1.4; sfx.floor();
     if (tut.step > 0) { tut.step = 0; tut.miss = 0; tutMsg('Ещё раз: приём → пас → удар.'); }   // цепочка сорвалась — начинаем с приёма
@@ -147,6 +153,7 @@ function tutFeed() {   // тренер бросает мяч на нашу по�
   aimLaneTeam(TL, T); state = 'play'; tut.wait = -1;
 }
 function tutTick(dt) {
+  if (tut.drill) { drillTick(dt); return; }
   tut.t += dt;
   if (tut.msgT > 0 && (tut.msgT -= dt) <= 0) tut.msg = '';
   if (tut.done) { if ((tut.endT -= dt) <= 0) tut.exit = true; return; }
@@ -182,6 +189,12 @@ function humanTip(p, dir) {   // скидка по кнопке ПРИЁМ в п
 function update(dt) {
   frameDt = dt;
   if (tut) tutTick(dt);
+  if (mode !== 'guest' && !tut) for (let i = 0; i < 2; i++) {   // ИИ берёт тайм-аут (раз за сет) после 4 пропущенных подряд
+    const Tm = i ? TR : TL;
+    if (!Tm.human && !MT.aiTo[i] && MT.lost[i] >= 4 && MT.toT <= 0 && callTimeout(Tm)) MT.aiTo[i] = true;
+  }
+  if (MT.toT > 0) { MT.toT = Math.max(0, MT.toT - dt); return; }   // тайм-аут: игра стоит
+  for (const T of [TL, TR]) for (const p of T.players) if (p.cond && (p.condT -= dt) <= 0) { p.cond = null; p.condT = 0; }
   if (state === 'serve') serveT += dt;
   planTeam(TL); planTeam(TR);
   TL.act = pickActive(TL); TR.act = TR.human ? pickActive(TR) : null;
@@ -193,6 +206,16 @@ function update(dt) {
     if (T.hdir) T.lastMove = clock;
     T.moving = clock - T.lastMove < .35;
     const hj = inp.jumpQ; inp.jumpQ = false;
+    if ((mode === 'solo' || mode === 'local2') && state === 'serve' && servingTeam === T && !(server.toss > 0)) {   // подача с удержанием: высота подброса
+      if (inp.actQ || inp.hitQ) { if (!MT.sk) { MT.sk = inp.actQ ? 'act' : 'hit'; MT.serveHold = 0; } inp.hitQ = inp.actQ = false; }
+      if (MT.sk) {
+        if (inp[MT.sk]) MT.serveHold = Math.min(1, MT.serveHold + dt / .9);
+        else {   // отпустил: ПРИЁМ — силовая в прыжке; УДАР — короткое нажатие обычная стоя, удержание — планирующая
+          const hq = MT.serveHold, k = MT.sk; MT.sk = null; MT.serveHold = 0;
+          if (k === 'act') startPowerServe(server, hq); else if (hq < .2) startToss(server, 'basic', 0); else startToss(server, 'float', hq);
+        }
+      }
+    }
     if (inp.hitQ) { inp.hitQ = false; humanAction(a); }
     if (inp.actQ) {
       inp.actQ = false;
@@ -206,15 +229,25 @@ function update(dt) {
       inp.slideQ = false;
       if (state === 'play' && a && a.ground && !a.slide && !a.rise) startSlide(a, T.hdir || (Math.sign(ball.x - a.x) || 1));
     }
-    if (hj && a && a.ground && state === 'play') a.forceJump = true;
+    for (const p of T.players) if (p !== a && (p.blkHold || p.blkCh)) { p.blkHold = p.blkCh = 0; p.blkDone = false; }
+    const bPh = state === 'play' && a && a.ground && !a.slide && !a.rise && !ownSide(T, ball.x) && T.roles.hitter !== a;   // блок: заряд высоты удержанием «прыжка»
+    if (bPh && (hj || inp.jump || a.blkHold > 0)) {
+      if (!a.blkDone) {
+        if (hj || inp.jump) { a.blkHold += dt; a.blkCh = Math.min(1, a.blkHold / .6); }
+        const O = other(T), oh = O.roles.hitter, swing = oh && !oh.ground && oh.vh > 0 && Math.abs(oh.x - NETX) < (O.atk === 'pipe' ? 150 : 50) && Math.abs(a.x - NETX) < 40, over = a.blkHold > 1.8;
+        if (!inp.jump || swing || over) { a.forceJump = true; a.blkDone = true; if (over) a.blkBad = 1; }   // отпустил / соперник замахнулся / передержал (низкий прыжок, блок слабее)
+      }
+      if (!inp.jump) { a.blkHold = 0; a.blkDone = false; }
+    } else if (a) { a.blkHold = a.blkCh = 0; a.blkDone = false; }
+    if (hj && a && a.ground && state === 'play' && !bPh) a.forceJump = true;
     if (remoteTeam(T) && state === 'play') for (const p of T.players) {   // отложенный удар гостя
       if (p.hitBuf && clock < p.hitBuf) { if (!p.ground) humanAction(p, true); }
       else p.hitBuf = 0;
     }
   }
   if (state === 'serve' && !(server.toss > 0)) {
-    if (servingTeam.human) { if (serveT > 6) startToss(server); }
-    else if (serveT > 1.2) { if (Math.random() < servingTeam.D.pserve) startPowerServe(server); else startToss(server); }
+    if (servingTeam.human) { if (serveT > 6 && !MT.sk) startToss(server, 'basic'); }
+    else if (serveT > 1.2) { const D = servingTeam.D; if (Math.random() < D.pserve) startPowerServe(server, .25 + Math.random() * .4); else startToss(server, Math.random() < .7 - D.pserve * 1.1 ? 'basic' : 'float', Math.random() * .5); }
   }
   if (state === 'serve' && server.toss > 0) { server.toss += dt; if (server.toss >= (server.jumpServe ? .555 : .3)) serveBall(server); }
   if (state === 'point') for (const p of pointWinner.players) if (p.ground && Math.random() < .025) p.aiJump = true;
@@ -238,11 +271,13 @@ function update(dt) {
     stepBall(h);
     if (state === 'play' && !(tut && tut.wait > 0)) checkContacts();   // обучение: пока тренер не бросил, мяч на полу не живой
   }
+  if (state === 'play') { const l = predict(BR); ball.landX = l.x; ball.landLane = landLane(l.x); } else ball.landX = null;   // метка падения для HUD
   updateBallLane(dt);
   if (state === 'point') {
     timer -= dt;
     if (timer <= 0) {
-      if (TL.score >= TARGET || TR.score >= TARGET) showEnd();
+      if (MT.over) showEnd();
+      else if (MT.setEnd) nextSet();
       else { wipe = .5; resetServe(); }
     }
   }
@@ -267,6 +302,11 @@ function updateFx(dt) {
   for (const b of banners) b.t += dt; banners = banners.filter(b => b.t < b.life);
   for (const g of ghosts) g.t += dt; ghosts = ghosts.filter(g => g.t < .2);
   if (ghostSrc && ghostSrc.ghostT > 0) { const p = ghostSrc, sl = sOf(p.lane); p.ghostT -= dt; ghosts.push({ p, x: PX(p.x, p.lane), y: p.lane - p.h * sl, sl, t: 0 }); }
+  if (TL) for (const T of [TL, TR]) for (const p of T.players) {   // подписи приёма, «ЛОВКОСТЬ!», щит
+    if (p.rg && (p.rg.t -= dt) <= 0) p.rg = null;
+    if (p.agile > 0) p.agile = Math.max(0, p.agile - dt); if (p.shield > 0) p.shield = Math.max(0, p.shield - dt);
+  }
+  if (ball && ball.pathT > 0) ball.pathT = Math.max(0, ball.pathT - dt);
   for (const r of rings) r.t += dt; rings = rings.filter(r => r.t < .45);
   for (const m of marks) m.t += dt; marks = marks.filter(m => m.t < 1.4);
   flash = Math.max(0, flash - dt); shake = Math.max(0, shake - dt * 14); punch = Math.max(0, punch - dt * .35);

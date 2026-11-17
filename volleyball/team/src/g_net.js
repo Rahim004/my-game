@@ -592,6 +592,7 @@ function hostOnMsg(m) {
 }
 const SWT = ['', 'receive', 'set', 'spike', 'tip', 'serve', 'dive', 'slide', 'rise'];   // 'slide'/'rise' (PROTO 4): в row[6] тогда p.slide / p.rise
 const idxOf = (T, p) => p ? T.players.indexOf(p) : -1;
+const RGT = ['', 'perfect', 'good', 'bad', 'miss'], CNDT = ['', 'hype', 'zone', 'lost', 'down'];
 function buildSnap() {
   const pl = [];
   for (const T of [TL, TR]) for (const p of T.players) {
@@ -614,6 +615,9 @@ function buildSnap() {
     sl: speedLines ? [nq2(speedLines.wx), nq2(speedLines.wy), nq3(speedLines.t)] : null,
     ev: netEv.splice(0, netEv.length), rt: Math.round(net.rtt || 0),
     sy: clamp(TR.sync | 0, 0, 3),   // шкала «СИНХРОН» команды гостя
+    xs: [MT.setNo, MT.setsWon[0], MT.setsWon[1], MT.tos[0], MT.tos[1], nq2(MT.toT), ball.landX == null ? null : nq2(ball.landX), nq2(ball.landLane || 0), nq2(ball.pathT || 0)],   // матч «как в The Spike» (необязательно: старый хост не шлёт)
+    xp: TL.players.concat(TR.players).map(p => [Math.round(p.sta), RGT.indexOf(p.rg ? p.rg.g : ''), p.rg ? p.rg.dmg | 0 : 0, p.rg ? nq2(p.rg.t) : 0, CNDT.indexOf(p.cond || ''), nq2(p.blkCh || 0), nq2(p.agile || 0)]),
+    xa: ball.pathT > 0 && ball.path ? ball.path.flat() : null,
   };
   return s;
 }
@@ -820,6 +824,18 @@ function guestDiscrete(s) {   // то, что не интерполируетс�
   flash = Math.max(flash, s.fx[0]); shake = Math.max(shake, s.fx[1]); punch = Math.max(punch, s.fx[2]); hype = Math.max(hype, s.fx[3]); netShake = Math.max(netShake, s.fx[4]);
   if (s.sl && (!speedLines || s.sl[2] + .05 < speedLines.t)) speedLines = { wx: s.sl[0], wy: s.sl[1], t: s.sl[2], seeds: Array.from({ length: 30 }, () => Math.random()) };
 }
+function guestExtra(s) {   // поля матча «как в The Spike»: безопасные значения по умолчанию, если хост их не прислал
+  const n = (v, d) => Number.isFinite(v) ? v : d, x = Array.isArray(s.xs) ? s.xs : [];
+  MT.setNo = n(x[0], 1); MT.setsWon = [n(x[1], 0), n(x[2], 0)]; MT.tos = [n(x[3], 2), n(x[4], 2)]; MT.toT = n(x[5], 0);
+  ball.landX = x[6] == null ? null : n(x[6], null); ball.landLane = n(x[7], LANE0); ball.pathT = n(x[8], 0);
+  const a = Array.isArray(s.xa) && s.xa.length % 3 === 0 && s.xa.length <= 90 && s.xa.every(Number.isFinite) ? s.xa : null;
+  if (a) { ball.path = []; for (let i = 0; i < a.length; i += 3) ball.path.push([a[i], a[i + 1], a[i + 2]]); } else if (!(ball.pathT > 0)) ball.path = null;
+  const all = TL.players.concat(TR.players), xp = Array.isArray(s.xp) ? s.xp : [];
+  for (let i = 0; i < all.length; i++) {
+    const p = all[i], r = Array.isArray(xp[i]) ? xp[i] : [], g = RGT[n(r[1], 0)];
+    p.sta = n(r[0], 100); p.rg = g ? { g, dmg: n(r[2], 0), t: n(r[3], 0) } : null; p.cond = CNDT[n(r[4], 0)] || null; p.blkCh = n(r[5], 0); p.agile = n(r[6], 0);
+  }
+}
 function guestContinuous(a, b, al, rt) {
   const ba = a.b, bb = b.b, jump = Math.abs(bb[0] - ba[0]) > 70 || Math.abs(bb[1] - ba[1]) > 90, k = jump ? 0 : al;
   const L = (x, y, kk) => x + (y - x) * kk;
@@ -865,7 +881,7 @@ function guestFrameInner(dt) {
       if (net.evN === s.n && s.ts > rt) break;   // первый снимок применяем сразу
     }
   }
-  if (last) guestDiscrete(last);
+  if (last) { guestDiscrete(last); try { guestExtra(last); } catch (e) {} }
   const newest = buf[buf.length - 1];   // самовосстановление: конец матча уже пришёл, а экран итога не показан
   if (newest && newest.st === 'over' && state !== 'over' && rt - newest.ts > 400) { net.evN = newest.n; guestDiscrete(newest); if (state !== 'over') { state = 'over'; showEnd(); } }
   if (i > 2) buf.splice(0, i - 2);

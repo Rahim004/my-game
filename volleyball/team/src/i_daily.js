@@ -73,3 +73,45 @@ function dailyComplete(ch) {
   return { first: true, reward: ch.reward + dailyStreakBonus(streak), streak };
 }
 const dailyLeft = () => { const d = new Date(), e = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1); const s = Math.max(0, Math.floor((e - d) / 1000)); return pad2(Math.floor(s / 3600)) + ':' + pad2(Math.floor(s / 60) % 60) + ':' + pad2(s % 60); };
+
+/* ================= ежедневные задания (этап 3 SPIKE_PLAN): 6 заданий × 250 очков, 1000 очков — награда =================
+   vb-missions { day, ms: [{ id, g, p }], claimed }. Задания 1–2 всегда одни и те же, остальные 4 — случайно от даты.
+   Прогресс идёт по итогам матча (missionsMatch: счётчики matchStats.L) и по событию missionAdd('train'). */
+const MS_KEY = 'vb-missions', MS_PTS = 250, MS_NEED = 1000, MS_REWARD = { stars: 10, xp: 150 };
+const MS_POOL = {
+  play: { g: 1, txt: () => 'Сыграй матч против компьютера' },
+  win: { g: 1, txt: () => 'Выиграй матч' },
+  perf: { g: 10, txt: g => g + ' идеальных приёмов' },
+  slide: { g: 5, txt: g => g + ' скольжений' },
+  ace: { g: 3, txt: g => g + ' эйса' },
+  kblock: { g: 2, txt: g => g + ' блока-очка' },
+  story: { g: 1, txt: () => 'Выиграй этап турнира' },
+  train: { g: 1, txt: () => 'Пройди упражнение тренировки' },
+  tout: { g: 1, txt: () => 'Возьми тайм-аут' },
+  super: { g: 1, txt: () => 'Забей очко суперударом' },
+  colo: { g: 1, txt: () => 'Пройди этап Колизея' },
+  cup: { g: 1, txt: () => 'Выиграй матч Кубка' },
+};
+function missionsNew(day, cupOpen) {
+  const r = dRng(dayNum(day) * 40503 + 77), pool = ['perf', 'slide', 'ace', 'kblock', 'story', 'train', 'tout', 'super', 'colo'].concat(cupOpen ? ['cup'] : []), ids = ['play', 'win'];
+  while (ids.length < 6) ids.push(pool.splice(Math.floor(r() * pool.length), 1)[0]);
+  return { day, ms: ids.map(id => ({ id, g: MS_POOL[id].g, p: 0 })), claimed: false };
+}
+function missionsGet() {
+  let v = null; try { v = JSON.parse(localStorage.getItem(MS_KEY) || 'null'); } catch (e) {}
+  const t = dayKey();
+  if (!v || v.day !== t || !Array.isArray(v.ms) || v.ms.length !== 6 || !v.ms.every(m => m && MS_POOL[m.id])) { v = missionsNew(t, typeof leagueTier === 'function' && leagueTier().idx >= 3); missionsSet(v); }
+  return v;
+}
+function missionsSet(v) { try { localStorage.setItem(MS_KEY, JSON.stringify(v)); } catch (e) {} }
+function missionAdd(id, n = 1) {
+  if (!(n > 0)) return; const v = missionsGet(), m = v.ms.find(x => x.id === id); if (!m || m.p >= m.g) return;
+  m.p = Math.min(m.g, m.p + Math.floor(n)); missionsSet(v);
+}
+const missionsPts = v => (v || missionsGet()).ms.filter(m => m.p >= m.g).length * MS_PTS;
+const missionsClaimable = () => { const v = missionsGet(); return !v.claimed && missionsPts(v) >= MS_NEED; };
+/* итог матча против компьютера: kind — 'story' | 'cup' | 'colo' | 'daily' | 'free'; st — matchStats.L */
+function missionsMatch(win, kind, st) {
+  st = st || {}; missionAdd('play'); if (win) { missionAdd('win'); if (kind === 'story') missionAdd('story'); if (kind === 'cup') missionAdd('cup'); if (kind === 'colo') missionAdd('colo'); }
+  missionAdd('perf', st.perfs); missionAdd('slide', st.slides); missionAdd('ace', st.aces); missionAdd('kblock', st.blocks); missionAdd('tout', st.touts); missionAdd('super', st.supers);
+}

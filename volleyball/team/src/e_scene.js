@@ -795,6 +795,17 @@ function drawScoreboard(c) {
       c.font = `600 ${6.5 * u}px Oswald, "Arial Narrow", sans-serif`; c.textAlign = 'center'; c.fillStyle = 'rgba(255,255,255,.85)';
       c.fillText('ПОДАЧА', sd < 0 ? bx + sw / 2 : bx + sw / 2, sy + shh + 7 * u);
     }
+    {   // запас сил команды: по полоске на игрока
+      const n = T.players.length, bw = 11 * u, g = 2 * u, tw = n * bw + (n - 1) * g, x0 = sd < 0 ? bx - 15 * u - tw : bx + sw + 15 * u;
+      c.fillStyle = 'rgba(13,15,20,.68)'; rrect(c, x0 - 3.5 * u, sy + .5 * u, tw + 7 * u, shh - 1 * u, 3 * u); c.fill();
+      c.font = `600 ${5.6 * u}px Oswald, "Arial Narrow", sans-serif`; c.textAlign = 'center'; c.fillStyle = 'rgba(255,255,255,.7)'; c.fillText('ЗАПАС', x0 + tw / 2, sy + 5.2 * u);
+      for (let k = 0; k < n; k++) {
+        const v = clamp(T.players[k].sta / 100, 0, 1), bx2 = x0 + k * (bw + g), by = sy + 9.5 * u, bh2 = 6 * u;
+        c.fillStyle = 'rgba(255,255,255,.16)'; c.fillRect(bx2, by, bw, bh2);
+        if (T.players[k].sta <= 0 && !REDUCED && (clock * 5 % 1) < .5) { c.fillStyle = '#ff4d4d'; c.fillRect(bx2, by, bw, bh2); }
+        else { c.fillStyle = staCol(v * 100); c.fillRect(bx2, by, bw * v, bh2); }
+      }
+    }
   });
   const hy = y + bh * .62, hh = 30 * u;
   c.fillStyle = '#f2c230';
@@ -803,6 +814,12 @@ function drawScoreboard(c) {
   c.fillStyle = '#16181d'; c.textAlign = 'center';
   c.font = `700 ${15 * u}px Oswald, "Arial Narrow", sans-serif`; c.fillText('VS', cx, hy + 3 * u);
   c.font = `600 ${8 * u}px Oswald, "Arial Narrow", sans-serif`; c.fillStyle = 'rgba(22,24,29,.7)'; c.fillText('ДО ' + TARGET, cx, hy - 8.5 * u);
+  if (MT.sets > 1) {   // матч из нескольких сетов: «СЕТ 2 · 1:0» под ромбом VS
+    const pw = 56 * u, ph = 13 * u, py = y + bh + 9 * u;
+    c.fillStyle = 'rgba(13,15,20,.86)'; skew(c, cx - pw / 2, py, pw, ph, 4 * u); c.fill();
+    c.font = `700 ${8.5 * u}px Oswald, "Arial Narrow", sans-serif`; c.textAlign = 'center'; c.fillStyle = '#ffffff';
+    c.fillText('СЕТ ' + MT.setNo + ' · ' + MT.setsWon[0] + ':' + MT.setsWon[1], cx, py + ph / 2 + .5);
+  }
   if (stats) {
     const a = Math.min(1, stats.t / .2, (3.2 - stats.t) / .4);
     c.globalAlpha = Math.max(0, a); c.font = `500 ${10.5 * u}px Oswald, "Arial Narrow", sans-serif`; c.textAlign = 'center';
@@ -828,6 +845,133 @@ function drawBanners(c) {
     c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillStyle = b.tone === 'gold' ? '#f2c230' : '#ffffff'; c.fillText(b.text, 0, 0);
     c.restore(); c.globalAlpha = 1;
   }
+}
+
+/* ================= этап 1 «как в The Spike»: запас, оценки приёма, щит, состояния, траектория, метка падения, тайм-аут ================= */
+const GRADE = { perfect: ['ИДЕАЛЬНО', '#f2c230'], good: ['ХОРОШО', '#ffffff'], bad: ['ПЛОХО', '#ff9a3c'], miss: ['МИМО', '#ff4d4d'] };
+const CONDI = { hype: ['АЗАРТ', '#ff8a2a'], zone: ['В ЗОНЕ', '#ffd84a'], lost: ['РАССЕЯН', '#c4cbd4'], down: ['УПАДОК', '#6db4ff'] };
+const mkGlow = rgb => { const k = document.createElement('canvas'); k.width = k.height = 64; const g = k.getContext('2d'), r = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+  r.addColorStop(0, `rgba(${rgb},1)`); r.addColorStop(.4, `rgba(${rgb},.4)`); r.addColorStop(1, `rgba(${rgb},0)`); g.fillStyle = r; g.fillRect(0, 0, 64, 64); return k; };
+const GLOW_G = mkGlow('255,214,70'), GLOW_W = mkGlow('255,248,210');
+const hudS = { tos: [2, 2], sum: 0, w0: 0, deuce: false, caller: 0 };
+const staCol = v => v > 60 ? '#4ddc6a' : v > 30 ? '#f2c230' : '#ff4d4d';
+function hudTxt(c, t, x, y, fs, col) { c.font = `700 ${fs}px ${CFONT}`; c.lineWidth = fs * .24; c.strokeStyle = 'rgba(13,15,20,.88)'; c.strokeText(t, x, y); c.fillStyle = col; c.fillText(t, x, y); }
+function drawLanding(c) {   // мягкий эллипс на полу в точке падения; сужается и ярчает, пока мяч снижается
+  if (!ball || state !== 'play' || ball.landX == null) return;
+  const lane = ball.landLane || LANE0, sl = sOf(lane), x = PX(ball.landX, lane), k = clamp(ball.h / 110, 0, 1), r = (4.5 + 7 * k) * sl, pul = REDUCED ? 1 : .88 + .12 * Math.sin(clock * 9);
+  c.globalAlpha = (.55 + .4 * (1 - k)) * pul; c.drawImage(GLOW_W, x - r * 1.7, lane - r * .6, r * 3.4, r * 1.2);
+  c.globalAlpha = .8 * pul; c.strokeStyle = '#fff3b0'; c.lineWidth = .55; c.beginPath(); c.ellipse(x, lane, r, r * .3, 0, 0, 6.283); c.stroke();
+  c.globalAlpha = 1;
+}
+function drawPath(c, fancy) {   // яркая линия траектории удара: толстая у руки, тонкая у пола, гаснет вместе с pathT
+  const pa = ball && ball.path; if (!(ball.pathT > 0) || !pa || pa.length < 2) return;
+  const a = Math.min(1, ball.pathT / .4), n = pa.length - 1, col = lastToucher && lastToucher.team === TR ? '#2fd0d8' : '#ff9a3c';
+  c.lineCap = c.lineJoin = 'round';
+  for (let pass = 0; pass < 2; pass++) {
+    if (pass === 0) { c.strokeStyle = col; c.lineWidth = 4; c.globalAlpha = .2 * a; if (fancy) c.globalCompositeOperation = 'lighter'; }
+    else { c.strokeStyle = '#ffffff'; c.lineWidth = .5; c.globalAlpha = .75 * a; c.globalCompositeOperation = 'source-over'; }
+    c.beginPath();
+    for (let i = 0; i <= n; i++) { const q = pa[i], px = PX(q[0], q[2]), py = q[2] - q[1] * sOf(q[2]); if (i) c.lineTo(px, py); else c.moveTo(px, py); }
+    c.stroke();
+  }
+  c.strokeStyle = col; c.globalAlpha = .95 * a;
+  for (let i = 1; i <= n; i++) {
+    const q0 = pa[i - 1], q = pa[i];
+    c.lineWidth = 2.1 - 1.5 * i / n; c.beginPath(); c.moveTo(PX(q0[0], q0[2]), q0[2] - q0[1] * sOf(q0[2])); c.lineTo(PX(q[0], q[2]), q[2] - q[1] * sOf(q[2])); c.stroke();
+  }
+  c.globalAlpha = 1;
+}
+function shieldPath(c, w, h) {
+  c.beginPath(); c.moveTo(0, -h); c.quadraticCurveTo(w * .55, -h * .9, w, -h * .78); c.quadraticCurveTo(w * 1.02, h * .3, 0, h);
+  c.quadraticCurveTo(-w * 1.02, h * .3, -w, -h * .78); c.quadraticCurveTo(-w * .55, -h * .9, 0, -h); c.closePath();
+}
+function condIcon(c, k, x, y, R) {   // значок состояния в тёмном кружке
+  const col = CONDI[k][1];
+  c.fillStyle = 'rgba(13,15,20,.82)'; c.beginPath(); c.arc(x, y, R, 0, 6.283); c.fill(); c.strokeStyle = col; c.lineWidth = Math.max(1, R * .16); c.stroke();
+  c.save(); c.translate(x, y); c.fillStyle = col;
+  if (k === 'hype') {
+    const f = REDUCED ? 1 : 1 + .07 * Math.sin(clock * 14); c.scale(f, f);
+    c.beginPath(); c.moveTo(0, -R * .72); c.quadraticCurveTo(R * .78, -R * .05, R * .42, R * .5); c.quadraticCurveTo(0, R * .85, -R * .42, R * .5); c.quadraticCurveTo(-R * .78, -R * .05, 0, -R * .72); c.fill();
+    c.fillStyle = '#ffe27a'; c.beginPath(); c.moveTo(0, -R * .05); c.quadraticCurveTo(R * .36, R * .3, R * .18, R * .55); c.quadraticCurveTo(0, R * .65, -R * .18, R * .55); c.quadraticCurveTo(-R * .36, R * .3, 0, -R * .05); c.fill();
+  } else if (k === 'zone') {
+    c.beginPath(); for (let i = 0; i < 10; i++) { const r = i & 1 ? R * .34 : R * .74, an = -1.5708 + i * .6283; c.lineTo(Math.cos(an) * r, Math.sin(an) * r); } c.closePath(); c.fill();
+  } else if (k === 'lost') {
+    c.font = `700 ${R * 1.25}px ${CFONT}`; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('?', 0, R * .08);
+    c.strokeStyle = col; c.lineWidth = Math.max(.8, R * .12); c.beginPath(); const a0 = REDUCED ? 0 : clock * 3; c.arc(0, 0, R * .78, a0, a0 + 2.2); c.stroke();
+  } else {
+    c.beginPath(); c.moveTo(0, -R * .72); c.bezierCurveTo(R * .72, -R * .05, R * .66, R * .72, 0, R * .72); c.bezierCurveTo(-R * .66, R * .72, -R * .72, -R * .05, 0, -R * .72); c.fill();
+  }
+  c.restore();
+}
+function hudTrack() {   // переходы состояния матча → баннеры: сет закончен, баланс, тайм-аут соперника
+  const w0 = MT.setsWon[0], sum = w0 + MT.setsWon[1];
+  if (sum > hudS.sum && MT.setEnd && !MT.over) { const left = w0 > hudS.w0; banner('СЕТ ' + MT.setNo + ' — ' + (mode === 'solo' ? (left ? 'ВАШ!' : 'СОПЕРНИК') : hudName(left ? TL : TR) + '!') + '  ' + w0 + ':' + MT.setsWon[1], left ? 'gold' : 'teal', 2.2); }
+  hudS.sum = sum; hudS.w0 = w0;
+  for (let i = 0; i < 2; i++) { if (MT.tos[i] < hudS.tos[i]) { hudS.caller = i; if (i === 1 && mode === 'solo') banner('ТАЙМ-АУТ СОПЕРНИКА', 'teal', 2.2, true); } hudS.tos[i] = MT.tos[i]; }
+  const d = MT.sets > 1 && TL.score >= TARGET - 1 && TL.score === TR.score && !MT.setEnd && !MT.over;
+  if (d && !hudS.deuce && state === 'serve') { hudS.deuce = true; banner('БАЛАНС!', 'gold', 1.8, true); } else if (!d) hudS.deuce = false;
+}
+function spikeHud(c) {   // экранный слой: запас, оценка приёма, щит, состояния, заряд блока, подброс, тайм-аут
+  if (!TL || tut || !(state === 'serve' || state === 'play' || state === 'point')) return;
+  hudTrack();
+  const sc = cam.scale, u = clamp(cssW / 820, .7, 1.25), fancy = qScale > .85 && !slowDev, hx = cssW / 2 - cam.x * sc;
+  c.save(); c.textAlign = 'center'; c.textBaseline = 'middle'; c.lineJoin = 'round';
+  for (let side = 0; side < 2; side++) for (const p of (side ? TR : TL).players) {
+    const kt = p.look.tall, s = sc * sOf(p.lane), x = PX(p.x, p.lane) * sc + hx, yb = (p.lane - cam.top) * sc - p.h * s, yk = kt * s;   // yb — ступни; высота над ступнями hh → yb - hh * yk
+    if (p.cond === 'zone') {   // «в зоне»: золотое сияние вокруг игрока
+      c.globalAlpha = .55 * (REDUCED ? 1 : .85 + .15 * Math.sin(clock * 6)); if (fancy) c.globalCompositeOperation = 'lighter';
+      c.drawImage(GLOW_G, x - 26 * s, yb - 52 * yk, 52 * s, 60 * yk); c.globalCompositeOperation = 'source-over'; c.globalAlpha = 1;
+    }
+    if (p.shield > 0) {   // жёлтый щит идеального приёма: вырастает и тает
+      const k = 1 - p.shield / 1.2, sz = REDUCED ? 1 : easeOut(Math.min(1, k / .18)) * (1 + .06 * Math.sin(clock * 12)), a = Math.min(1, p.shield / .5), W = 15 * s * sz, H = 22 * yk * sz;
+      c.save(); c.translate(x, yb - 24 * yk); c.globalAlpha = a;
+      if (fancy) { c.globalCompositeOperation = 'lighter'; c.drawImage(GLOW_G, -W * 2, -H * 1.6, W * 4, H * 3.2); c.globalCompositeOperation = 'source-over'; }
+      shieldPath(c, W, H); c.fillStyle = 'rgba(255,214,60,.26)'; c.fill(); c.strokeStyle = '#ffd84a'; c.lineWidth = Math.max(1.5, 2.4 * u); c.stroke();
+      c.strokeStyle = 'rgba(255,255,255,.65)'; c.lineWidth = Math.max(1, 1.1 * u); shieldPath(c, W * .72, H * .72); c.stroke();
+      c.restore();
+    }
+    const lab = (p.lane + 8.2 - cam.top) * sc, bw = Math.max(13, 12 * sc), bh = Math.max(2.4, 1.5 * sc), f = clamp(p.sta / 100, 0, 1);   // полоска запаса под подписью
+    c.globalAlpha = f >= 1 ? .6 : 1; c.fillStyle = 'rgba(13,15,20,.78)'; c.fillRect(x - bw / 2 - 1, lab - 1, bw + 2, bh + 2);
+    if (p.sta <= 0 && !REDUCED && (clock * 5 % 1) < .5) { c.fillStyle = '#ff4d4d'; c.fillRect(x - bw / 2, lab, bw, bh); }
+    else if (f > 0) { c.fillStyle = staCol(p.sta); c.fillRect(x - bw / 2, lab, bw * f, bh); }
+    c.globalAlpha = 1;
+    if (p.cond) {   // значок состояния справа от головы + подпись при появлении
+      if (p.hudC !== p.cond) { p.hudC = p.cond; p.hudAt = clock; }
+      const R = clamp(5.4 * s, 7, 13), ix = x + R + 7 * s, iy = yb - 41 * yk, age = clock - p.hudAt;
+      condIcon(c, p.cond, ix, iy, R * (age < .25 && !REDUCED ? .6 + 1.6 * age : 1));
+      if (age < 1.6) { c.globalAlpha = Math.min(1, (1.6 - age) * 3); hudTxt(c, CONDI[p.cond][0], ix, iy - R - 6 * u, 10.5 * u, CONDI[p.cond][1]); c.globalAlpha = 1; }
+    } else p.hudC = null;
+    const rg = p.rg;
+    if (rg && rg.t > 0) {   // оценка приёма: слово над игроком (+ урон запасу)
+      const g = GRADE[rg.g], k = 1 - rg.t / 1.2, a = Math.min(1, rg.t / .35, k * 10), wy = yb - 56 * yk - k * 18 * u, big = rg.g === 'perfect';
+      c.globalAlpha = Math.max(0, a); hudTxt(c, g[0] + (big ? '!' : ''), x, wy, (big ? 20 : 14) * u, g[1]);
+      if (rg.dmg > 0) hudTxt(c, '−' + rg.dmg, x + 17 * u, wy + 13 * u - k * 6 * u, 13 * u, '#ff6b5a');
+      c.globalAlpha = 1;
+    }
+    if (p.agile > 0) { c.globalAlpha = Math.min(1, p.agile * 3); hudTxt(c, 'ЛОВКОСТЬ!', x, yb - 56 * yk - 20 * u - (1 - p.agile) * 10 * u, 13 * u, '#3de6ff'); c.globalAlpha = 1; }
+    if (p.blkCh > 0 && p.team.human) {   // заряд блока: тонкая полоска слева от игрока
+      const bx = x - 15 * s, hh = 40 * yk, full = p.blkCh >= .99;
+      c.fillStyle = 'rgba(13,15,20,.75)'; c.fillRect(bx - 2.2, yb - hh - 1, 4.4, hh + 2);
+      c.fillStyle = full ? '#f2c230' : '#5fd3da'; c.fillRect(bx - 1.4, yb - hh * p.blkCh, 2.8, hh * p.blkCh);
+    }
+  }
+  if (MT.serveHold > 0 && server && state === 'serve') {   // подброс удержанием: вертикальная шкала у подающего, золотая полоса — «сладкая зона», выше — риск ошибки
+    const kt = server.look.tall, s = sc * sOf(server.lane), x = PX(server.x, server.lane) * sc + hx + (servingTeam.side < 0 ? 22 : -22) * s, yb = (server.lane - cam.top) * sc, hh = 52 * kt * s, w = Math.max(6, 4.6 * s);
+    const th = typeof tossOpt === 'function' ? clamp(tossOpt(server), .2, .95) : .7, hv = MT.serveHold;
+    c.fillStyle = 'rgba(13,15,20,.8)'; c.fillRect(x - w / 2 - 1.5, yb - hh - 1.5, w + 3, hh + 3);
+    c.fillStyle = 'rgba(255,90,70,.35)'; c.fillRect(x - w / 2, yb - hh, w, hh * (1 - th));
+    c.fillStyle = 'rgba(242,194,48,.5)'; c.fillRect(x - w / 2, yb - hh * th, w, hh * .13);
+    c.fillStyle = hv > th ? '#ff6b5a' : '#5fd3da'; c.fillRect(x - w / 2, yb - hh * hv, w, hh * hv);
+    c.fillStyle = '#ffffff'; c.fillRect(x - w / 2 - 2.5, yb - hh * hv - .8, w + 5, 1.6);
+  }
+  if (MT.toT > 0) {   // тайм-аут: по центру крупно, секунды и сколько осталось
+    const cx = cssW / 2, cy = cssH * .46, w = 190 * u, h = 52 * u, side = hudS.caller, col = side ? TONE.teal : TONE.org;
+    c.fillStyle = 'rgba(13,15,20,.86)'; skew(c, cx - w / 2, cy - h / 2, w, h, 12 * u); c.fill();
+    c.fillStyle = col; c.fillRect(cx - w / 2 + 6 * u, cy + h / 2 - 5 * u, (w - 12 * u) * clamp(MT.toT / 2.5, 0, 1), 2.5 * u);
+    hudTxt(c, 'ТАЙМ-АУТ · ' + Math.ceil(MT.toT), cx, cy - 6 * u, 26 * u, '#ffffff');
+    hudTxt(c, (mode === 'solo' ? (side ? 'СОПЕРНИК' : 'НАШИ') : hudName(side ? TR : TL)) + ' · ЕЩЁ ' + MT.tos[side], cx, cy + 14 * u, 10.5 * u, side ? '#7fe0e6' : '#ffb26b');
+  }
+  c.restore();
 }
 
 /* ================= scorer cut-in ================= */
@@ -863,10 +1007,10 @@ function cutFx(c, k, cx, cy, H, col, t, u) {   // фон за портретом
 }
 function drawCutin(c) {
   if (!cutin) return;
-  const { p, team, act, t, life } = cutin, u = clamp(cssW / 820, .7, 1.3), cd = CUT[p.num] || { title: 'ОЧКО!', nick: '', role: '', col: '#2fd0d8', fx: 'burst' };
+  const { p, team, act, t, life } = cutin, m = cutin.m | 0, mc = m ? MAST_COL[m] : '#f2c230', u = clamp(cssW / 820, .7, 1.3), cd = CUT[p.num] || { title: 'ОЧКО!', nick: '', role: '', col: '#2fd0d8', fx: 'burst' };
   const ein = easeOut(clamp(t / .26, 0, 1)), eout = clamp((life - t) / .26, 0, 1), eo = easeOut(eout);
-  const H = Math.min(cssH * .44, 150 * u), y = cssH * .53 - H / 2;
-  const W = Math.min(cssW * .9, 640 * u), sk = H * .32;
+  const H = Math.min(cssH * (.44 + .025 * m), 150 * u * (1 + .08 * m)), y = cssH * .53 - H / 2;   // мастерство героя: заставка очка без касания крупнее, ярче и с лучами
+  const W = Math.min(cssW * (.9 + .01 * m), 640 * u * (1 + .04 * m)), sk = H * .32;
   const x = (cssW - W) / 2 - (1 - ein) * cssW * .95 + (1 - eo) * cssW * .7;
   const ours = team === TL, col = ours ? (p.kit === KIT.blk ? '#2a2731' : '#e8701c') : '#118a92', acc = cd.col;
   c.save(); c.globalAlpha = Math.min(1, eout * 1.5);
@@ -890,6 +1034,7 @@ function drawCutin(c) {
   const bgG = c.createRadialGradient(pcx, pcy, 4, pcx, pcy, H * .9); bgG.addColorStop(0, '#fff1c8'); bgG.addColorStop(.55, acc); bgG.addColorStop(1, col);
   c.fillStyle = bgG; c.fillRect(fx - sk, y, fw + sk * 2, H);
   cutFx(c, cd.fx, pcx, pcy, H, 'rgba(255,255,255,.55)', t, u);
+  if (m) cutFx(c, 'burst', pcx, pcy, H * (.9 + .12 * m), mc, t * (1 + .4 * m), u);
   c.restore();
   // портрет: фото (только в приватной сборке) или рисованный герой с выходом головы над плашкой
   const im = ours ? PORTRAIT[p.num] : null;
@@ -905,12 +1050,12 @@ function drawCutin(c) {
   }
   c.restore();
   c.restore();
-  c.save(); skew(c, fx, y, fw, H, sk * .9); c.strokeStyle = '#f2c230'; c.lineWidth = 2.5 * u; c.stroke(); c.restore();
-  c.fillStyle = '#f2c230'; c.fillRect(x + sk, y - 2 * u, W - sk, 2.4 * u); c.fillRect(x, y + H, W - sk, 2.4 * u);
+  c.save(); skew(c, fx, y, fw, H, sk * .9); c.strokeStyle = mc; c.lineWidth = (2.5 + 1.1 * m) * u; if (m && !REDUCED) { c.shadowColor = mc; c.shadowBlur = 7 * m * u; } c.stroke(); c.restore();
+  c.fillStyle = mc; c.fillRect(x + sk, y - 2 * u, W - sk, 2.4 * u); c.fillRect(x, y + H, W - sk, 2.4 * u);
   // текст
   const tx = fx + fw + sk * .55 + 10 * u, tr = x + W - sk - 10 * u, room = tr - tx;
   c.textBaseline = 'alphabetic'; c.textAlign = 'left';
-  c.fillStyle = '#f2c230'; c.font = `600 ${Math.min(15 * u, H * .11)}px ${CFONT}`; c.fillText(act, tx, y + H * .27);
+  c.fillStyle = mc; c.font = `600 ${Math.min(15 * u, H * .11)}px ${CFONT}`; c.fillText(act, tx, y + H * .27, room);
   // титул удара: крупно справа, с «ударом» масштаба на входе
   const tpop = 1 + clamp(1 - (t - .12) / .2, 0, 1) * .7;
   let ts = Math.min(H * .46, 54 * u); c.font = `700 italic ${ts}px ${CFONT}`; const tw0 = c.measureText(cd.title).width, tmax = room * .62;
@@ -962,6 +1107,7 @@ function render() {
   drawMarks(out);
   drawPost(out, FAR_Y - 5, false);
   if (TL) {
+    drawLanding(out); if (tut && tut.zones) drawDrillZones(out);
     const all = [...TL.players, ...TR.players];
     for (const p of all) { const sl = sOf(p.lane); shadow(out, PX(p.x, p.lane), p.lane + .3, 6.5 * sl * Math.max(.45, 1 - p.h / 70), .3); }
     shadow(out, PX(ball.x, ball.lane), ball.lane + .2, 3 * sOf(ball.lane) * Math.max(.3, 1 - ball.h / 150), .28);
@@ -982,7 +1128,7 @@ function render() {
       out.lineCap = 'round';
       for (let i = 1; i < tr.length; i++) { const al = 1 - i / tr.length; out.strokeStyle = `rgba(255,255,255,${.55 * al})`; out.lineWidth = 2.2 * al + .3; out.beginPath(); out.moveTo(tr[i - 1][0], tr[i - 1][1]); out.lineTo(tr[i][0], tr[i][1]); out.stroke(); }
     }
-    drawBall(out);
+    drawPath(out, fancy); drawBall(out);
     drawPost(out, NEAR_Y + 7, true);
     for (const q of parts) {   // искры удара (hot) светятся аддитивно: мягкий ореол поверх яркого ядра
       const sl = sOf(q.lane), px = PX(q.x, q.lane), py = q.lane - q.h * sl, a = Math.max(0, 1 - q.t / q.life);
