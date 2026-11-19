@@ -112,6 +112,8 @@ body.touch.local2 .controls2 { display: flex; }
 .joy { position: relative; flex: none; width: calc(var(--cu) * 1.9); height: calc(var(--cu) * 1.9); border-radius: 50%; touch-action: none; pointer-events: auto;
   background: radial-gradient(circle, rgba(255,255,255,.10) 0 38%, rgba(20,23,30,.45) 39%); border: 2px solid rgba(255,255,255,.22);
   -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+/* телефон: размытие фона под кнопками перерисовывается каждый кадр вместе с холстом и дорого стоит — вместо него чуть плотнее фон */
+@media (pointer: coarse) { .pausebtn, .tobtn, .ctl, .joy { -webkit-backdrop-filter: none; backdrop-filter: none; } .pausebtn, .tobtn { background: rgba(15, 17, 21, .72); } .ctl:not(.hit):not(.act) { background: rgba(20, 23, 30, .72); } }
 .joyarr { position: absolute; inset: 0; width: 100%; height: 100%; fill: rgba(255,255,255,.55); }
 .joyknob { position: absolute; left: 50%; top: 50%; width: 44%; height: 44%; margin: -22% 0 0 -22%; border-radius: 50%;
   background: rgba(255,255,255,.82); box-shadow: 0 2px 8px rgba(0,0,0,.35); transition: transform .08s; }
@@ -3152,6 +3154,41 @@ function fitText(c, txt, x, y, maxW, size, wt) {
   if (w > maxW) c.font = `${wt || 700} ${(size * maxW / w).toFixed(2)}px ${FONT}`;
   c.fillText(txt, x, y);
 }
+/* Кэш текста: надпись один раз рисуется в битмап (масштаб S = пикселей на единицу), дальше только drawImage. Шрифты догрузились — кэш сбрасывается. */
+const TXC = new Map(), mctx = document.createElement('canvas').getContext('2d');
+let TXS = 1;   // масштаб мира в пикселях холста (D*sc, до .5 вверх), ставится в render()
+try { document.fonts.addEventListener('loadingdone', () => TXC.clear()); } catch (e) {}
+function txtSpr(txt, font, fill, S, sk, sw) {
+  const key = font + '|' + fill + '|' + txt + '|' + S + (sk ? '|' + sk + sw : '');
+  let s = TXC.get(key); if (s) return s;
+  if (TXC.size > 300) TXC.clear();
+  const fs = parseFloat(/([\d.]+)px/.exec(font)[1]), pad = Math.ceil(fs * .3) + 1;
+  mctx.font = font; const tw = mctx.measureText(txt).width, w = Math.ceil(tw) + 2 * pad, h = Math.ceil(fs * 1.5) + 2 * pad;
+  const k = document.createElement('canvas'); k.width = Math.ceil(w * S); k.height = Math.ceil(h * S);
+  const g = k.getContext('2d'); g.scale(S, S); g.font = font; g.textBaseline = 'middle'; g.textAlign = 'left'; g.lineJoin = 'round';
+  if (sk) { g.lineWidth = sw; g.strokeStyle = sk; g.strokeText(txt, pad, h / 2); }
+  g.fillStyle = fill; g.fillText(txt, pad, h / 2);
+  s = { k, tw, pad, w: k.width / S, h: k.height / S }; TXC.set(key, s); return s;
+}
+function lblSpr(nm, ns, ours, lib, S) {   // подпись у ног: имя + плашка с номером (+ «Л»), кэш по содержимому
+  const key = 'L|' + nm + '|' + ns + '|' + (ours ? 1 : 0) + (lib ? 1 : 0) + '|' + S;
+  let s = TXC.get(key); if (s) return s;
+  if (TXC.size > 300) TXC.clear();
+  const F = '700 3.7px Oswald, "Arial Narrow", sans-serif'; mctx.font = F;
+  const nw = nm ? mctx.measureText(nm).width : 0, bw = mctx.measureText(ns).width + 2.2, lw = lib ? 4.2 : 0, tot = nw + (nm ? 1.2 : 0) + bw + (lw ? .9 + lw : 0), W = Math.ceil(tot) + 4, H = 10;
+  const k = document.createElement('canvas'); k.width = Math.ceil(W * S); k.height = Math.ceil(H * S);
+  const g = k.getContext('2d'); g.scale(S, S); g.font = F; g.textAlign = 'left'; g.textBaseline = 'middle'; g.lineJoin = 'round';
+  let cx = 2; const y = H / 2;
+  if (nm) { g.lineWidth = 1.1; g.strokeStyle = 'rgba(0,0,0,.6)'; g.strokeText(nm, cx, y); g.fillStyle = ours ? '#ffffff' : '#e3f6f7'; g.fillText(nm, cx, y); cx += nw + 1.2; }
+  g.fillStyle = ours ? '#e8701c' : '#118a92'; rrect(g, cx, y - 2.1, bw, 4.2, 1.2); g.fill();
+  g.fillStyle = '#ffffff'; g.fillText(ns, cx + 1.1, y + .1); cx += bw + .9;
+  if (lw) { g.fillStyle = '#f2c230'; rrect(g, cx, y - 2.1, lw, 4.2, 1.2); g.fill(); g.fillStyle = '#16181d'; g.fillText('Л', cx + 1, y + .1); }
+  s = { k, tot, w: k.width / S, h: k.height / S }; TXC.set(key, s); return s;
+}
+function drawTxt(c, txt, font, fill, x, y, align, S, sk, sw) {   // как fillText с textBaseline 'middle'; y — середина строки
+  const s = txtSpr(txt, font, fill, S, sk, sw), ox = align === 'center' ? s.tw / 2 : align === 'right' ? s.tw : 0;
+  c.drawImage(s.k, Math.round((x - ox - s.pad) * S) / S, Math.round((y - s.h / 2) * S) / S, s.w, s.h);
+}
 const SHIRTS = ['#eef0f2', '#eef0f2', '#e4e6e8', '#26262c', '#2b3550', '#8f939b', '#3b3f46', '#c9c1b3', '#5a6b8c', '#7d8a6a'];
 const SKINS = ['#e3b68f', '#c48c62', '#f0cfae', '#9e6a46', '#ddae86', '#ebc39d'];
 const HAIRS = ['#1a1411', '#2b1d14', '#5a3a22', '#141010', '#8a6a4a', '#b8864a'];
@@ -3544,17 +3581,18 @@ function buildBg(res) {
   return { calm: make(false), cheer: make(true), res };
 }
 let ledW = 0;
+const F_LED = '600 7px Oswald, "Arial Narrow", sans-serif', F_S15 = `700 15px ${FONT}`, F_S14 = `700 14px ${FONT}`;
 function drawLed(c) {
   if (ARENA === 'beach') return;
   c.save(); c.beginPath(); c.rect(BGX0, 172.7, BGX1 - BGX0, 10.6); c.clip();
   c.font = '600 7px Oswald, "Arial Narrow", sans-serif'; c.textBaseline = 'middle';
   if (led) {
     c.fillStyle = led.t % .5 < .25 && led.t < 1 ? '#ffffff' : '#ffd36a'; c.textAlign = 'center';
-    for (const x of [60, 200, 340, 470]) c.fillText(led.text + ' КМ/Ч', x, 178.3);
+    const lt = led.text + ' КМ/Ч'; for (const x of [60, 200, 340, 470]) drawTxt(c, lt, F_LED, c.fillStyle, x, 178.3, 'center', TXS);
   } else {
     c.fillStyle = 'rgba(190,225,255,.85)'; c.textAlign = 'left';
     const msg = '№4 × №10   •   ВОЛЕЙБОЛ 3 НА 3   •   ', w = ledW || (ledW = c.measureText(msg).width || 120), off = -((clock * 16) % w);
-    for (let x = BGX0 + off; x < BGX1; x += w) c.fillText(msg, x, 178.3);
+    for (let x = BGX0 + off; x < BGX1; x += w) drawTxt(c, msg, F_LED, 'rgba(190,225,255,.85)', x, 178.3, 'left', TXS);
   }
   c.restore();
 }
@@ -3599,12 +3637,11 @@ function drawArenaDyn(c, bounce) {
     if (pulse) { c.fillStyle = `rgba(255,222,140,${pulse})`; c.fillRect(s.x, s.y + 6.2 + bounce, s.w, s.h - 6.2); }
     const T = TL ? (s.side ? TR : TL) : null, pop = 1 + (T && typeof scorePop !== 'undefined' ? (scorePop[s.side] || 0) * .4 : 0);
     c.save(); c.globalAlpha = scrAlpha[s.side]; c.translate(s.x + s.w / 2, s.y + s.h * .64 + bounce); c.scale(pop, pop);
-    c.font = `700 15px ${FONT}`; c.fillStyle = s.side ? '#a8f6f8' : '#ffd36a'; c.fillText(T ? String(T.score) : '–', 0, 0); c.restore();
+    drawTxt(c, T ? String(T.score) : '–', F_S15, s.side ? '#a8f6f8' : '#ffd36a', 0, 0, 'center', TXS); c.restore();
   }
   if (TL && scrAlpha[2] > .5) {
-    c.font = `700 14px ${FONT}`;
-    c.fillStyle = '#ffd36a'; c.fillText(String(TL.score), BIG.x + 20, BIG.y + 21 + bounce);
-    c.fillStyle = '#a8f6f8'; c.fillText(String(TR.score), BIG.x + BIG.w - 20, BIG.y + 21 + bounce);
+    drawTxt(c, String(TL.score), F_S14, '#ffd36a', BIG.x + 20, BIG.y + 21 + bounce, 'center', TXS);
+    drawTxt(c, String(TR.score), F_S14, '#a8f6f8', BIG.x + BIG.w - 20, BIG.y + 21 + bounce, 'center', TXS);
   }
 }
 
@@ -3856,7 +3893,9 @@ function shadow(c, x, lane, rx, a) { c.globalAlpha = Math.min(1, a / .3); c.draw
 
 /* ================= camera & display ================= */
 const cv = $('cv'), out = cv.getContext('2d'), stage = $('stage'), screenEl = $('screen');
-let cssW = 800, cssH = 400, dpr = 1, qScale = 1, resizeGen = 0;
+const qFix = (() => { try { const m = /[?&]q=([\d.]+)/.exec(location.search); return m ? Math.min(1, Math.max(.4, +m[1])) : 0; } catch (e) { return 0; } })();   // ?q=0.6 — зафиксировать качество (адаптация выключена)
+const COARSE = (() => { try { return matchMedia('(pointer: coarse)').matches; } catch (e) { return false; } })();
+let cssW = 800, cssH = 400, dpr = 1, qScale = qFix || 1, resizeGen = 0;
 const cam = { x: 240, top: 90, scale: 2, z: 0 };
 function updateCamera(dt, snap) {
   const aspect = cssW / cssH, zb = aspect < 1.3 ? 1.0 : aspect < 1.5 ? 1.18 : aspect < 1.7 ? 1.07 : aspect < 1.95 ? 1.15 : aspect < 2.35 ? 1.3 : Math.min(1.3, 3.06 / aspect);   // очень широкий экран: показываем больше по ширине, высота кадра не уже, чем при 2.35
@@ -3883,7 +3922,7 @@ function resize() {
   let w = r.width, h = r.height;
   if (w / h < 1.25) h = w / 1.25;
   cssW = Math.max(200, Math.floor(w)); cssH = Math.max(120, Math.floor(h));
-  const raw = Math.min(window.devicePixelRatio || 1, 2), cap = Math.sqrt(2.6e6 / (cssW * cssH));
+  const raw = Math.min(window.devicePixelRatio || 1, COARSE ? 1.5 : 2), cap = Math.sqrt((COARSE ? 1.6e6 : 2.6e6) / (cssW * cssH));   // телефон/планшет: не больше dpr 1.5 и ~1.6 Мпикс — запас по заливке
   dpr = Math.max(.75, Math.min(raw, Math.max(1, cap)) * qScale);
   const cw = Math.round(cssW * dpr), ch = Math.round(cssH * dpr);
   if (cv.width === cw && cv.height === ch && screenEl.style.width === cssW + 'px' && screenEl.style.height === cssH + 'px') return;   // ничего не поменялось: холст не пересоздаём
@@ -3918,7 +3957,7 @@ function drawScoreboard(c) {
   c.fillStyle = TONE.teal; c.fillRect(cx + hw / 2 + 4 * u, y + bh, nw * .78 - 4 * u, 2.2 * u);
   c.font = `500 ${12.5 * u}px Oswald, "Arial Narrow", sans-serif`; c.textBaseline = 'middle'; c.fillStyle = '#ffffff';
   const nm = [hudName(TL), hudName(TR)], room = nw * .78 - 14 * u, f0 = c.font;   // длинное имя ужимается, а не режется краем табло
-  for (let i = 0; i < 2; i++) { const w = c.measureText(nm[i]).width; if (w > room) c.font = f0.replace(/[\d.]+px/, (12.5 * u * room / w).toFixed(2) + 'px'); c.textAlign = i ? 'left' : 'right'; c.fillText(nm[i], i ? cx + hw / 2 + 12 * u : cx - hw / 2 - 12 * u, y + bh / 2 + .5); c.font = f0; }
+  for (let i = 0; i < 2; i++) { let f = f0; const w = txtSpr(nm[i], f0, '#ffffff', dpr).tw; if (w > room) f = f0.replace(/[\d.]+px/, (12.5 * u * room / w).toFixed(2) + 'px'); drawTxt(c, nm[i], f, '#ffffff', i ? cx + hw / 2 + 12 * u : cx - hw / 2 - 12 * u, y + bh / 2 + .5, i ? 'left' : 'right', dpr); }
   const sy = y + bh + 4 * u, sw = 34 * u, shh = 20 * u;
   [[TL, -1, 0], [TR, 1, 1]].forEach(([T, sd, i]) => {
     const bx = sd < 0 ? cx - hw / 2 - 6 * u - sw : cx + hw / 2 + 6 * u;
@@ -3926,20 +3965,18 @@ function drawScoreboard(c) {
     c.fillStyle = i ? TONE.teal : TONE.org; c.fillRect(sd < 0 ? bx + sw - 3 * u - 2 * u : bx + 5 * u, sy + shh - 2.4 * u, 3 * u, 2.4 * u);
     if (scorePop[i] > .05) { c.fillStyle = `rgba(255,214,90,${Math.min(1, scorePop[i]) * .75})`; skew(c, bx, sy, sw, shh, 5 * u); c.fill(); }
     const pop = 1 + scorePop[i] * .45;
-    c.save(); c.translate(bx + sw / 2, sy + shh / 2 + .5); c.scale(pop, pop);
-    c.font = `700 ${15 * u}px Oswald, "Arial Narrow", sans-serif`; c.textAlign = 'center'; c.fillStyle = '#16181d'; c.fillText(String(T.score), 0, 0);
-    c.restore();
+    if (pop > 1.01) { c.save(); c.translate(bx + sw / 2, sy + shh / 2 + .5); c.scale(pop, pop); drawTxt(c, String(T.score), `700 ${15 * u}px Oswald, "Arial Narrow", sans-serif`, '#16181d', 0, 0, 'center', dpr * 1.5); c.restore(); }
+    else drawTxt(c, String(T.score), `700 ${15 * u}px Oswald, "Arial Narrow", sans-serif`, '#16181d', bx + sw / 2, sy + shh / 2 + .5, 'center', dpr);
     if (servingTeam === T) {
       const dx = sd < 0 ? bx - 8 * u : bx + sw + 8 * u;
       c.fillStyle = '#f5cf2e'; c.beginPath(); c.arc(dx, sy + shh / 2, 3.6 * u, 0, 6.283); c.fill();
       c.strokeStyle = '#2356b8'; c.lineWidth = 1.2 * u; c.beginPath(); c.arc(dx, sy + shh / 2, 3.6 * u, .3, 1.9); c.stroke();
-      c.font = `600 ${6.5 * u}px Oswald, "Arial Narrow", sans-serif`; c.textAlign = 'center'; c.fillStyle = 'rgba(255,255,255,.85)';
-      c.fillText('ПОДАЧА', sd < 0 ? bx + sw / 2 : bx + sw / 2, sy + shh + 7 * u);
+      drawTxt(c, 'ПОДАЧА', `600 ${6.5 * u}px Oswald, "Arial Narrow", sans-serif`, 'rgba(255,255,255,.85)', bx + sw / 2, sy + shh + 7 * u, 'center', dpr);
     }
     {   // запас сил команды: по полоске на игрока
       const n = T.players.length, bw = 11 * u, g = 2 * u, tw = n * bw + (n - 1) * g, x0 = sd < 0 ? bx - 15 * u - tw : bx + sw + 15 * u;
       c.fillStyle = 'rgba(13,15,20,.68)'; rrect(c, x0 - 3.5 * u, sy + .5 * u, tw + 7 * u, shh - 1 * u, 3 * u); c.fill();
-      c.font = `600 ${5.6 * u}px Oswald, "Arial Narrow", sans-serif`; c.textAlign = 'center'; c.fillStyle = 'rgba(255,255,255,.7)'; c.fillText('ЗАПАС', x0 + tw / 2, sy + 5.2 * u);
+      drawTxt(c, 'ЗАПАС', `600 ${5.6 * u}px Oswald, "Arial Narrow", sans-serif`, 'rgba(255,255,255,.7)', x0 + tw / 2, sy + 5.2 * u, 'center', dpr);
       for (let k = 0; k < n; k++) {
         const v = clamp(T.players[k].sta / 100, 0, 1), bx2 = x0 + k * (bw + g), by = sy + 9.5 * u, bh2 = 6 * u;
         c.fillStyle = 'rgba(255,255,255,.16)'; c.fillRect(bx2, by, bw, bh2);
@@ -3952,9 +3989,8 @@ function drawScoreboard(c) {
   c.fillStyle = '#f2c230';
   c.beginPath(); c.moveTo(cx - hw / 2, hy); c.lineTo(cx - hw / 2 + 9 * u, hy - hh / 2); c.lineTo(cx + hw / 2 - 9 * u, hy - hh / 2); c.lineTo(cx + hw / 2, hy); c.lineTo(cx + hw / 2 - 9 * u, hy + hh / 2); c.lineTo(cx - hw / 2 + 9 * u, hy + hh / 2); c.closePath(); c.fill();
   c.fillStyle = 'rgba(0,0,0,.18)'; c.fillRect(cx - hw / 2 + 9 * u, hy + hh / 2 - 3 * u, hw - 18 * u, 3 * u);
-  c.fillStyle = '#16181d'; c.textAlign = 'center';
-  c.font = `700 ${15 * u}px Oswald, "Arial Narrow", sans-serif`; c.fillText('VS', cx, hy + 3 * u);
-  c.font = `600 ${8 * u}px Oswald, "Arial Narrow", sans-serif`; c.fillStyle = 'rgba(22,24,29,.7)'; c.fillText('ДО ' + TARGET, cx, hy - 8.5 * u);
+  drawTxt(c, 'VS', `700 ${15 * u}px Oswald, "Arial Narrow", sans-serif`, '#16181d', cx, hy + 3 * u, 'center', dpr);
+  drawTxt(c, 'ДО ' + TARGET, `600 ${8 * u}px Oswald, "Arial Narrow", sans-serif`, 'rgba(22,24,29,.7)', cx, hy - 8.5 * u, 'center', dpr);
   if (MT.sets > 1) {   // матч из нескольких сетов: «СЕТ 2 · 1:0» под ромбом VS
     const pw = 56 * u, ph = 13 * u, py = y + bh + 9 * u;
     c.fillStyle = 'rgba(13,15,20,.86)'; skew(c, cx - pw / 2, py, pw, ph, 4 * u); c.fill();
@@ -4223,7 +4259,7 @@ function render() {
   if (lastRT && nowT - lastRT < 250) { frameEma += (nowT - lastRT - frameEma) * .2; slowDev = frameEma > 38 ? true : frameEma < 28 ? false : slowDev; }
   lastRT = nowT;
   const fancy = qScale > .85 && !slowDev;
-  const D = dpr, sc = cam.scale;
+  const D = dpr, sc = cam.scale; TXS = Math.ceil(D * sc * 2) / 2;
   out.setTransform(1, 0, 0, 1, 0, 0);
   out.fillStyle = '#1b1517'; out.fillRect(0, 0, cv.width, cv.height);
   const sx = shake ? (Math.random() * 2 - 1) * shake * sc * D : 0, sy = shake ? (Math.random() * 2 - 1) * shake * sc * D : 0;
@@ -4291,15 +4327,9 @@ function render() {
       } else out.arc(x, rg.lane - rg.h * sl, 2 + rg.t * 22, 0, 6.283);
       out.stroke();
     }
-    out.font = '700 3.7px Oswald, "Arial Narrow", sans-serif'; out.textAlign = 'left'; out.textBaseline = 'middle'; out.lineJoin = 'round';
-    for (const p of all) {   // подпись: имя героя + номер-плашка (+ «Л» у либеро); без имени — просто №
-      const x = PX(p.x, p.lane), y = p.lane + 5.6, nm = nameOf(p.num), ns = String(p.num), ours = p.team === TL;
-      const nw = nm ? out.measureText(nm).width : 0, bw = out.measureText(ns).width + 2.2, lw = p.lib ? 4.2 : 0;
-      const tot = nw + (nm ? 1.2 : 0) + bw + (lw ? .9 + lw : 0); let cx = x - tot / 2;
-      if (nm) { out.lineWidth = 1.1; out.strokeStyle = 'rgba(0,0,0,.6)'; out.strokeText(nm, cx, y); out.fillStyle = ours ? '#ffffff' : '#e3f6f7'; out.fillText(nm, cx, y); cx += nw + 1.2; }
-      out.fillStyle = ours ? '#e8701c' : '#118a92'; rrect(out, cx, y - 2.1, bw, 4.2, 1.2); out.fill();
-      out.fillStyle = '#ffffff'; out.fillText(ns, cx + 1.1, y + .1); cx += bw + .9;
-      if (lw) { out.fillStyle = '#f2c230'; rrect(out, cx, y - 2.1, lw, 4.2, 1.2); out.fill(); out.fillStyle = '#16181d'; out.fillText('Л', cx + 1, y + .1); }
+    for (const p of all) {   // подпись: имя героя + номер-плашка (+ «Л» у либеро) — готовый битмап
+      const sp = lblSpr(nameOf(p.num), String(p.num), p.team === TL, !!p.lib, TXS);
+      out.drawImage(sp.k, PX(p.x, p.lane) - sp.tot / 2 - 2, p.lane + 5.6 - sp.h / 2, sp.w, sp.h);
     }
     if (state === 'play' || state === 'serve') {   // маркер активного игрока: синий — этот игрок (или игрок 1), красно-оранжевый — второй человек
       for (const [p, col] of [[active, '#4da3ff'], [active2, '#ff5436']]) {
@@ -6670,7 +6700,7 @@ function updNetLink(now) {   // плашка связи в онлайне: пи�
   if (cls !== netLinkCls) { netLinkCls = cls; netLinkEl.className = cls; }
 }
 /* ================= loop ================= */
-let last = performance.now(), staticDone = false, seenGen = 0, perfAcc = 0, perfN = 0, perfSkip = 0;
+let last = performance.now(), staticDone = false, seenGen = 0, perfAcc = 0, perfN = 0, perfSkip = 0, qHold = 0, qBack = 15000, qUpAt = 0, qGood = 0;
 const ovMenu = $('menu'), ovPause = $('pause'), ovEnd = $('end');
 function frame(now) {
   requestAnimationFrame(frame);
@@ -6700,11 +6730,16 @@ function frame(now) {
     if (!overlay) { render(); staticDone = false; out.setTransform(dpr, 0, 0, dpr, 0, 0); timingFx(out); syncHud(out); spikeHud(out); if (tut) { if (tut.drill) drawDrill(out); else drawTutorial(out); } }
     else if (!staticDone && TL) { render(); staticDone = true; }
     if (!ovMenu.hidden) drawPreview(dt);
-    if (live && !overlay && raw < .5 && ++perfSkip > 20) {
+    if (live && !overlay && raw < .5 && ++perfSkip > 10) {   // адаптивное качество в обе стороны: окно 40 кадров (0.7–2 с)
       perfAcc += raw; perfN++;
-      if (perfN >= 40) {
-        const avg = perfAcc / perfN; perfAcc = perfN = 0;
-        if (avg > 1 / 40 && qScale > .5) { qScale = Math.max(.5, qScale - .2); perfSkip = 0; resize(); }
+      if (perfN >= 40 || (perfAcc > 1.2 && perfN >= 12)) {
+        const avg = perfAcc / perfN, t = performance.now(); perfAcc = perfN = 0;
+        if (qFix) { /* качество зафиксировано ?q= */ }
+        else if (avg > .02 && qScale > .5 && (state !== 'play' || avg > .034)) {   // вниз быстро; во время розыгрыша — только при совсем тяжёлых кадрах (пересоздание холста даёт микро-паузу)
+          qScale = Math.max(.5, +(qScale - (avg > .04 ? .3 : .15)).toFixed(2)); qBack = t < qUpAt + 8000 ? Math.min(qBack * 2, 120000) : 15000; qHold = t + qBack; qGood = 0; perfSkip = 0; resize();   // неудачный подъём → пауза до следующей попытки вдвое длиннее (без качелей)
+        } else if (avg < .0175 && qScale < 1 && t > qHold) {   // запас по времени: поднимаем после 3 хороших окон подряд и только между розыгрышами
+          if (++qGood >= 3 && state !== 'play') { qScale = Math.min(1, +(qScale + .15).toFixed(2)); qUpAt = t; qGood = 0; perfSkip = 0; resize(); }
+        } else if (avg >= .0175) qGood = 0;
       }
     }
   } catch (e) { showErr(e); }

@@ -12,6 +12,6 @@ const path = require('path');
   await p.goto('file://' + path.join(__dirname, '..', 'dist', 'test.html'));
   const take = async () => p.evaluate(() => { const f = window.__ft.splice(0); return (f.reduce((a, b) => a + b, 0) / f.length).toFixed(1); });
   await p.waitForTimeout(3000); console.log('menu avg frame ms', await take());
-  await p.tap('#playBtn'); await p.waitForTimeout(5000); console.log('game avg frame ms', await take());
+  await p.tap('#playBtn'); await p.waitForTimeout(9000); await take(); await p.waitForTimeout(5000); console.log('game avg frame ms', await take());
   await b.close();
 })();

@@ -1018,7 +1018,7 @@ function updNetLink(now) {   // плашка связи в онлайне: пи�
   if (cls !== netLinkCls) { netLinkCls = cls; netLinkEl.className = cls; }
 }
 /* ================= loop ================= */
-let last = performance.now(), staticDone = false, seenGen = 0, perfAcc = 0, perfN = 0, perfSkip = 0;
+let last = performance.now(), staticDone = false, seenGen = 0, perfAcc = 0, perfN = 0, perfSkip = 0, qHold = 0, qBack = 15000, qUpAt = 0, qGood = 0;
 const ovMenu = $('menu'), ovPause = $('pause'), ovEnd = $('end');
 function frame(now) {
   requestAnimationFrame(frame);
@@ -1048,11 +1048,16 @@ function frame(now) {
     if (!overlay) { render(); staticDone = false; out.setTransform(dpr, 0, 0, dpr, 0, 0); timingFx(out); syncHud(out); spikeHud(out); if (tut) { if (tut.drill) drawDrill(out); else drawTutorial(out); } }
     else if (!staticDone && TL) { render(); staticDone = true; }
     if (!ovMenu.hidden) drawPreview(dt);
-    if (live && !overlay && raw < .5 && ++perfSkip > 20) {
+    if (live && !overlay && raw < .5 && ++perfSkip > 10) {   // адаптивное качество в обе стороны: окно 40 кадров (0.7–2 с)
       perfAcc += raw; perfN++;
-      if (perfN >= 40) {
-        const avg = perfAcc / perfN; perfAcc = perfN = 0;
-        if (avg > 1 / 40 && qScale > .5) { qScale = Math.max(.5, qScale - .2); perfSkip = 0; resize(); }
+      if (perfN >= 40 || (perfAcc > 1.2 && perfN >= 12)) {
+        const avg = perfAcc / perfN, t = performance.now(); perfAcc = perfN = 0;
+        if (qFix) { /* качество зафиксировано ?q= */ }
+        else if (avg > .02 && qScale > .5 && (state !== 'play' || avg > .034)) {   // вниз быстро; во время розыгрыша — только при совсем тяжёлых кадрах (пересоздание холста даёт микро-паузу)
+          qScale = Math.max(.5, +(qScale - (avg > .04 ? .3 : .15)).toFixed(2)); qBack = t < qUpAt + 8000 ? Math.min(qBack * 2, 120000) : 15000; qHold = t + qBack; qGood = 0; perfSkip = 0; resize();   // неудачный подъём → пауза до следующей попытки вдвое длиннее (без качелей)
+        } else if (avg < .0175 && qScale < 1 && t > qHold) {   // запас по времени: поднимаем после 3 хороших окон подряд и только между розыгрышами
+          if (++qGood >= 3 && state !== 'play') { qScale = Math.min(1, +(qScale + .15).toFixed(2)); qUpAt = t; qGood = 0; perfSkip = 0; resize(); }
+        } else if (avg >= .0175) qGood = 0;
       }
     }
   } catch (e) { showErr(e); }
