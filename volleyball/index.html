@@ -905,7 +905,10 @@ body[data-tut="act"] .ctl.act, body[data-tut="hit"] .ctl.hit { animation: tutp .
     <div class="sheet">
       <div class="result"><h2>ПАУЗА</h2></div>
       <button class="play" id="resumeBtn">ПРОДОЛЖИТЬ</button>
-      <button class="ghost" id="musBtn2" type="button"></button>
+      <div class="row">
+        <button class="ghost" id="musBtn2" type="button"></button>
+        <button class="ghost" id="sndChk" type="button">ПРОВЕРКА ЗВУКА</button>
+      </div>
       <div class="row" id="clipRow" hidden>
         <button class="ghost" id="clipTgl" type="button">ЗАПИСЬ КЛИПОВ: ВЫКЛ</button>
         <button class="ghost" id="clipBtn2" type="button" hidden>КЛИП</button>
@@ -1110,103 +1113,146 @@ function growEnd(win, my, opp, setDiff) {
 
 
 /* ================= audio ================= */
-// Все звуки синтезируются в коде. Удары — «реалистичные»: тело удара (короткий тон с падением высоты) + шумовой транзиент через фильтр,
-// у каждого удара небольшой случайный разброс высоты и громкости. В зале — общий короткий «хвост» зала (один свёрточный ревербератор на всю игру), на пляже — сухо.
-let ac = null, nzB = null, fxDry = null, fxRev = null;
+// Все звуки синтезируются в коде. Удары — аркадные, как в спортивных аниме-играх (ориентир — The Spike): громкие, плотные, с сильным низом.
+// Каждый удар собирается из слоёв: щелчок-транзиент (шум через фильтр) + «тело» (тон с падением высоты) + саб-удар, часть слоёв идёт через перегруз (зерно).
+// У каждого удара небольшой случайный разброс высоты и громкости. Общая цепочка: перегруз → «склеивающий» компрессор → лимитер (без клиппинга) → выход;
+// отзвук — один свёрточный ревербератор на всю игру (в зале полный, на пляже слабее).
+let ac = null, nzB = null, fxDry = null, fxRev = null, fxSat = null, fxMaster = null, fxUi = null;
 function audio() { try { ac = ac || new (window.AudioContext || window.webkitAudioContext)(); if (ac.state === 'suspended') ac.resume(); fxInit(); music.start(); } catch (e) { ac = null; } }
 const rnd = a => 1 + (Math.random() * 2 - 1) * a;   // разброс ±a
 function nzBuf() {   // общий буфер белого шума (2 с): удары и барабаны берут из него кусок со случайного места, новых буферов на удар не создаём
   if (!nzB) { const len = ac.sampleRate * 2 | 0; nzB = ac.createBuffer(1, len, ac.sampleRate); const x = nzB.getChannelData(0); for (let i = 0; i < len; i++) x[i] = Math.random() * 2 - 1; }
   return nzB;
 }
-function fxInit() {   // шина эффектов: мягкий компрессор (сильные удары не хрипят) + короткий отклик зала
+function fxInit() {   // шина эффектов: перегруз (зерно), плотный компрессор (аркадный «панч») и лимитер на выходе — через него идёт и музыка
   if (fxDry || !ac) return;
-  const cp = ac.createDynamicsCompressor(); cp.threshold.value = -12; cp.knee.value = 8; cp.ratio.value = 4; cp.attack.value = .002; cp.release.value = .15; cp.connect(ac.destination);
-  fxDry = ac.createGain(); fxDry.gain.value = .85; fxDry.connect(cp);
-  const sr = ac.sampleRate, len = sr * .8 | 0, ir = ac.createBuffer(2, len, sr);   // отклик зала 0,8 с: шум, который темнеет и затухает к концу
-  for (let c = 0; c < 2; c++) { const d = ir.getChannelData(c); let lp = 0; for (let i = 0; i < len; i++) { const x = i / len; lp += (Math.random() * 2 - 1 - lp) * (.6 - .45 * x); d[i] = i < sr * .006 ? 0 : lp * Math.pow(1 - x, 2.4); } }
-  const cv = ac.createConvolver(); cv.buffer = ir; fxRev = ac.createGain(); fxRev.gain.value = .6; fxRev.connect(cv).connect(cp);
+  const lim = ac.createDynamicsCompressor(), lo = ac.createGain(); lim.threshold.value = -3; lim.knee.value = 0; lim.ratio.value = 20; lim.attack.value = .001; lim.release.value = .09;
+  lo.gain.value = .9; lim.connect(lo).connect(ac.destination); fxMaster = lim;   // запас под выброс лимитера — пики не доходят до 0 дБ
+  const mk = ac.createGain(); mk.gain.value = 1.7; mk.connect(lim);   // подъём после компрессора — удары громкие
+  const cp = ac.createDynamicsCompressor(); cp.threshold.value = -16; cp.knee.value = 6; cp.ratio.value = 4; cp.attack.value = .003; cp.release.value = .12; cp.connect(mk);
+  fxDry = ac.createGain(); fxDry.gain.value = .9; fxDry.connect(cp);
+  fxUi = ac.createGain(); fxUi.gain.value = .45; fxUi.connect(fxDry);   // служебные звуки (свисток, прыжок, толпа…) — тише ударов, чтобы не заглушать музыку
+  const ws = ac.createWaveShaper(), n = 1024, cu = new Float32Array(n);   // мягкое насыщение tanh: низ удара обрастает гармониками и слышен даже в динамике телефона
+  for (let i = 0; i < n; i++) { const x = i / (n - 1) * 2 - 1; cu[i] = Math.tanh(3 * x) / Math.tanh(3); }
+  ws.curve = cu; ws.oversample = '2x'; fxSat = ac.createGain(); fxSat.gain.value = 1; const so = ac.createGain(); so.gain.value = .55; fxSat.connect(ws).connect(so).connect(cp);
+  const sr = ac.sampleRate, len = sr * .9 | 0, ir = ac.createBuffer(2, len, sr);   // отклик 0,9 с: шум, который темнеет и затухает к концу
+  for (let c = 0; c < 2; c++) { const d = ir.getChannelData(c); let lp = 0; for (let i = 0; i < len; i++) { const x = i / len; lp += (Math.random() * 2 - 1 - lp) * (.55 - .45 * x); d[i] = i < sr * .008 ? 0 : lp * Math.pow(1 - x, 2.2); } }
+  const cv = ac.createConvolver(); cv.buffer = ir; fxRev = ac.createGain(); fxRev.gain.value = .7; fxRev.connect(cv).connect(cp);
 }
 const fx = () => { if (!ac) return null; if (!fxDry) fxInit(); return ac.currentTime; };
-function fxOut(g, wet) {   // сухой сигнал + посыл в «зал» (только в помещении)
-  g.connect(fxDry); if (!wet || ARENA === 'beach') return null;
-  const s = ac.createGain(); s.gain.value = wet; g.connect(s).connect(fxRev); return s;
+function fxOut(g, wet, drv, dst = fxDry) {   // сухой сигнал + посыл в перегруз + посыл в отзвук (на пляже отзвук слабее)
+  g.connect(dst); const out = [];
+  if (drv) { const s = ac.createGain(); s.gain.value = drv; g.connect(s).connect(fxSat); out.push(s); }
+  if (wet) { const s = ac.createGain(); s.gain.value = wet * (ARENA === 'beach' ? .35 : 1); g.connect(s).connect(fxRev); out.push(s); }
+  return out;
 }
-function hitTone(t, f0, f1, v, d, wet = 0, type = 'sine', fall = .5) {   // тело удара: тон с быстрым падением высоты
+const fxOff = (...ns) => { try { for (const x of ns) if (Array.isArray(x)) x.forEach(y => y.disconnect()); else x.disconnect(); } catch (e) {} };
+function hitTone(t, f0, f1, v, d, wet = 0, type = 'sine', fall = .5, drv = 0, att = .002) {   // тело удара: тон с быстрым падением высоты
   const o = ac.createOscillator(), g = ac.createGain(); o.type = type;
   o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + d * fall);
-  g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(v, t + .003); g.gain.exponentialRampToValueAtTime(.0005, t + d);
-  o.connect(g); const s = fxOut(g, wet); o.start(t); o.stop(t + d + .02);
-  o.onended = () => { try { o.disconnect(); g.disconnect(); s && s.disconnect(); } catch (e) {} };
+  g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(v, t + att); g.gain.exponentialRampToValueAtTime(.0005, t + d);
+  o.connect(g); const s = fxOut(g, wet, drv); o.start(t); o.stop(t + d + .02);
+  o.onended = () => fxOff(o, g, s);
 }
-function hitNoise(t, v, d, f, type = 'bandpass', q = 1, wet = 0, att = .001, f2 = 0) {   // шумовой транзиент (шлепок, треск, свист воздуха)
+function hitNoise(t, v, d, f, type = 'bandpass', q = 1, wet = 0, att = .001, f2 = 0, drv = 0) {   // шумовой транзиент (щелчок, треск, свист воздуха, дребезг)
   const b = nzBuf(), s = ac.createBufferSource(), fl = ac.createBiquadFilter(), g = ac.createGain();
   s.buffer = b; fl.type = type; fl.Q.value = q; fl.frequency.setValueAtTime(f, t); if (f2) fl.frequency.exponentialRampToValueAtTime(f2, t + d);
   g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(v, t + att); g.gain.exponentialRampToValueAtTime(.0005, t + d);
-  s.connect(fl).connect(g); const sn = fxOut(g, wet);
+  s.connect(fl).connect(g); const sn = fxOut(g, wet, drv);
   s.start(t, Math.random() * Math.max(0, b.duration - d - .05)); s.stop(t + d + .02);
-  s.onended = () => { try { s.disconnect(); fl.disconnect(); g.disconnect(); sn && sn.disconnect(); } catch (e) {} };
+  s.onended = () => fxOff(s, fl, g, sn);
 }
 function tone(freq, vol, dur, type = 'sine', end = .45) {
   const t = fx(); if (t == null) return; const o = ac.createOscillator(), gg = ac.createGain();
   o.type = type; o.frequency.setValueAtTime(freq, t); o.frequency.exponentialRampToValueAtTime(freq * end, t + dur);
   gg.gain.setValueAtTime(vol, t); gg.gain.exponentialRampToValueAtTime(.001, t + dur);
-  o.connect(gg).connect(fxDry); o.start(t); o.stop(t + dur);
-  o.onended = () => { try { o.disconnect(); gg.disconnect(); } catch (e) {} };
+  o.connect(gg).connect(fxUi); o.start(t); o.stop(t + dur);
+  o.onended = () => fxOff(o, gg);
 }
 function noise(vol, dur, freq = 4000, type = 'lowpass') {   // шум с линейным затуханием (из общего буфера)
   const t = fx(); if (t == null) return; const b = nzBuf(), s = ac.createBufferSource(), f = ac.createBiquadFilter(), gg = ac.createGain();
   f.type = type; f.frequency.value = freq; gg.gain.setValueAtTime(vol, t); gg.gain.linearRampToValueAtTime(0, t + dur);
-  s.buffer = b; s.connect(f).connect(gg).connect(fxDry); s.start(t, Math.random() * Math.max(0, b.duration - dur - .05)); s.stop(t + dur + .02);
-  s.onended = () => { try { s.disconnect(); f.disconnect(); gg.disconnect(); } catch (e) {} };
+  s.buffer = b; s.connect(f).connect(gg).connect(fxUi); s.start(t, Math.random() * Math.max(0, b.duration - dur - .05)); s.stop(t + dur + .02);
+  s.onended = () => fxOff(s, f, gg);
 }
 // необязательные числовые параметры (0…2) уходят и гостю в онлайне — там проверяется диапазон
 const sfx = {
-  pass(q = 1) {   // приём снизу: глухое «тхап» кожи мяча о предплечья. q: 0 — мимо, .5 — плохой, 1 — обычный, 1.5 — идеальный (чище и полнее)
-    const t = fx(); if (t == null) return; const v = rnd(.12) * .78, p = rnd(.06);
-    if (q < .3) { hitTone(t, 330 * p, 190, .24 * v, .06, .1); hitNoise(t, .3 * v, .05, 1900 * p, 'bandpass', .9, .1); return; }   // мимо: мяч срывается с руки — тонкий хлёсткий шлепок
-    const perf = q >= 1.4, bad = q < .8;
-    hitTone(t, (perf ? 205 : bad ? 290 : 240) * p, (perf ? 100 : 140) * p, (perf ? .6 : .46) * v, perf ? .12 : .09, .12);   // тело удара
-    hitTone(t, 140 * p, 85, .18 * v, .07, 0, 'triangle');
-    hitNoise(t, (perf ? .16 : bad ? .3 : .22) * v, perf ? .03 : .04, (perf ? 750 : bad ? 1700 : 1000) * p, 'bandpass', perf ? 1.3 : .8, .12);   // шлепок кожи
-    hitNoise(t, .12 * v, .07, 500, 'lowpass', .7);   // глухой хвост
-    if (bad) hitNoise(t + .012 + Math.random() * .01, .15 * v, .03, 2300 * p, 'bandpass', 1, .08);   // мяч «срикошетил» с рук — второй, грязный шлепок
-  },
-  set() {   // пас сверху: короткий лёгкий тычок пальцами
-    const t = fx(); if (t == null) return; const v = rnd(.12), p = rnd(.06);
-    hitNoise(t, .2 * v, .022, 2400 * p, 'bandpass', 1.4, .08); hitNoise(t + .006, .1 * v, .018, 3200 * p, 'bandpass', 1.6);
-    hitTone(t, 440 * p, 260, .14 * v, .045, .06);
-  },
-  toss() { const t = fx(); if (t == null) return; hitNoise(t, .06 * rnd(.15), .16, 900, 'bandpass', .7, 0, .04, 450); },   // подброс: лёгкий шорох мяча из ладони
-  serve() {   // подача: хлопок ладони по мячу
-    const t = fx(); if (t == null) return; const v = rnd(.1), p = rnd(.05);
-    hitNoise(t, .36 * v, .05, 1500 * p, 'bandpass', .9, .2); hitNoise(t, .16 * v, .02, 3200 * p, 'highpass', .7, .15);
-    hitTone(t, 190 * p, 90, .5 * v, .11, .18);
-  },
-  spike(k = 1) {   // атака: резкий «ШЛЕП» ладони по мячу (треск + шлепок) + удар корпуса + свист воздуха за мячом. k — сила (1,3 — мощный удар)
-    const t = fx(); if (t == null) return; k = clamp(k, .5, 1.6); const v = rnd(.1) * k, p = rnd(.05);
-    hitNoise(t, .85 * v, .06, 2600 * p, 'highpass', .8, .25, .0015);   // треск
-    hitNoise(t, .72 * v, .09, 1150 * p, 'bandpass', 1.1, .3, .0015);   // шлепок
-    hitTone(t, 160 * p, 52, 1.1 * v, .17, .3);   // корпус удара
-    hitTone(t, 95 * p, 45, .4 * v, .12, 0, 'triangle');
-    hitNoise(t + .025, .12 * v, .24 + .12 * (k - 1), 1600, 'bandpass', .8, .12, .03, 380);   // мяч рвёт воздух
-  },
-  floor(k = 1) {   // мяч в пол: в зале — гулкий удар о паркет с отзвуком, на пляже — мягкий «пуф» в песок
-    const t = fx(); if (t == null) return; k = clamp(k, .5, 1.6); const v = rnd(.1) * k * .85, p = rnd(.06);
-    if (ARENA === 'beach') {
-      hitNoise(t, .6 * v, .16, 380 * p, 'lowpass', .5, 0, .004); hitTone(t, 75 * p, 40, .42 * v, .14);
-      hitNoise(t + .01, .05 * v, .3, 4500, 'highpass', .5, 0, .03); return;   // шорох разлетающегося песка
+  pass(q = 1) {   // приём: звонкое полое «ПОК» (тон ~500 Гц с быстрым падением + щелчок + плотный низ). q: 0 — мимо, .5 — плохой, 1 — обычный, 1.5 — идеальный (круглый «пок» и искорка)
+    const t = fx(); if (t == null) return; const v = rnd(.1) * 1.7, p = rnd(.05);
+    if (q < .3) {   // мимо/срыв с рук: тонкий плоский шлепок без тела
+      hitNoise(t, 1.1 * v, .035, 2100 * p, 'bandpass', .7, .06); hitTone(t, 720 * p, 480, .45 * v, .04, 0, 'triangle'); return;
     }
-    hitTone(t, 100 * p, 42, .85 * v, .34, .5);   // гулкий удар
-    hitNoise(t, .4 * v, .06, 650 * p, 'bandpass', .8, .45);   // шлепок о паркет
-    hitNoise(t, .12 * v, .025, 2600 * p, 'highpass', .7, .3);
+    const perf = q >= 1.4, bad = q < .8;
+    hitNoise(t, (bad ? .5 : .62) * v, .009, 3600 * p, 'highpass', .7, .05, .0005);   // щелчок контакта
+    if (bad) {   // плохой: выше и «криво», шершавый шлепок, мяч дребезжит на руках
+      hitTone(t, 640 * p, 400, .5 * v, .06, .06, 'sine', .4);
+      hitNoise(t, .42 * v, .05, 2400 * p, 'bandpass', .6, .06);
+      hitTone(t, 190 * p, 110, .4 * v, .06, 0, 'sine', .5, .3);
+      hitNoise(t + .016 + Math.random() * .01, .3 * v, .03, 2900 * p, 'bandpass', .9, .05); return;
+    }
+    hitTone(t, (perf ? 520 : 560) * p, (perf ? 300 : 340) * p, (perf ? .95 : .8) * v, perf ? .13 : .09, .14, 'sine', .35, .25);   // «пок» — главный тон
+    hitTone(t, (perf ? 780 : 840) * p, 470 * p, .22 * v, .05, 0, 'triangle', .35);   // обертон — «полый» призвук
+    hitTone(t, 210 * p, 100, (perf ? .85 : .7) * v, perf ? .11 : .08, 0, 'sine', .45, .5);   // низ удара — «панч»
+    hitNoise(t, .3 * v, .03, 1500 * p, 'bandpass', 1.1, .08);   // кожа мяча
+    if (perf) { const s = 1 + Math.random() * .03; hitTone(t + .012, 1760 * s, 1740 * s, .1, .2, .35, 'sine', 1, 0, .004); hitTone(t + .03, 2637 * s, 2600 * s, .07, .24, .4, 'sine', 1, 0, .004); }   // искорка за идеальный приём
   },
-  net() { const t = fx(); if (t == null) return; const v = rnd(.12); hitNoise(t, .24 * v, .16, 1100, 'bandpass', .7, .15, .004); hitNoise(t + .01, .07 * v, .3, 2600 * rnd(.05), 'bandpass', 6, .1); },   // мяч в сетку: шелест + дребезг троса
-  block(k = 1) {   // блок: две ладони «вбивают» мяч (двойной треск + глухой бум) — глуше атаки, плюс дребезг сетки. k < 1 — только касание блока
-    const t = fx(); if (t == null) return; k = clamp(k, .4, 1.4); const v = rnd(.1) * k, p = rnd(.05), t2 = t + .008 + Math.random() * .008;
-    hitNoise(t, .44 * v, .05, 1700 * p, 'bandpass', .9, .2); hitNoise(t2, .34 * v, .06, 1250 * p, 'bandpass', 1, .2);   // две ладони
-    hitTone(t, 125 * p, 55, .8 * v, .2, .3); hitTone(t2, 210 * p, 120, .3 * v, .07, 0, 'triangle');
-    hitNoise(t + .03, .08 * v, .28, 2500 * rnd(.05), 'bandpass', 5, .1, .01);   // дребезг сетки и пальцев
+  set() {   // пас сверху: светлый короткий «тик-поп»
+    const t = fx(); if (t == null) return; const v = rnd(.1) * 1.8, p = rnd(.05);
+    hitNoise(t, .45 * v, .008, 4200 * p, 'highpass', .7, .04, .0005);
+    hitTone(t, 980 * p, 640, .42 * v, .045, .08, 'sine', .3);
+    hitTone(t, 330 * p, 190, .38 * v, .05, 0, 'sine', .4, .25);
+  },
+  toss() { const t = fx(); if (t == null) return; hitNoise(t, .08 * rnd(.15), .16, 900, 'bandpass', .7, 0, .04, 450); },   // подброс: лёгкий шорох мяча из ладони
+  serve() {   // подача: плотный хлёсткий шлепок ладони с низом
+    const t = fx(); if (t == null) return; const v = rnd(.1), p = rnd(.05);
+    hitNoise(t, .85 * v, .02, 3000 * p, 'highpass', .7, .15, .0005, 0, .3);   // треск
+    hitNoise(t, .55 * v, .06, 1300 * p, 'bandpass', 1, .18);   // шлепок
+    hitTone(t, 260 * p, 100, .85 * v, .13, .2, 'sine', .4, .6);   // тело
+    hitTone(t, 110 * p, 48, .7 * v, .2, .15, 'sine', .7, .5, .003);   // низ
+  },
+  spike(k = 1) {   // атака: «КА-БУМ» как выстрел — жёсткий треск, удар корпуса, саб-провал 120→35 Гц с перегрузом и хвост; сильнее k — больше бум, длиннее хвост, свист мяча
+    const t = fx(); if (t == null) return; k = clamp(k, .5, 1.6); const v = rnd(.08) * (.75 + .25 * k), p = rnd(.04), big = clamp((k - 1) / .35, 0, 1);
+    hitNoise(t, 1.1 * v, .025, 3200 * p, 'highpass', .7, .2, .0004, 0, .6);   // «КА» — треск
+    hitNoise(t, .8 * v, .07, 1300 * p, 'bandpass', .9, .3, .0006, 700, .4);   // шлепок ладони
+    hitTone(t, 300 * p, 105, 1.0 * v, .16, .3, 'triangle', .35, .8);   // удар корпуса (середина)
+    hitTone(t + .003, 125 * p, 35, 1.45 * v, .38 + .28 * big, .25 + .15 * big, 'sine', .85, 1.1, .004);   // «БУМ» — саб-провал
+    hitNoise(t, .75 * v, .45 + .3 * big, 260, 'lowpass', .6, .35, .004, 70, .3);   // раскат
+    if (k > 1.05) {   // мощный удар: мяч свистит, а «бум» отдаётся вторым раскатом во время замедления
+      hitNoise(t + .015, .32 * big + .1, .22 + .1 * big, 4200, 'bandpass', 1.3, .25, .02, 1100);
+      hitTone(t + .01, 2500 * p, 1300, .08 + .06 * big, .2, .3, 'sine', 1);
+      hitTone(t + .06, 80 * p, 32, .5 * big, .5, .5, 'sine', .9, .9, .03);
+    }
+  },
+  floor(k = 1) {   // мяч в пол: в зале — тяжёлое «ТХУМ» с раскатом, на пляже — глухое «фумп» в песок и россыпь песка
+    const t = fx(); if (t == null) return; k = clamp(k, .5, 1.6); const v = rnd(.08) * (.55 + .4 * k) * (ARENA === 'beach' ? .7 : .45), p = rnd(.05), big = clamp((k - .9) / .4, 0, 1);
+    if (ARENA === 'beach') {
+      hitNoise(t, .9 * v, .2, 420 * p, 'lowpass', .5, .1, .005, 160);   // «фумп»
+      hitTone(t, 95 * p, 38, .9 * v, .22 + .12 * big, .1, 'sine', .7, .5, .004);
+      hitNoise(t + .012, .22 * v, .38, 5200, 'highpass', .5, 0, .03); hitNoise(t + .02, .14 * v, .28, 2600, 'bandpass', .6, 0, .02);   // песок разлетается
+      return;
+    }
+    hitNoise(t, .55 * v, .02, 2800 * p, 'highpass', .7, .25, .0005);   // щелчок о паркет
+    hitNoise(t, .6 * v, .07, 700 * p, 'bandpass', .8, .4, .001, 0, .3);   // шлепок
+    hitTone(t, 230 * p, 90, .6 * v, .1, .3, 'triangle', .4, .5);
+    hitTone(t, 115 * p, 38, 1.15 * v, .42 + .25 * big, .5, 'sine', .8, 1, .003);   // «ТХУМ»
+    hitNoise(t, .3 * v, .35 + .25 * big, 220, 'lowpass', .6, .4, .005, 70);   // раскат
+  },
+  net() { const t = fx(); if (t == null) return; const v = rnd(.12); hitNoise(t, .3 * v, .16, 1100, 'bandpass', .7, .15, .004); hitNoise(t + .01, .1 * v, .3, 2600 * rnd(.05), 'bandpass', 6, .1); },   // мяч в сетку: шелест + дребезг троса
+  block(k = 1) {   // блок: тяжёлое «БАМ» — двойной треск ладоней и толстый низ, короче атаки, плюс дребезг сетки; k < .8 — касание блока («ток»), k > 1,15 — «СТЕНА»
+    const t = fx(); if (t == null) return; k = clamp(k, .4, 1.4); const v = rnd(.08), p = rnd(.04), t2 = t + .007 + Math.random() * .006;
+    if (k < .8) {   // касание: лёгкий деревянный «ток»
+      const v2 = v * 1.8;
+      hitNoise(t, .5 * v2, .01, 3400 * p, 'highpass', .7, .06, .0005);
+      hitTone(t, 760 * p, 430, .5 * v2, .05, .1, 'sine', .3); hitTone(t, 230 * p, 130, .4 * v2, .06, 0, 'sine', .4, .3);
+      hitNoise(t + .02, .06 * v2, .16, 2700 * p, 'bandpass', 5, .05, .008); return;
+    }
+    const wall = k > 1.15, w = wall ? 1.12 : 1;
+    hitNoise(t, 1.0 * v * w, .022, 2800 * p, 'highpass', .7, .2, .0004, 0, .5);   // две ладони
+    hitNoise(t2, .75 * v * w, .03, 1900 * p, 'bandpass', .9, .2, .0005, 0, .3);
+    hitTone(t, 360 * p, 170, .7 * v, .07, .2, 'triangle', .4, .6);   // «ДОНК» — середина
+    hitTone(t2, 150 * p, 50, 1.05 * v, .18 + (wall ? .1 : 0), .25, 'sine', .7, 1, .003);   // толстый низ
+    if (wall) hitNoise(t, .4 * v, .35, 240, 'lowpass', .6, .4, .004, 70, .3);   // раскат «СТЕНЫ»
+    hitNoise(t + .025, .14 * v, .22, 2700 * p, 'bandpass', 5, .1, .008); hitNoise(t + .03, .08 * v, .18, 4300 * p, 'bandpass', 7, .05, .01);   // дребезг сетки
   },
   jump() { tone(320, .06, .1, 'triangle', 1.5); },
   slide() { if (ARENA === 'beach') noise(.25, .35, 500); else { tone(2200, .05, .12, 'sawtooth'); noise(.2, .35, 700); } },
@@ -1215,11 +1261,26 @@ const sfx = {
     const t = fx(); if (t == null) return; const o = ac.createOscillator(), m = ac.createOscillator(), mg = ac.createGain(), gg = ac.createGain();
     o.frequency.value = 2900; m.frequency.value = 38; mg.gain.value = 140; m.connect(mg).connect(o.frequency);
     gg.gain.setValueAtTime(0, t); gg.gain.linearRampToValueAtTime(.1, t + .03); gg.gain.setValueAtTime(.1, t + .4); gg.gain.linearRampToValueAtTime(0, t + .5);
-    o.connect(gg); const s = fxOut(gg, .15); o.start(t); m.start(t); o.stop(t + .55); m.stop(t + .55);
-    o.onended = () => { try { o.disconnect(); m.disconnect(); mg.disconnect(); gg.disconnect(); s && s.disconnect(); } catch (e) {} };
+    o.connect(gg); const s = fxOut(gg, .07, 0, fxUi); o.start(t); m.start(t); o.stop(t + .55); m.stop(t + .55);
+    o.onended = () => fxOff(o, m, mg, gg, s);
   },
-  crowd(v = .14) { noise(v, 1.8, 1100); },
+  crowd(v = .14) {   // толпа: вспышка голосов (нарастает и спадает) — после мощной атаки громче
+    const t = fx(); if (t == null) return; v = clamp(v, 0, .5); const d = 1.6 + v * 2;
+    for (const [f, q, a] of [[700, .7, 1], [1600, .9, .6], [3000, 1.2, .25]]) {
+      const b = nzBuf(), s = ac.createBufferSource(), fl = ac.createBiquadFilter(), g = ac.createGain();
+      s.buffer = b; fl.type = 'bandpass'; fl.frequency.value = f * rnd(.05); fl.Q.value = q;
+      g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(v * a * .9, t + .12); g.gain.setTargetAtTime(v * a * .5, t + .12, .25); g.gain.linearRampToValueAtTime(0, t + d);
+      s.connect(fl).connect(g).connect(fxUi); s.start(t, Math.random() * Math.max(0, b.duration - d - .05)); s.stop(t + d + .02);
+      s.onended = () => fxOff(s, fl, g);
+    }
+  },
 };
+const sfxRaw = Object.assign({}, sfx);   // исходные функции звука — для «проверки звука» (не уходят сопернику в онлайне)
+function soundCheck() {   // проверка звука: приём (плохой, обычный, идеальный), пас, атака, мощная атака, блок, «стена», мяч в пол
+  audio(); if (!ac) return;
+  const seq = [['pass', .5], ['pass', 1], ['pass', 1.5], ['set'], ['spike', 1], ['block', .6], ['block', 1], ['block', 1.25], ['serve'], ['spike', 1.3], ['floor', 1.3]];
+  seq.forEach(([k, a], i) => setTimeout(() => { try { a == null ? sfxRaw[k]() : sfxRaw[k](a); } catch (e) {} }, i * 520 + (i >= 9 ? 300 : 0)));
+}
 /* ================= музыка: синтез в коде, без файлов =================
    Матч — своя (оригинальная) композиция в духе опенинга спортивного аниме: J-rock, 172 BPM, ре мажор с модуляцией на тон вверх (ми мажор) в последнем припеве.
    Инструменты: рок-барабаны (бочка, малый, хэт, крэш, сбивки томами), «гитара» — пауэр-аккорды из расстроенных пил через перегруз (глушёные и открытые),
@@ -1441,7 +1502,7 @@ const music = (() => {
     start() {
       if (!ac) return;
       if (!mg) {
-        mg = ac.createGain(); mg.gain.value = on ? .6 : 0; mg.connect(ac.destination);
+        mg = ac.createGain(); mg.gain.value = on ? .72 : 0; mg.connect(fxMaster || ac.destination);
         mm = ac.createGain(); mm.connect(mg); cg = ac.createGain(); cg.gain.value = 0; cg.connect(mg);
         const len = ac.sampleRate * 3 | 0; hb = ac.createBuffer(1, len, ac.sampleRate); const x = hb.getChannelData(0); for (let i = 0; i < len; i++) x[i] = Math.random() * 2 - 1;
         hum = ac.createBufferSource(); hum.buffer = hb; hum.loop = true; const hf = ac.createBiquadFilter(); hf.type = 'bandpass'; hf.frequency.value = 650; hf.Q.value = .6;
@@ -1458,7 +1519,7 @@ const music = (() => {
       }
       if (!timer) timer = setInterval(() => { try { tick(); } catch (e) {} }, 90);
     },
-    toggle() { on = !on; try { localStorage.setItem('vb-music', on ? '1' : '0'); } catch (e) {} if (mg) mg.gain.setTargetAtTime(on ? .6 : 0, ac.currentTime, .05); return on; },
+    toggle() { on = !on; try { localStorage.setItem('vb-music', on ? '1' : '0'); } catch (e) {} if (mg) mg.gain.setTargetAtTime(on ? .72 : 0, ac.currentTime, .05); return on; },
     cheer() {   // очко: всплеск толпы и хлопки в такт
       if (!ac || !mg || !on || song !== 'match') return; swell(ac.currentTime + .02, .16, 1.4); cheerN = 6;
     },
@@ -1993,7 +2054,7 @@ function pointTo(W, reason) {
   scorePop[W === TL ? 0 : 1] = 1;
   if (W !== servingTeam) { do W.serveIdx = (W.serveIdx + 1) % 3; while (W.players[W.serveIdx].lib); servingTeam = W; }
   server = W.players[W.serveIdx];
-  hype = 1; sfx.whistle(); setTimeout(() => sfx.crowd(W === TL ? .22 : .12), 150);
+  hype = 1; sfx.whistle(); { const cr = (W === TL ? .22 : .12) * (ball && ball.spiked ? (ball.perf ? 1.7 : 1.35) : 1); setTimeout(() => sfx.crowd(cr), 150); }   // после мощной атаки толпа взрывается громче
   const wi = W === TL ? 0 : 1, setWin = W.score >= TARGET && W.score - other(W).score >= (MT.sets > 1 ? 2 : 0);   // в матче из нескольких сетов — баланс в 2 очка без потолка
   const over = setWin && MT.setsWon[wi] + 1 >= MT.sets;
   MT.over = over; MT.setEnd = setWin && !over; if (setWin) MT.setsWon[wi]++;
@@ -6180,6 +6241,7 @@ $('upBtn').addEventListener('click', () => { audio(); syncUps(); show('ups'); })
 $('upBack').addEventListener('click', () => show('menu'));
 function syncMus() { const t = music.on ? '♪ МУЗЫКА: ВКЛ' : '♪ МУЗЫКА: ВЫКЛ'; $('musBtn').textContent = music.on ? '♪ ВКЛ' : '♪ ВЫКЛ'; $('musBtn2').textContent = t; }
 for (const id of ['musBtn', 'musBtn2']) $(id).addEventListener('click', () => { audio(); music.toggle(); syncMus(); });
+$('sndChk').addEventListener('click', soundCheck);
 syncMus();
 document.addEventListener('pointerdown', () => audio(), { once: true });   // музыка меню — с первого касания (браузер не даёт звук без жеста)
 const isOnline = () => mode === 'host' || mode === 'guest';
