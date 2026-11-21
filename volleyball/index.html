@@ -1113,12 +1113,14 @@ function growEnd(win, my, opp, setDiff) {
 
 
 /* ================= audio ================= */
-// Все звуки синтезируются в коде. Удары — аркадные, как в спортивных аниме-играх (ориентир — The Spike): громкие, плотные, с сильным низом.
+// Удары по мячу (приём, пас, подача, атака, блок, мяч в пол/песок) — записанные звуки из sfx/*.mp3 (грузятся один раз после создания AudioContext, игру не задерживают);
+// пока файл не загрузился (или не загрузился вовсе — например, без сети при первом запуске), играет прежний синтезированный вариант, так что звук есть всегда.
+// Синтезированные удары — аркадные, как в спортивных аниме-играх (ориентир — The Spike): громкие, плотные, с сильным низом.
 // Каждый удар собирается из слоёв: щелчок-транзиент (шум через фильтр) + «тело» (тон с падением высоты) + саб-удар, часть слоёв идёт через перегруз (зерно).
 // У каждого удара небольшой случайный разброс высоты и громкости. Общая цепочка: перегруз → «склеивающий» компрессор → лимитер (без клиппинга) → выход;
 // отзвук — один свёрточный ревербератор на всю игру (в зале полный, на пляже слабее).
-let ac = null, nzB = null, fxDry = null, fxRev = null, fxSat = null, fxMaster = null, fxUi = null;
-function audio() { try { ac = ac || new (window.AudioContext || window.webkitAudioContext)(); if (ac.state === 'suspended') ac.resume(); fxInit(); music.start(); } catch (e) { ac = null; } }
+let ac = null, nzB = null, fxDry = null, fxRev = null, fxSat = null, fxMaster = null, fxUi = null, fxSmp = null;
+function audio() { try { ac = ac || new (window.AudioContext || window.webkitAudioContext)(); if (ac.state === 'suspended') ac.resume(); fxInit(); smpInit(); music.start(); } catch (e) { ac = null; } }
 const rnd = a => 1 + (Math.random() * 2 - 1) * a;   // разброс ±a
 function nzBuf() {   // общий буфер белого шума (2 с): удары и барабаны берут из него кусок со случайного места, новых буферов на удар не создаём
   if (!nzB) { const len = ac.sampleRate * 2 | 0; nzB = ac.createBuffer(1, len, ac.sampleRate); const x = nzB.getChannelData(0); for (let i = 0; i < len; i++) x[i] = Math.random() * 2 - 1; }
@@ -1132,6 +1134,10 @@ function fxInit() {   // шина эффектов: перегруз (зерно
   const cp = ac.createDynamicsCompressor(); cp.threshold.value = -16; cp.knee.value = 6; cp.ratio.value = 4; cp.attack.value = .003; cp.release.value = .12; cp.connect(mk);
   fxDry = ac.createGain(); fxDry.gain.value = .9; fxDry.connect(cp);
   fxUi = ac.createGain(); fxUi.gain.value = .45; fxUi.connect(fxDry);   // служебные звуки (свисток, прыжок, толпа…) — тише ударов, чтобы не заглушать музыку
+  fxSmp = ac.createGain(); fxSmp.gain.value = .4;   // записанные удары уже «собраны» — мимо компрессора, в лимитер (отзвук — через общий ревербератор)
+  const sc = ac.createWaveShaper(), sk = new Float32Array(2048);   // мягкий срез пиков записей (до .6 — без изменений, выше — плавно к .95): острые транзиенты не проскакивают лимитер
+  for (let i = 0; i < 2048; i++) { const x = (i / 2047 * 2 - 1) * 2, a = Math.abs(x); sk[i] = a < .6 ? x : Math.sign(x) * (.6 + .35 * Math.tanh((a - .6) / .35)); }
+  sc.curve = sk; sc.oversample = '2x'; fxSmp.connect(sc).connect(lim);
   const ws = ac.createWaveShaper(), n = 1024, cu = new Float32Array(n);   // мягкое насыщение tanh: низ удара обрастает гармониками и слышен даже в динамике телефона
   for (let i = 0; i < n; i++) { const x = i / (n - 1) * 2 - 1; cu[i] = Math.tanh(3 * x) / Math.tanh(3); }
   ws.curve = cu; ws.oversample = '2x'; fxSat = ac.createGain(); fxSat.gain.value = 1; const so = ac.createGain(); so.gain.value = .55; fxSat.connect(ws).connect(so).connect(cp);
@@ -1275,11 +1281,66 @@ const sfx = {
     }
   },
 };
+/* записанные удары: sfx/*.mp3 (моно, начало удара в самом начале файла, пики до −1 дБ). Базовый множитель SMP_BASE подобран по громкости на выходе:
+   мощная атака > атака > блок > мяч в пол > подача > приём > пас. Записи идут в свою шину (мягкий срез пиков → лимитер), отзвук — общий */
+const SMP = {}, SMP_N = ['pass', 'set', 'serve', 'spike', 'spike_big', 'block', 'floor', 'sand'];
+const SMP_BASE = { pass: 1.3, set: .7, serve: .95, spike: 1.8, spike_big: 1.3, block: 2, floor: .95, sand: .95 };
+let smpP = null;
+function smpInit() {   // один раз: fetch + decodeAudioData для каждого файла, ошибки молча — тогда звучит синтез
+  if (smpP || !ac || typeof fetch !== 'function') return;
+  smpP = Promise.all(SMP_N.map(n => fetch('sfx/' + n + '.mp3').then(r => { if (!r.ok) throw new Error(r.status); return r.arrayBuffer(); })
+    .then(b => new Promise((ok, no) => { const pr = ac.decodeAudioData(b, ok, no); if (pr && pr.catch) pr.catch(no); }))
+    .then(b => {   // задержка декодера (у mp3 бывает пауза в начале): находим начало удара и запускаем с него
+      const x = b.getChannelData(0); let pk = 0; for (let i = 0; i < x.length; i++) pk = Math.max(pk, Math.abs(x[i]));
+      let i0 = 0; while (i0 < x.length && Math.abs(x[i0]) < pk * .03) i0++;
+      SMP[n] = { b, o: Math.max(0, i0 / b.sampleRate - .001) };
+    }).catch(() => {})));
+}
+function smp(n, t, v, rate = 1, wet = 0, dur = 0) {   // сыграть запись через общую цепочку; dur — укоротить (быстрое затухание). false — записи нет
+  const S = SMP[n]; if (!S || !ac) return false;
+  const src = ac.createBufferSource(), g = ac.createGain(), a = v * SMP_BASE[n];
+  src.buffer = S.b; src.playbackRate.value = rate; g.gain.setValueAtTime(a, t);
+  if (dur) { g.gain.setValueAtTime(a, t + dur * .35); g.gain.exponentialRampToValueAtTime(.001, t + dur); }
+  src.connect(g); const sn = fxOut(g, wet, 0, fxSmp); src.start(t, S.o); if (dur) src.stop(t + dur + .02);
+  src.onended = () => fxOff(src, g, sn); return true;
+}
+const sfxSyn = { pass: sfx.pass, set: sfx.set, serve: sfx.serve, spike: sfx.spike, floor: sfx.floor, block: sfx.block };   // синтез — запасной вариант
+Object.assign(sfx, {
+  pass(q = 1) {   // приём по оценке: идеальный — полнее и чуть ниже (+ искорка), плохой — выше и тише, срыв — тихий высокий короткий шлепок
+    const t = fx(); if (t == null) return; const v = rnd(.08), p = rnd(.05);
+    if (q < .3) { if (!smp('pass', t, .45 * v, 1.16 * p, .05, .1)) sfxSyn.pass(q); return; }
+    const perf = q >= 1.4, bad = q < .8;
+    if (!smp('pass', t, (perf ? 1.15 : bad ? .72 : 1) * v, (perf ? .95 : bad ? 1.07 : 1) * p, .12)) { sfxSyn.pass(q); return; }
+    if (perf) { const s = 1 + Math.random() * .03; hitTone(t + .012, 1760 * s, 1740 * s, .1, .2, .35, 'sine', 1, 0, .004); hitTone(t + .03, 2637 * s, 2600 * s, .07, .24, .4, 'sine', 1, 0, .004); }   // искорка за идеальный приём
+  },
+  set() { const t = fx(); if (t == null) return; if (!smp('set', t, rnd(.08), rnd(.05), .08)) sfxSyn.set(); },
+  serve() { const t = fx(); if (t == null) return; if (!smp('serve', t, rnd(.08), rnd(.05), .15)) sfxSyn.serve(); },
+  spike(k = 1) {   // атака: сильнее k — громче и чуть ниже; k > 1,1 — поверх шлепка «бум» (spike_big)
+    const t = fx(); if (t == null) return; k = clamp(k, .5, 1.6); const v = rnd(.08) * (.72 + .28 * k), p = rnd(.05) * (1.03 - .06 * (k - 1)), big = clamp((k - 1.1) / .35, 0, 1);
+    if (k > 1.1 && SMP.spike_big) {
+      smp('spike', t, .55 * v, p, .2); smp('spike_big', t, (.7 + .3 * big) * v, p * rnd(.02), .25);
+      hitNoise(t + .015, .2 * big + .06, .22 + .1 * big, 4200, 'bandpass', 1.3, .25, .02, 1100);   // свист мяча
+      return;
+    }
+    if (!smp('spike', t, v, p, .22)) sfxSyn.spike(k);
+  },
+  floor(k = 1) {   // мяч в пол: паркет в зале, песок на пляже; громкость по силе k
+    const t = fx(); if (t == null) return; k = clamp(k, .5, 1.6); const v = rnd(.08) * (.5 + .45 * k), p = rnd(.05) * (1.03 - .05 * (k - 1));
+    if (!(ARENA === 'beach' ? smp('sand', t, v, p, 0) : smp('floor', t, v, p, .3))) sfxSyn.floor(k);
+  },
+  block(k = 1) {   // блок: k < .8 — касание (тише, выше, короче), k > 1,15 — «стена» (громче, ниже)
+    const t = fx(); if (t == null) return; k = clamp(k, .4, 1.4); const v = rnd(.08), p = rnd(.05);
+    const ok = k < .8 ? smp('block', t, (.35 + .25 * k) * v, 1.1 * p, .08, .09)
+      : smp('block', t, (.75 + .35 * (k - .8)) * v, (k > 1.15 ? .94 : 1) * p, k > 1.15 ? .3 : .2);
+    if (!ok) sfxSyn.block(k);
+  },
+});
 const sfxRaw = Object.assign({}, sfx);   // исходные функции звука — для «проверки звука» (не уходят сопернику в онлайне)
 function soundCheck() {   // проверка звука: приём (плохой, обычный, идеальный), пас, атака, мощная атака, блок, «стена», мяч в пол
   audio(); if (!ac) return;
   const seq = [['pass', .5], ['pass', 1], ['pass', 1.5], ['set'], ['spike', 1], ['block', .6], ['block', 1], ['block', 1.25], ['serve'], ['spike', 1.3], ['floor', 1.3]];
-  seq.forEach(([k, a], i) => setTimeout(() => { try { a == null ? sfxRaw[k]() : sfxRaw[k](a); } catch (e) {} }, i * 520 + (i >= 9 ? 300 : 0)));
+  const play = () => seq.forEach(([k, a], i) => setTimeout(() => { try { a == null ? sfxRaw[k]() : sfxRaw[k](a); } catch (e) {} }, i * 520 + (i >= 9 ? 300 : 0)));
+  const wait = new Promise(r => setTimeout(r, 1500)); Promise.race([smpP || wait, wait]).then(() => play());   // при первом нажатии ждём записи (не дольше 1,5 с)
 }
 /* ================= музыка: синтез в коде, без файлов =================
    Матч — своя (оригинальная) композиция в духе опенинга спортивного аниме: J-rock, 172 BPM, ре мажор с модуляцией на тон вверх (ми мажор) в последнем припеве.
