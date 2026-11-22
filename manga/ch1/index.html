@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ШТОРМ — Глава 1</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Rubik:wght@500;700;900&family=Russo+One&display=swap" rel="stylesheet">
+<style>
+:root{--paper:#fbfaf6;--ink:#111;--gut:clamp(5px,1.6cqw,12px);}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:#d9d6cf;color:var(--ink);font-family:"Rubik",system-ui,sans-serif;overflow-x:hidden}
+.book{max-width:780px;margin:0 auto;padding:16px 12px 40px;display:flex;flex-direction:column;gap:22px}
+.page{background:var(--paper);container-type:inline-size;padding:var(--gut);box-shadow:0 2px 10px rgba(0,0,0,.25);position:relative}
+.grid{display:grid;grid-template-columns:repeat(6,1fr);gap:var(--gut)}
+.pnum{position:absolute;bottom:2px;right:8px;font:700 11px "Rubik";color:#777}
+/* кадр */
+.pn{position:relative;border:clamp(2px,.55cqw,4px) solid var(--ink);background:#e9e7e1;overflow:hidden;grid-column:span 6}
+.pn[data-ar]{aspect-ratio:var(--ar)}
+.s4{grid-column:span 4}.s3{grid-column:span 3}.s2{grid-column:span 2}
+.pn img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:1;filter:grayscale(1) contrast(1.08)}
+.ph{position:absolute;inset:0;padding:8% 7%;display:flex;flex-direction:column;justify-content:center;gap:.4em;
+  background:repeating-radial-gradient(circle at 50% 50%,#cfccc4 0 1px,transparent 1px 5px),#ecebe6;
+  font-size:clamp(9px,1.9cqw,14px);color:#555;line-height:1.3;text-align:center}
+.ph b{font:400 clamp(10px,2.2cqw,16px) "Russo One";color:#333}
+.pn.p11 .ph{background:repeating-conic-gradient(from 0deg at 50% 45%,#bdb9b0 0 2deg,#ecebe6 2deg 9deg)}
+/* реплики */
+.b,.cap,.sfx{position:absolute;z-index:3}
+.b{background:#fff;border:2px solid var(--ink);border-radius:50%;padding:.75em 1.05em;
+  font:700 clamp(9.5px,2.25cqw,16px)/1.2 "Rubik";text-align:center;max-width:42%}
+.b::after{content:"";position:absolute;width:.9em;height:.9em;background:#fff;border:2px solid var(--ink);border-top:0;border-left:0;
+  bottom:-.5em;left:28%;transform:skewX(-20deg) rotate(45deg)}
+.b.tr::after{left:auto;right:28%;transform:skewX(20deg) rotate(45deg)}
+.b.up::after{bottom:auto;top:-.5em;transform:skewX(-20deg) rotate(225deg)}
+.b.think{border-style:dashed}
+.b.think::after{display:none}
+.b.shout{border-width:3px;font-weight:900;border-radius:14px;clip-path:none;background:#fff}
+.b.whisper{border-style:dotted;font-weight:500}
+.b.dark{background:#111;color:#fff;border-color:#fff}
+.b.dark::after{background:#111;border-color:#fff}
+.cap{background:#fff;border:2px solid var(--ink);padding:.35em .6em;font:500 clamp(9px,2cqw,14px)/1.25 "Rubik";max-width:55%}
+.sfx{font:400 clamp(18px,6cqw,46px)/1 "Russo One";color:#fff;-webkit-text-stroke:clamp(1.5px,.5cqw,3px) #000;paint-order:stroke fill;
+  letter-spacing:.02em;transform:rotate(-10deg);white-space:nowrap;text-shadow:3px 3px 0 #000}
+.sfx.sm{font-size:clamp(13px,3.6cqw,28px)}
+.sfx.xl{font-size:clamp(34px,14cqw,110px);color:#fff;-webkit-text-stroke:clamp(2px,.8cqw,5px) #000}
+/* обложка */
+.cover{background:#111;color:#fff;text-align:center;padding:28px 16px 24px;position:relative;overflow:hidden;container-type:inline-size}
+.cover::before{content:"";position:absolute;inset:0;background:repeating-conic-gradient(from 0deg at 50% 60%,rgba(255,255,255,.08) 0 3deg,transparent 3deg 12deg)}
+.cover h1{position:relative;font:400 clamp(54px,22cqw,150px)/.95 "Russo One";letter-spacing:.06em;-webkit-text-stroke:2px #fff;color:#111;text-shadow:5px 5px 0 #fff}
+.cover h2{position:relative;margin-top:14px;font:900 clamp(17px,5cqw,30px) "Rubik";letter-spacing:.03em}
+.cover p{position:relative;margin-top:8px;font:500 clamp(12px,3cqw,16px) "Rubik";color:#bbb}
+.cover .bolt{position:relative;display:block;margin:10px auto 0;width:42px;height:42px}
+.note{background:#fff8d6;border:2px dashed #b59a2c;padding:10px 12px;font-size:13px;line-height:1.4}
+.end{text-align:center;font:400 clamp(16px,4cqw,24px) "Russo One";padding:6px 0 0}
+</style>
+<script>
+function miss(img){img.remove();var n=document.getElementById('note');if(n)n.hidden=false;else document.addEventListener('DOMContentLoaded',function(){document.getElementById('note').hidden=false;});}
+</script>
+</head>
+<body>
+<main class="book">
+
+<header class="cover">
+  <h1>ШТОРМ</h1>
+  <svg class="bolt" viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 4 14h6l-1 8 9-12h-6z" fill="#fff"/></svg>
+  <h2>Глава 1: Гром над морем</h2>
+  <p>Пилотная глава · по мотивам игры «ШТОРМ»</p>
+</header>
+
+<p class="note" id="note" hidden>Картинки кадров ещё не сгенерированы: вместо них показано описание сцены. Положите panel01.png … panel12.png рядом с этой страницей, и они появятся сами.</p>
+
+<!-- СТРАНИЦА 1 -->
+<section class="page"><div class="grid">
+  <figure class="pn" data-ar style="--ar:16/9">
+    <div class="ph"><b>Кадр 1</b>Станция на холме над морем, вечер. Рэй с сумкой спиной к нам.</div>
+    <img src="panel01.png" alt="Рэй приезжает в приморский город" onerror="miss(this)">
+    <div class="cap" style="top:5%;left:3%">Сиохама. Город, где меня никто не знает.</div>
+    <div class="sfx sm" style="bottom:8%;right:4%">ШШШ…</div>
+  </figure>
+  <figure class="pn s4" data-ar style="--ar:3/2">
+    <div class="ph"><b>Кадр 2</b>Старые кроссовки падают в урну.</div>
+    <img src="panel02.png" alt="Рэй выбрасывает кроссовки" onerror="miss(this)">
+    <div class="b think" style="top:5%;right:4%;max-width:38%">Прощай, волейбол.</div>
+    <div class="sfx" style="bottom:7%;left:5%">БРЯК!</div>
+  </figure>
+  <figure class="pn s2">
+    <div class="ph"><b>Кадр 3</b>Рэй оборачивается на звук мяча.</div>
+    <img src="panel03.png" alt="Рэй слышит удары мяча" onerror="miss(this)">
+    <div class="sfx sm" style="top:4%;left:6%">БАМ!</div>
+    <div class="sfx sm" style="top:16%;right:6%">БАМ!</div>
+    <div class="b" style="bottom:6%;left:8%;max-width:84%">…Мяч?</div>
+  </figure>
+  <figure class="pn" data-ar style="--ar:16/9">
+    <div class="ph"><b>Кадр 4</b>Пляж: Саки и Арис против троих «Теней» Кагэ. На столбе висит ключ.</div>
+    <img src="panel04.png" alt="Саки и Арис против банды Кагэ" onerror="miss(this)">
+    <div class="b dark" style="top:4%;right:3%;max-width:34%">Ещё очко, и ключ от вашего зала наш!</div>
+    <div class="b up" style="bottom:5%;left:3%;max-width:34%">Зал «Шторма» мы не отдадим!</div>
+    <div class="sfx" style="top:8%;left:38%">ВЖУХ!</div>
+  </figure>
+</div><span class="pnum">1</span></section>
+
+<!-- СТРАНИЦА 2 -->
+<section class="page"><div class="grid">
+  <figure class="pn s3" data-ar style="--ar:3/2">
+    <div class="ph"><b>Кадр 5</b>Мяч в песке. Саки упала, Арис на коленях.</div>
+    <img src="panel05.png" alt="Саки и Арис проигрывают" onerror="miss(this)">
+    <div class="sfx" style="top:6%;left:5%">БАМ!</div>
+    <div class="b tr" style="top:5%;right:3%;max-width:52%">Вдвоём против троих… не вытянуть.</div>
+  </figure>
+  <figure class="pn s3" data-ar style="--ar:3/2">
+    <div class="ph"><b>Кадр 6</b>Кагэ хохочет и крутит ключ на пальце.</div>
+    <img src="panel06.png" alt="Кагэ смеётся" onerror="miss(this)">
+    <div class="b dark" style="top:4%;left:3%;max-width:60%">Клуб из двух человек! Пусть ключик полежит у «Теней».</div>
+    <div class="sfx sm" style="bottom:7%;right:5%">ХА-ХА!</div>
+  </figure>
+  <figure class="pn s2" data-ar style="--ar:2/3">
+    <div class="ph"><b>Кадр 7</b>Саки замечает Рэя. Рэй отворачивается.</div>
+    <img src="panel07.png" alt="Саки зовёт Рэя, он отказывается" onerror="miss(this)">
+    <div class="b shout" style="top:3%;left:5%;max-width:90%">Эй, белобрысый! Нам нужен третий!</div>
+    <div class="b up" style="bottom:4%;right:5%;max-width:88%">Я больше не играю.</div>
+  </figure>
+  <figure class="pn s4">
+    <div class="ph"><b>Кадр 8</b>Мяч летит в Рэя, он принимает его идеально.</div>
+    <img src="panel08.png" alt="Рэй рефлекторно принимает мяч" onerror="miss(this)">
+    <div class="b dark" style="top:4%;left:3%;max-width:40%">Тогда лови, турист!</div>
+    <div class="sfx" style="top:36%;left:36%">ВЖУХ!</div>
+    <div class="sfx sm" style="top:8%;right:6%">ТУК.</div>
+    <div class="b whisper tr" style="bottom:5%;right:3%;max-width:40%">Идеальный приём?!</div>
+  </figure>
+</div><span class="pnum">2</span></section>
+
+<!-- СТРАНИЦА 3 -->
+<section class="page"><div class="grid">
+  <figure class="pn s4">
+    <div class="ph"><b>Кадр 9</b>Рэй сбрасывает ветровку и выходит на песок третьим.</div>
+    <img src="panel09.png" alt="Рэй выходит третьим" onerror="miss(this)">
+    <div class="b" style="top:4%;left:3%;max-width:40%">Одно очко. Только одно.</div>
+    <div class="b tr" style="bottom:5%;right:3%;max-width:46%">Капитан «Шторма», Арис. Принимаем, пасуем, бьём.</div>
+  </figure>
+  <figure class="pn s2" data-ar style="--ar:2/3">
+    <div class="ph"><b>Кадр 10</b>Саки ставит пас, Рэй разбегается.</div>
+    <img src="panel10.png" alt="Саки даёт пас" onerror="miss(this)">
+    <div class="b shout" style="top:3%;left:5%;max-width:90%">Я пасую, а ты бьёшь!</div>
+    <div class="sfx sm" style="bottom:5%;left:4%;transform:rotate(-6deg)">ТОП-ТОП</div>
+  </figure>
+  <figure class="pn p11" data-ar style="--ar:3/4">
+    <div class="ph"><b>Кадр 11 · разворот</b>«ГРОМ»: Рэй в зените прыжка, молнии вокруг руки и мяча.</div>
+    <img src="panel11.png" alt="Суперудар ГРОМ" onerror="miss(this)">
+    <div class="b shout" style="top:3%;left:4%;max-width:30%;font-size:clamp(14px,4.4cqw,30px)">ГРОМ!</div>
+    <div class="sfx xl" style="bottom:4%;right:3%">ГРОХ!!</div>
+  </figure>
+  <figure class="pn" data-ar style="--ar:16/9">
+    <div class="ph"><b>Кадр 12</b>Набережная на закате. Рю №11 у перил улыбается.</div>
+    <img src="panel12.png" alt="Рю на набережной" onerror="miss(this)">
+    <div class="b dark" style="top:5%;left:3%;max-width:36%">Значит, ты всё ещё прыгаешь, Рэй.</div>
+    <div class="cap" style="bottom:5%;right:3%">Продолжение следует…</div>
+  </figure>
+</div><span class="pnum">3</span></section>
+
+<p class="end">Конец главы 1</p>
+</main>
+</body>
+</html>

@@ -1,0 +1,124 @@
+{
+ "requests": [
+  {
+   "index": 1,
+   "params": {
+    "model": "gpt_image_2_5",
+    "quality": "low",
+    "resolution": "1k",
+    "aspect_ratio": "16:9",
+    "prompt": "Japanese shonen sports manga panel, black and white ink, screentone shading, dynamic speed lines, sharp clean lineart, original shonen sports manga style, original characters, NO text, NO speech bubbles, NO letters. Wide establishing shot: a small Japanese seaside town at late afternoon, a tiny rural train station platform on a hill overlooking the ocean, seagulls, power lines, sloping rooftops, glittering sea horizon. A lone boy, REI (17-year-old boy, spiky white-silver hair with blue streaks, sharp blue eyes, lean athletic build, open dark windbreaker over a faded volleyball jersey with number 10), sports bag on shoulder, stands small in the foreground seen from behind-side, wind blowing his hair. Melancholic, quiet mood."
+   }
+  },
+  {
+   "index": 2,
+   "params": {
+    "model": "gpt_image_2_5",
+    "quality": "low",
+    "resolution": "1k",
+    "aspect_ratio": "3:2",
+    "prompt": "Japanese shonen sports manga panel, black and white ink, screentone shading, dynamic speed lines, sharp clean lineart, original shonen sports manga style, original characters, NO text, NO speech bubbles, NO letters. Dramatic close-up: a hand letting go of a pair of worn-out scuffed volleyball shoes tied by their laces, falling into a metal trash bin by the seaside road. In the blurred background REI (17-year-old boy, spiky white-silver hair with blue streaks, sharp blue eyes, lean athletic build, open dark windbreaker over a faded volleyball jersey with number 10) looks down with a cold, sad expression, eyes shadowed. Sea and railing behind."
+   }
+  },
+  {
+   "index": 3,
+   "params": {
+    "model": "gpt_image_2_5",
+    "quality": "low",
+    "resolution": "1k",
+    "aspect_ratio": "2:3",
+    "prompt": "Japanese shonen sports manga panel, black and white ink, screentone shading, dynamic speed lines, sharp clean lineart, original shonen sports manga style, original characters, NO text, NO speech bubbles, NO letters. Tall vertical panel: REI (17-year-old boy, spiky white-silver hair with blue streaks, sharp blue eyes, lean athletic build, open dark windbreaker over a faded volleyball jersey with number 10) stops on a seaside stone stairway and sharply turns his head toward a sound behind him, eyes wide, hair and jacket blown by sea wind, impact lines radiating from off-panel suggesting the thud of a ball. Coastal pines, sea below."
+   }
+  },
+  {
+   "index": 4,
+   "params": {
+    "model": "gpt_image_2_5",
+    "quality": "low",
+    "resolution": "1k",
+    "aspect_ratio": "16:9",
+    "prompt": "Japanese shonen sports manga panel, black and white ink, screentone shading, dynamic speed lines, sharp clean lineart, original shonen sports manga style, original characters, NO text, NO speech bubbles, NO letters. Wide action shot of a beach volleyball court by the sea. On the near side only two players: SAKI (small energetic 16-year-old girl, pink hair in two high twin tails, big pink eyes, volleyball jersey number 7, knee pads) and ARIS (tall muscular 17-year-old boy, dark tanned skin, black hair in a small top bun, thick yellow headband, yellow eyes, volleyball jersey number 4), diving and defending desperately. On the far side three cocky street players led by KAGE (lanky 18-year-old delinquent boy, dark hair with violet streaks in a long swooping fringe covering one eye, narrow violet eyes, sleeveless black hoodie with number 9, chain necklace), spiking hard. An old key on a string hangs from the net post. Speed lines, flying sand."
+   }
+  },
+  {
+   "index": 5,
+   "params": {
+    "model": "gpt_image_2_5",
+    "quality": "low",
+    "resolution": "1k",
+    "aspect_ratio": "3:2",
+    "prompt": "Japanese shonen sports manga panel, black and white ink, screentone shading, dynamic speed lines, sharp clean lineart, original shonen sports manga style, original characters, NO text, NO speech bubbles, NO letters. A volleyball slams into the sand with a big burst of sand and impact lines. SAKI (small energetic 16-year-old girl, pink hair in two high twin tails, big pink eyes, volleyball jersey number 7, knee pads) lies face-down in the sand after a failed dive, reaching out; ARIS (tall muscular 17-year-old boy, dark tanned skin, black hair in a small top bun, thick yellow headband, yellow eyes, volleyball jersey number 4) kneels exhausted, sweating, gritting his teeth. Defeat mood."
+   }
+  },
+  {
+   "index": 6,
+   "params": {
+    "model": "gpt_image_2_5",
+    "quality": "low",
+    "resolution": "1k",
+    "aspect_ratio": "3:2",
+    "prompt": "Japanese shonen sports manga panel, black and white ink, screentone shading, dynamic speed lines, sharp clean lineart, original shonen sports manga style, original characters, NO text, NO speech bubbles, NO letters. Medium close-up, low angle: KAGE (lanky 18-year-old delinquent boy, dark hair with violet streaks in a long swooping fringe covering one eye, narrow violet eyes, sleeveless black hoodie with number 9, chain necklace) laughing arrogantly with head tilted back, twirling an old brass gym key on a string around his finger. Two grinning street players in tank tops behind him. Dark shadowy screentone background. Mocking villain mood."
+   }
+  },
+  {
+   "index": 7,
+   "params": {
+    "model": "gpt_image_2_5",
+    "quality": "low",
+    "resolution": "1k",
+    "aspect_ratio": "2:3",
+    "prompt": "Japanese shonen sports manga panel, black and white ink, screentone shading, dynamic speed lines, sharp clean lineart, original shonen sports manga style, original characters, NO text, NO speech bubbles, NO letters. Tall vertical panel split diagonally: top part, SAKI (small energetic 16-year-old girl, pink hair in two high twin tails, big pink eyes, volleyball jersey number 7, knee pads) with sand on her cheek looks up with sparkling eyes and points excitedly; bottom part, REI (17-year-old boy, spiky white-silver hair with blue streaks, sharp blue eyes, lean athletic build, open dark windbreaker over a faded volleyball jersey with number 10) stands by the sea wall with hands in pockets, turning away coldly, eyes shadowed. Emotional contrast."
+   }
+  },
+  {
+   "index": 8,
+   "params": {
+    "model": "gpt_image_2_5",
+    "quality": "low",
+    "resolution": "1k",
+    "aspect_ratio": "16:9",
+    "prompt": "Japanese shonen sports manga panel, black and white ink, screentone shading, dynamic speed lines, sharp clean lineart, original shonen sports manga style, original characters, NO text, NO speech bubbles, NO letters. Dynamic wide action panel: a volleyball shot hard straight at REI (17-year-old boy, spiky white-silver hair with blue streaks, sharp blue eyes, lean athletic build, open dark windbreaker over a faded volleyball jersey with number 10); his windbreaker flaps as he reflexively receives it with a perfect forearm pass, knees bent, arms locked together, calm intense eyes, the ball bouncing cleanly upward. Radial speed lines on the impact, sand flying, sea behind."
+   }
+  },
+  {
+   "index": 9,
+   "params": {
+    "model": "gpt_image_2_5",
+    "quality": "low",
+    "resolution": "1k",
+    "aspect_ratio": "3:2",
+    "prompt": "Japanese shonen sports manga panel, black and white ink, screentone shading, dynamic speed lines, sharp clean lineart, original shonen sports manga style, original characters, NO text, NO speech bubbles, NO letters. REI (17-year-old boy, spiky white-silver hair with blue streaks, sharp blue eyes, lean athletic build, faded volleyball jersey with number 10) tosses away his dark windbreaker and steps onto the sand court with a determined glare, flanked by SAKI (small energetic 16-year-old girl, pink hair in two high twin tails, big pink eyes, volleyball jersey number 7, knee pads) grinning happily and ARIS (tall muscular 17-year-old boy, dark tanned skin, black hair in a small top bun, thick yellow headband, yellow eyes, volleyball jersey number 4) cracking his knuckles. Heroic low angle, three-person team lineup, wind."
+   }
+  },
+  {
+   "index": 10,
+   "params": {
+    "model": "gpt_image_2_5",
+    "quality": "low",
+    "resolution": "1k",
+    "aspect_ratio": "2:3",
+    "prompt": "Japanese shonen sports manga panel, black and white ink, screentone shading, dynamic speed lines, sharp clean lineart, original shonen sports manga style, original characters, NO text, NO speech bubbles, NO letters. Tall vertical panel: in the foreground SAKI (small energetic 16-year-old girl, pink hair in two high twin tails, big pink eyes, volleyball jersey number 7, knee pads), twin tails flying, sets the ball overhead with her fingertips, focused; behind her REI (17-year-old boy, spiky white-silver hair with blue streaks, sharp blue eyes, lean athletic build, faded volleyball jersey with number 10) sprints in his approach run, low and explosive, sand spraying from his feet. Strong speed lines, tension building."
+   }
+  },
+  {
+   "index": 11,
+   "params": {
+    "model": "gpt_image_2_5",
+    "quality": "low",
+    "resolution": "1k",
+    "aspect_ratio": "3:4",
+    "prompt": "Japanese shonen sports manga panel, black and white ink, screentone shading, dynamic speed lines, sharp clean lineart, original shonen sports manga style, original characters, NO text, NO speech bubbles, NO letters. Full splash panel, heavy contrast: REI (17-year-old boy, spiky white-silver hair with blue streaks, sharp blue eyes, lean athletic build, faded volleyball jersey with number 10) at the peak of a huge jump above the net, body arched like a bow, glowing fierce eyes, slamming the volleyball downward with a thunder spike. Jagged lightning bolts crackle around his arm and the ball, storm clouds and sea behind, sand exploding below, street blockers far too late. Epic overwhelming power."
+   }
+  },
+  {
+   "index": 12,
+   "params": {
+    "model": "gpt_image_2_5",
+    "quality": "low",
+    "resolution": "1k",
+    "aspect_ratio": "16:9",
+    "prompt": "Japanese shonen sports manga panel, black and white ink, screentone shading, dynamic speed lines, sharp clean lineart, original shonen sports manga style, original characters, NO text, NO speech bubbles, NO letters. Cliffhanger panel: on a seaside promenade above the beach at sunset, RYU (17-year-old boy, spiky yellow-orange hair swept up like flames, sharp red eyes, handsome confident face, elite academy blazer with a dragon emblem over a sports jersey with number 11) leans on the railing looking down toward the beach court with a mysterious, slightly dangerous smile. Long shadow, glowing sea, ominous screentone sky. Rival reveal."
+   }
+  }
+ ]
+}
