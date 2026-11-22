@@ -19,6 +19,7 @@ html,body{background:#d9d6cf;color:var(--ink);font-family:"Rubik",system-ui,sans
 .pn{position:relative;border:clamp(2px,.55cqw,4px) solid var(--ink);background:#e9e7e1;overflow:hidden;grid-column:span 6}
 .pn[data-ar]{aspect-ratio:var(--ar)}
 .s4{grid-column:span 4}.s3{grid-column:span 3}.s2{grid-column:span 2}
+@media (max-width:520px){.s3{grid-column:span 6}}
 .pn img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:1;filter:grayscale(1) contrast(1.08)}
 .ph{position:absolute;inset:0;padding:8% 7%;display:flex;flex-direction:column;justify-content:center;gap:.4em;
   background:repeating-radial-gradient(circle at 50% 50%,#cfccc4 0 1px,transparent 1px 5px),#ecebe6;
