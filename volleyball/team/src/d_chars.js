@@ -36,6 +36,16 @@ function poseServeHit(s) {
   const e = easeOut(s);
   return P_({ hipH: 19.6, lean: lerp(-.22, .38, e), head: lerp(-.62, -.1, e), ffx: lerp(-3.0, -3.6, e), nfx: lerp(2.7, 3.2, e), fu: lerp(2.9, .3, e), fl: lerp(3.0, .7, e), nu: lerp(4.05, 1.0, e), nl: lerp(5.4, 1.25, ease(s)) });
 }
+/* силовая подача стоя: t = p.toss (0….45). Подброс -> замах (прогиб назад) -> удар вперёд-вниз, ноги на полу */
+function poseServePower(t) {
+  const A = poseServeHold(), B = P_({ hipH: 20.2, lean: -.2, head: -.7, ffx: -3.6, nfx: 3.2, fu: 2.9, fl: 3.0, nu: 3.3, nl: 3.3 });   /* подброс: рука тянется вверх за мячом */
+  const C = P_({ hipX: -.8, hipH: 19.4, lean: -.62, head: -.85, ffx: -4.2, nfx: 3.6, fu: 3.2, fl: 3.5, nu: 4.5, nl: 5.7 });            /* замах: корпус назад, рука за голову */
+  const D = P_({ hipX: .8, hipH: 20.0, lean: .66, head: .05, ffx: -3.3, nfx: 3.4, fu: .5, fl: .7, nu: 2.5, nl: 2.7 });                /* удар: корпус вперёд, рука по мячу сверху */
+  const mix = (a, b, s) => { const o = {}; for (const k of PF) o[k] = lerp(a[k], b[k], s); return o; };
+  if (t < .3) return mix(A, B, easeOut(clamp(t / .3, 0, 1)));
+  if (t < .4) return mix(B, C, ease(clamp((t - .3) / .1, 0, 1)));
+  return mix(C, D, easeOut(clamp((t - .4) / .05, 0, 1)));
+}
 function poseDive(s) {
   const e = easeOut(Math.min(1, s * 1.6));
   return P_({ hipX: lerp(0, 3, e), hipH: lerp(15, 9.5, e), lean: lerp(.6, 1.15, e), head: -.9, ffx: -7.5, ffy: lerp(0, 1.5, e), nfx: 4.5, fu: 1.5, fl: 1.55, nu: 1.55, nl: 1.6 });
@@ -68,7 +78,7 @@ function targetPose(p) {
   if (state === 'point' || state === 'over') return p.team === pointWinner ? (p.ground ? poseCeleb(p) : poseAir()) : poseSad();
   if (state === 'menu' || !T) return poseStand();
   if (state === 'serve' && p === server) {
-    if (p.jumpServe) return p.ground ? poseRun(p) : poseSpikeCock();
+    if (p.serveKind === 'power' && p.toss > 0) return poseServePower(p.toss);
     return p.toss > 0 ? poseServeToss() : poseServeHold();
   }
   if (p.slide > 0) return poseSlide(p);

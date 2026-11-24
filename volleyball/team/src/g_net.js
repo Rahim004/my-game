@@ -654,11 +654,13 @@ function sendInit() {
 function hostStart() {
   if (!net || net.connected || net.role !== 'host') return;
   net.connected = true; net.srv = srvText(net.tr); net.lastRx = performance.now(); net.gn = null; net.acc = 0; net.akAt = performance.now(); net.hzCur = NET.hz;
+  pickIdx[1] = net.pk === undefined ? 1 : net.pk;   // hello мог прийти раньше onopen — берём уже сохранённый выбор гостя (по умолчанию 1)
   mode = 'host'; audio(); newMatch(); show(null); updateCamera(0, true);
   sendInit(); netStatus('Друг подключился' + (net.srv ? ' (' + net.srv + ')' : ''));
 }
 function netRestart() {   // реванш для хоста: новая игра у обоих; false — онлайна нет
   if (mode !== 'host' || !net || !net.connected) return false;
+  pickIdx[1] = net.pk === undefined ? 1 : net.pk;   // startMatch() в f_ui.js записал туда выбор хоста — возвращаем выбор гостя
   audio(); newMatch(); show(null); updateCamera(0, true); sendInit(); return true;
 }
 function hostPeerLost(text) {
@@ -676,7 +678,12 @@ function hostOnMsg(m) {
   if (m.t === 'bye') { hostPeerLost(); return; }
   if (m.t === 'hello') {
     if (m.v !== PROTO) { net.tr.send({ t: 'bye' }); hostPeerLost(NET_VER); }
-    else if (m.rtc && net.connected && rtcOk(net) && !net.pc && !net.p2pOff) p2pOffer(net);   // гость умеет прямое соединение — предлагаем
+    else if (m.pk !== undefined || !net.pkDone) {   // выбор гостя; не пришёл или мусор — по умолчанию 1
+      net.pkDone = true;
+      const pk = Number.isInteger(m.pk) && m.pk >= 0 && m.pk <= 2 ? m.pk : 1;
+      net.pk = pk; pickIdx[1] = pk; if (TR) TR.pickIdx = pk;   // net.pk — источник правды для hostStart/netRestart
+    }
+    if (m.v === PROTO && m.rtc && net.connected && rtcOk(net) && !net.pc && !net.p2pOff) p2pOffer(net);   // гость умеет прямое соединение — предлагаем
     return;
   }
   if (m.t === 'rtc') { p2pSig(m); return; }
@@ -773,7 +780,7 @@ async function netJoin(code, kind) {
     lastSig: '', lastSend: 0, inQ: 0, rtt: 0, q: 0, rep: 0, pp: null, ph: [], po: 0, poH: 0, pjT: 0, prJ: presses.jump, prH: presses.hit, xpDone: false, bad: 0, srv: srvText(r.tr), dTarget: NET.delay, dBump: 0, jit: [], ivl: 0, jc: 0, under: 0, saved: { names: Object.assign({}, names), target: TARGET, arena: ARENA }, hb: setInterval(netBeat, 1000) };
   r.tr.listen(guestOnMsg);
   r.tr.onclose = () => guestLost('Соединение потеряно');
-  r.tr.send({ t: 'hello', v: PROTO, rtc: rtcOk({ kind }) ? 1 : 0 });
+  r.tr.send({ t: 'hello', v: PROTO, rtc: rtcOk({ kind }) ? 1 : 0, pk: clamp(pickIdx[1] | 0, 0, 2) });   // pk — выбранный гостем игрок (закрепляется за TR на хосте)
   netStatus('Подключено' + (net.srv ? ' через ' + net.srv : '') + ', ждём начала матча…');
   return true;
 }
@@ -896,7 +903,7 @@ function netGuestSend() {
   if (sig !== net.lastSig || now - net.lastSend > (net.p2p ? 50 : 100)) { net.lastSig = sig; net.lastSend = now; net.rep = net.p2p ? now + 25 : 0; nsend(m); }
   else if (net.rep && now >= net.rep) { net.rep = 0; nsend(m); }   // прямой канал без повторов: изменение ввода шлём дважды (хост отсекает дубли по q и счётчикам нажатий)
 }
-const BN_SWAP = { 'ТВОЯ ПОДАЧА': 'ПОДАЧА ДРУГА', 'ПОДАЧА ДРУГА': 'ТВОЯ ПОДАЧА' };
+const BN_SWAP = { 'ТВОЯ ПОДАЧА': 'ПОДАЧА ДРУГА', 'ПОДАЧА ДРУГА': 'ТВОЯ ПОДАЧА', 'ПОДАЧА ПАРТНЁРА': 'ПОДАЧА ДРУГА' };
 function guestDiscrete(s) {   // то, что не интерполируется: счёт, состояния, табло, баннеры, активные
   if (s.sc[0] > TL.score) scorePop[0] = 1;
   if (s.sc[1] > TR.score) scorePop[1] = 1;

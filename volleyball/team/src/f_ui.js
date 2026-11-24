@@ -310,6 +310,7 @@ const isOnline = () => mode === 'host' || mode === 'guest';
 /* startMatch(m): m = 'solo' | 'local2' (без сети). Без аргумента (или с событием клика) — повтор текущего режима;
    онлайн: хост перезапускает матч для обоих, гость ждёт хоста. Онлайн-режимы запускаются через netHost/netJoin (g_net.js). */
 function startMatch(m) {
+  { const mm = typeof m === 'string' ? m : mode; pickIdx[0] = who[0]; pickIdx[1] = mm === 'local2' ? who[1] : who[0]; }
   if (typeof m !== 'string') m = mode;
   if (m === 'guest') { netStatus('Ждём, пока друг начнёт заново'); return; }
   if (m === 'host') { if (netRestart()) return; m = 'solo'; }
@@ -417,6 +418,30 @@ document.addEventListener('visibilitychange', () => { if (document.hidden) pause
 
 /* ================= режимы: меню и онлайн-экран ================= */
 let pick = 'solo';   // выбор в меню: 'solo' | 'local2' | 'online'
+/* «Кем играть»: индекс игрока в команде (0 Арис №9, 1 Рэй №10, 2 Дан №4); хранится в localStorage 'vb-who' = [левая, правая]; пишется в pickIdx до newMatch() */
+const PK_L = [[1, 10], [0, 9], [2, 4]];   // [индекс, номер] у нашей команды
+const PK_R = [[0, 2], [1, 5], [2, 8]];    // соперник в local2: №2 · №5 · №8
+let who = (() => { const v = lsGet('vb-who'); return Array.isArray(v) && v.length === 2 ? [clamp(v[0] | 0, 0, 2), clamp(v[1] | 0, 0, 2)] : [1, 1]; })();
+function applyPicks() { pickIdx[0] = who[0]; pickIdx[1] = pick === 'local2' ? who[1] : who[0]; }   // онлайн-гость играет справа тем же выбором
+function buildPick(box, list, side) {
+  box.innerHTML = '';
+  for (const [i, n] of list) {
+    const b = document.createElement('button'); b.dataset.who = i;
+    const nm = side ? 'ИГРОК' : HERO[n].name;
+    b.innerHTML = '<b>№' + n + '</b><small>' + nm + '</small>'; b.setAttribute('aria-label', 'Играть за №' + n);
+    b.addEventListener('click', () => { who[side] = i; lsSet('vb-who', who); syncPick(); });
+    box.appendChild(b);
+  }
+}
+function syncPick() {
+  const l2 = pick === 'local2';
+  $('pickLbl').textContent = l2 ? 'Игрок 1 · кем играть' : 'Кем играть';
+  $('pickSeg2').hidden = !l2;
+  $('pickSeg').querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', String(+x.dataset.who === who[0])));
+  $('pickSeg2').querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', String(+x.dataset.who === who[1])));
+  applyPicks();
+}
+buildPick($('pickSeg'), PK_L, 0); buildPick($('pickSeg2'), PK_R, 1);
 const MODE_NOTE = { solo: 'Играешь против компьютера.', local2: 'Игрок 1 слева, игрок 2 справа.', online: 'Каждый на своём телефоне. Паузы нет.', tour: 'Матчи, история, главы по порядку.', colo: 'Забег из 6 этапов: карты способностей, развилки, боссы.' };
 function syncMode() {
   document.querySelectorAll('[data-mode]').forEach(x => x.setAttribute('aria-pressed', String(x.dataset.mode === pick)));
@@ -442,6 +467,7 @@ function syncMode() {
     $('campLbl').textContent = 'Колизей'; $('campTxt').textContent = 'Рекорд: ' + coloBest + ' ' + pluralD(coloBest, 'этап', 'этапа', 'этапов') + ' из 6'; $('campReset').hidden = true; $('playBtn').textContent = 'В ЗАБЕГ';
   } else { $('chaps').hidden = true; $('campStars').textContent = ''; $('playBtn').disabled = false; $('playBtn').textContent = pick === 'online' ? 'ДАЛЕЕ' : 'ИГРАТЬ'; }
   $('modeNote').textContent = MODE_NOTE[pick];
+  syncPick();
 }
 document.querySelectorAll('[data-mode]').forEach(b => b.addEventListener('click', () => { pick = b.dataset.mode; syncMode(); }));
 syncMode();
@@ -452,7 +478,7 @@ $('playBtn').addEventListener('click', () => { audio(); if (pick === 'online') o
 function startTutorial() {
   if (mode === 'host' || mode === 'guest') netLeave();
   endCamp(); setArena(arenaPick); mode = 'solo'; audio();
-  const sh = serveHints; newMatch(); serveHints = sh; show(null); updateCamera(0, true);
+  const sh = serveHints; const pk0 = pickIdx.slice(); pickIdx = [1, 1]; newMatch(); pickIdx = pk0; serveHints = sh; show(null); updateCamera(0, true);
   banners = []; state = 'play';
   ball.x = 300; ball.h = BR; ball.vx = ball.vh = 0; ball.lane = LANE0; ball.trail = [];
   tut = { step: 0, t: 0, wait: 2.6, miss: 0, done: false, endT: 0, exit: false, msg: '', msgT: 0 };
