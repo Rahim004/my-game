@@ -187,7 +187,7 @@ function renderTrain() {
 }
 function startDrill(id) {
   if (isOnline()) netLeave(); endCamp(); setArena(arenaPick); mode = 'solo'; audio();
-  const sh = serveHints; newMatch(); serveHints = sh; show(null); updateCamera(0, true); banners = [];
+  const sh = serveHints; const pk0 = pickIdx.slice(); pickIdx = [1, 1]; newMatch(); pickIdx = pk0; serveHints = sh; show(null); updateCamera(0, true); banners = [];
   TR.D = Object.assign({}, DIFF.easy, { dig: -9, block: 0 });
   ball.x = 300; ball.h = BR; ball.vx = ball.vh = 0; ball.lane = LANE0; ball.trail = [];
   tut = { drill: id, step: 0, t: 0, wait: 2.2, miss: 0, done: false, endT: 0, exit: false, msg: '', msgT: 0, score: 0, n: 0, left: 60, started: false, scored: false, gold: 0, zones: id === 'hit' || id === 'serve' ? DRILL_ZONES : null, who: id === 'hit' || id === 'block' ? TL.players[1] : null, res: null };

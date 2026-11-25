@@ -1,7 +1,7 @@
 
 /* ================= AI ================= */
 function planTeam(T) {
-  const D = T.D, O = other(T);
+  const D = T.human ? PARTNER_D : T.D, O = other(T);   // у команды человека ИИ-решения принимают только партнёры → PARTNER_D
   for (const p of T.players) p.aiJump = false;
   T.recvT -= frameDt; T.setT -= frameDt;
   if (T.touches === 0) T.plan = null;
@@ -26,8 +26,8 @@ function planTeam(T) {
         const st = T.roles.setter;
         if (st) { const pr = predict(42); st.goal = pr.x + T.side * 2.6; T.setT = pr.t; }
         const ht = T.roles.hitter;
-        if (!T.human && !T.plan) T.plan = chooseAtk(T);
-        if (ht && ht !== st) ht.goal = T.human || T.plan === 'open' ? mirror(T, ATT_X) + T.side * 22 : NETX + T.side * (ATK[T.plan].d + 5);
+        if (!ctl(ht) && !T.plan) T.plan = chooseAtk(T);
+        if (ht && ht !== st) ht.goal = ctl(ht) || T.plan === 'open' ? mirror(T, ATT_X) + T.side * 22 : NETX + T.side * (ATK[T.plan].d + 5);
       }
       if (onOwn && T.touches === 2 && T.roles.hitter) { const pr = predict(T.setH); T.roles.hitter.goal = pr.x + T.side * 5; }
       if (!onOwn && O.touches >= 1 && O.roles.hitter) {
@@ -38,13 +38,13 @@ function planTeam(T) {
     }
   }
   if (state !== 'play') return;
-  if (!T.human) aiSlideTick(T, D);
+  aiSlideTick(T, D);
   const onOwn = ownSide(T, ball.x);
-  if (!T.human && onOwn && T.touches === 2) {
+  if (onOwn && T.touches === 2) {
     const ht = T.roles.hitter;
-    if (ht && ht.ground) { const jw = ATK[T.atk].jw, pr = predict(T.setH); if (pr.t < jw[1] && pr.t > jw[0] && Math.abs(pr.x + T.side * 5 - ht.x) < 14) ht.aiJump = true; }
+    if (ht && !ctl(ht) && ht.ground) { const jw = ATK[T.atk].jw, pr = predict(T.setH); if (pr.t < jw[1] && pr.t > jw[0] && Math.abs(pr.x + T.side * 5 - ht.x) < 14) ht.aiJump = true; }
   }
-  if (!onOwn && T.blocker && !T.blockUsed) {
+  if (!onOwn && T.blocker && !T.blockUsed && !ctl(T.blocker)) {
     const oh = O.roles.hitter;
     if (oh && !oh.ground && oh.vh > 0 && Math.abs(oh.x - NETX) < (O.atk === 'pipe' ? 150 : 50) && T.blocker.ground && Math.abs(T.blocker.x - NETX) < 26) {
       T.blockUsed = true;
@@ -54,7 +54,7 @@ function planTeam(T) {
 }
 function aiSlideTick(T, D) {   // ИИ-приёмщик решает скользить, если бегом не успевает (или как второй шанс при проваленном digRoll)
   const r = T.receiver;
-  if (!r) return;
+  if (!r || ctl(r)) return;
   if (r.aiSlide > 0) { if ((r.aiSlide -= frameDt) <= 0) { r.aiSlide = 0; if (T.touches === 0) startSlide(r, r.slideDir); } return; }
   if (T.slideChk || T.touches !== 0 || ball.vh >= 0 || !r.ground || r.slide > 0 || r.rise > 0 || r === lastToucher) return;
   if (!ownSide(T, ball.x) && ball.vx * T.side <= 0) return;
@@ -68,21 +68,18 @@ function aiSlideTick(T, D) {   // ИИ-приёмщик решает сколь�
   r.slideDir = gap < 0 ? -1 : 1;
   r.aiSlide = Math.max(.001, land.t - .18 + (Math.random() * 2 - 1) * D.err * .004);   // касание ≈ на .18 с скольжения
 }
-function pickActive(T) {   // каким игроком команды T управляет человек
+function pickActive(T) {   // каким игроком команды T управляет человек: всегда закреплённым (T.pickIdx), остальные двое — ИИ
   if (tut && tut.who && T === TL && state !== 'serve') return tut.who;   // упражнение «Удар»/«Блок»: всегда Рэй
-  if (state === 'serve' && servingTeam === T) return server;
-  if (T.roles.hitter && ownSide(T, ball.x) && T.touches >= 1) return T.roles.hitter;
-  if (T.receiver) return T.receiver;
-  return T.act && T.act.team === T ? T.act : T.players[2];
+  return T.players[T.pickIdx] || T.players[1];
 }
 
 /* ================= simulation ================= */
 function stepPlayer(p, dir, jump, dt, slow) {
-  const sp = SPEED * p.team.D.speed * slow * (1 + .03 * upLv(p, 'spd') + rm(p.team, 'spd')) * condMul(p, 'spd'), sl = p.slide > 0, ri = p.rise > 0;
+  const sp = SPEED * dFor(p).speed * slow * (1 + .03 * upLv(p, 'spd') + rm(p.team, 'spd')) * condMul(p, 'spd'), sl = p.slide > 0, ri = p.rise > 0;
   if (sl) { p.vx = p.slideDir * SLIDE_V * Math.exp(-slideK() * (SLIDE_DUR - p.slide)); jump = false; }
   else if (ri) { p.vx = 0; jump = false; }   // лежит после скольжения: не бежит и не прыгает
   else if (p.ground) p.vx = dir * sp;
-  if (jump && p.ground && (state === 'play' || p.jumpServe)) {
+  if (jump && p.ground && state === 'play') {
     const bm = p.blocking ? (p.blkBad > 0 ? .88 : 1 + .15 * (p.blkCh || 0)) : 1;   // блок: заряд 0..1 даёт +15% высоты, передержка — прыжок ниже
     p.vh = JUMP_V * (1 + .025 * upLv(p, 'jmp') + rm(p.team, 'jmp')) * condMul(p, 'jmp') * bm; p.blkCh = 0; p.ground = false; if (p.team.human && p === p.team.act) sfx.jump();
   }
@@ -196,8 +193,8 @@ function update(dt) {
   if (MT.toT > 0) { MT.toT = Math.max(0, MT.toT - dt); return; }   // тайм-аут: игра стоит
   for (const T of [TL, TR]) for (const p of T.players) if (p.cond && (p.condT -= dt) <= 0) { p.cond = null; p.condT = 0; }
   if (state === 'serve') serveT += dt;
-  planTeam(TL); planTeam(TR);
   TL.act = pickActive(TL); TR.act = TR.human ? pickActive(TR) : null;
+  planTeam(TL); planTeam(TR);
   active = TL.act; active2 = TR.act;
   for (const T of [TL, TR]) {   // ввод любой человеческой команды (стрелки экранные: left/right не зависят от стороны корта)
     if (!T.human) continue;
@@ -206,7 +203,7 @@ function update(dt) {
     if (T.hdir) T.lastMove = clock;
     T.moving = clock - T.lastMove < .35;
     const hj = inp.jumpQ; inp.jumpQ = false;
-    if ((mode === 'solo' || mode === 'local2') && state === 'serve' && servingTeam === T && !(server.toss > 0)) {   // подача с удержанием: высота подброса
+    if ((mode === 'solo' || mode === 'local2') && state === 'serve' && servingTeam === T && server === T.act && !(server.toss > 0)) {   // подача с удержанием: высота подброса
       if (inp.actQ || inp.hitQ) { if (!MT.sk) { MT.sk = inp.actQ ? 'act' : 'hit'; MT.serveHold = 0; } inp.hitQ = inp.actQ = false; }
       if (MT.sk) {
         if (inp[MT.sk]) MT.serveHold = Math.min(1, MT.serveHold + dt / .9);
@@ -219,7 +216,7 @@ function update(dt) {
     if (inp.hitQ) { inp.hitQ = false; humanAction(a); }
     if (inp.actQ) {
       inp.actQ = false;
-      if (state === 'serve' && servingTeam === T) startPowerServe(server);
+      if (state === 'serve' && servingTeam === T && server === a) startPowerServe(server);
       else if (state === 'play' && a && a.ground) {
         if (T.hdir && !a.slide && !a.rise) startSlide(a, T.hdir);   // ПРИЁМ + стрелка — скользящий приём
         else if (!a.slide && !a.rise) { a.recvWin = .42; a.actAt = clock; sfx.jump(); }
@@ -246,10 +243,10 @@ function update(dt) {
     }
   }
   if (state === 'serve' && !(server.toss > 0)) {
-    if (servingTeam.human) { if (serveT > 6 && !MT.sk) startToss(server, 'basic'); }
-    else if (serveT > 1.2) { const D = servingTeam.D; if (Math.random() < D.pserve) startPowerServe(server, .25 + Math.random() * .4); else startToss(server, Math.random() < .7 - D.pserve * 1.1 ? 'basic' : 'float', Math.random() * .5); }
+    if (ctl(server)) { if (serveT > 6 && !MT.sk) startToss(server, 'basic'); }
+    else if (serveT > 1.2) { const D = servingTeam.human ? PARTNER_D : servingTeam.D; if (Math.random() < D.pserve) startPowerServe(server, .25 + Math.random() * .4); else startToss(server, Math.random() < .7 - D.pserve * 1.1 ? 'basic' : 'float', Math.random() * .5); }
   }
-  if (state === 'serve' && server.toss > 0) { server.toss += dt; if (server.toss >= (server.jumpServe ? .555 : .3)) serveBall(server); }
+  if (state === 'serve' && server.toss > 0) { server.toss += dt; if (server.toss >= (server.serveKind === 'power' ? .45 : .3)) serveBall(server); }
   if (state === 'point') for (const p of pointWinner.players) if (p.ground && Math.random() < .025) p.aiJump = true;
   const steps = 4, h = dt / steps;
   for (let i = 0; i < steps; i++) {
@@ -257,7 +254,6 @@ function update(dt) {
       const human = T.human && p === T.act && state !== 'point';
       const lockServer = state === 'serve' && p === server;
       let dir = 0, slow = 1;
-      if (lockServer && p.jumpServe && p.toss > 0) { dir = p.face; slow = 50 / (SPEED * T.D.speed); if (p.toss >= .28 && !p.jsJumped) { p.jsJumped = true; p.forceJump = true; } }
       if (!lockServer && state !== 'point') {
         if (human && T.moving) dir = T.hdir;
         else { const d = p.goal - p.x; dir = Math.abs(d) > 2.5 ? Math.sign(d) : 0; if (Math.abs(d) < 7) slow = .5; }

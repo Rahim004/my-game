@@ -223,6 +223,13 @@ h1 .x { color: var(--gold); }
 .mode.sm b { font-size: 15px; }
 .mode.sm small { font-size: 10.5px; }
 .seg.two { grid-template-columns: repeat(2, 1fr); }
+.pickbox { display: grid; gap: 6px; }
+.pickbox[hidden] { display: none; }
+.seg.pk[hidden] { display: none; }
+.seg.pk button { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 52px; line-height: 1.1; }
+.seg.pk button b { font-weight: 600; font-size: 18px; }
+.seg.pk button small { font-size: 11px; letter-spacing: .06em; opacity: .8; }
+@media (max-height: 460px) { .seg.pk button { min-height: 40px; flex-direction: row; gap: 6px; } .seg.pk button b { font-size: 15px; } }
 .playrow { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: end; }
 .playrow.one { grid-template-columns: 1fr; }
 .playrow .label { margin-bottom: 5px; }
@@ -650,7 +657,7 @@ body[data-tut="act"] .ctl.act, body[data-tut="hit"] .ctl.hit { animation: tutp .
         </div>
         <details class="rules">
           <summary>Как играть</summary>
-          <p>Когда партнёр набросит мяч к сетке, жми <strong>УДАР</strong> — игрок выпрыгнет, и ещё раз <strong>УДАР</strong> в воздухе — пробьёт. Стрелка во время удара меняет направление: к сетке — коротко, назад — в глубину. <strong>ПРЫЖОК</strong> у сетки — блок. <strong>ПРИЁМ</strong> в момент подлёта мяча — точный приём, только так достаётся сильная атака. На своей подаче эта кнопка становится <strong>СИЛОВОЙ</strong> — подача в прыжке, быстрая, но может уйти в аут. <strong>ПРИЁМ + стрелка</strong> — скольжение: спасает дальний мяч, но потом игрок поднимается с пола. <strong>ПРИЁМ в прыжке</strong> — скидка: стрелка к сетке — коротко за блок, от сетки — в угол. Блок в верхней точке прыжка надёжнее. Каждое «ИДЕАЛЬНО!» заполняет шкалу <strong>СИНХРОН</strong> — полная даёт усиленный удар. Твой игрок — под синей стрелкой, игрок друга — под красной.</p>
+          <p>Когда партнёр набросит мяч к сетке, жми <strong>УДАР</strong> — игрок выпрыгнет, и ещё раз <strong>УДАР</strong> в воздухе — пробьёт. Стрелка во время удара меняет направление: к сетке — коротко, назад — в глубину. <strong>ПРЫЖОК</strong> у сетки — блок. <strong>ПРИЁМ</strong> в момент подлёта мяча — точный приём, только так достаётся сильная атака. На своей подаче эта кнопка становится <strong>СИЛОВОЙ</strong> — подача с места, быстрая, но может уйти в аут. Подача бывает обычной и силовой. <strong>ПРИЁМ + стрелка</strong> — скольжение: спасает дальний мяч, но потом игрок поднимается с пола. <strong>ПРИЁМ в прыжке</strong> — скидка: стрелка к сетке — коротко за блок, от сетки — в угол. Блок в верхней точке прыжка надёжнее. Каждое «ИДЕАЛЬНО!» заполняет шкалу <strong>СИНХРОН</strong> — полная даёт усиленный удар. Ты управляешь одним игроком (его выбираешь в меню), двое других играют сами. Твой игрок — под синей стрелкой, игрок друга — под красной.</p>
           <button class="ghost" id="tutBtn" type="button">ОБУЧЕНИЕ · 60 С</button>
         </details>
       </div>
@@ -680,6 +687,11 @@ body[data-tut="act"] .ctl.act, body[data-tut="hit"] .ctl.hit { animation: tutp .
             </button>
           </div>
           <p class="note" id="modeNote"></p>
+        </div>
+        <div id="optPick" class="pickbox">
+          <p class="label" id="pickLbl">Кем играть</p>
+          <div class="seg pk" id="pickSeg" role="group" aria-label="Кем играть"></div>
+          <div class="seg pk" id="pickSeg2" role="group" aria-label="Игрок 2: кем играть" hidden></div>
         </div>
         <div class="twocol" id="opts">
           <div id="optDiff">

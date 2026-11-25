@@ -871,7 +871,11 @@ function drawBanners(c) {
     const fs = (b.small ? 13 : 26) * u;
     c.font = `700 ${fs}px Oswald, "Arial Narrow", sans-serif`;
     const tw = c.measureText(b.text).width, w = tw + fs * 1.7, h = fs * 1.45;
-    const x = cssW / 2 - w / 2 - (1 - easeOut(inT)) * 70 * u + (1 - outT) * 50 * u, y = (b.small ? 68 * u + cssH * .1 : cssH * .3) - h / 2;
+    let x = cssW / 2 - w / 2 - (1 - easeOut(inT)) * 70 * u + (1 - outT) * 50 * u, y = (b.small ? 68 * u + cssH * .1 : cssH * .3) - h / 2;
+    if (b.small) {   // мелкая подсказка не наезжает на крупный баннер: если он есть при появлении, подсказка ставится под ним и остаётся там
+      if (b.low === undefined) b.low = banners.some(o => !o.small);
+      if (b.low) y = cssH * .3 + 26 * u * .725 + 7 * u;
+    }
     c.globalAlpha = Math.min(inT, outT);
     c.fillStyle = 'rgba(13,15,20,.88)'; skew(c, x, y, w, h, h * .35); c.fill();
     c.fillStyle = TONE[b.tone] || TONE.org; skew(c, x - h * .32, y, h * .5, h, h * .35); c.fill();

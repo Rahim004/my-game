@@ -247,6 +247,13 @@ h1 .x { color: var(--gold); }
 .mode.sm b { font-size: 15px; }
 .mode.sm small { font-size: 10.5px; }
 .seg.two { grid-template-columns: repeat(2, 1fr); }
+.pickbox { display: grid; gap: 6px; }
+.pickbox[hidden] { display: none; }
+.seg.pk[hidden] { display: none; }
+.seg.pk button { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 52px; line-height: 1.1; }
+.seg.pk button b { font-weight: 600; font-size: 18px; }
+.seg.pk button small { font-size: 11px; letter-spacing: .06em; opacity: .8; }
+@media (max-height: 460px) { .seg.pk button { min-height: 40px; flex-direction: row; gap: 6px; } .seg.pk button b { font-size: 15px; } }
 .playrow { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: end; }
 .playrow.one { grid-template-columns: 1fr; }
 .playrow .label { margin-bottom: 5px; }
@@ -674,7 +681,7 @@ body[data-tut="act"] .ctl.act, body[data-tut="hit"] .ctl.hit { animation: tutp .
         </div>
         <details class="rules">
           <summary>Как играть</summary>
-          <p>Когда партнёр набросит мяч к сетке, жми <strong>УДАР</strong> — игрок выпрыгнет, и ещё раз <strong>УДАР</strong> в воздухе — пробьёт. Стрелка во время удара меняет направление: к сетке — коротко, назад — в глубину. <strong>ПРЫЖОК</strong> у сетки — блок. <strong>ПРИЁМ</strong> в момент подлёта мяча — точный приём, только так достаётся сильная атака. На своей подаче эта кнопка становится <strong>СИЛОВОЙ</strong> — подача в прыжке, быстрая, но может уйти в аут. <strong>ПРИЁМ + стрелка</strong> — скольжение: спасает дальний мяч, но потом игрок поднимается с пола. <strong>ПРИЁМ в прыжке</strong> — скидка: стрелка к сетке — коротко за блок, от сетки — в угол. Блок в верхней точке прыжка надёжнее. Каждое «ИДЕАЛЬНО!» заполняет шкалу <strong>СИНХРОН</strong> — полная даёт усиленный удар. Твой игрок — под синей стрелкой, игрок друга — под красной.</p>
+          <p>Когда партнёр набросит мяч к сетке, жми <strong>УДАР</strong> — игрок выпрыгнет, и ещё раз <strong>УДАР</strong> в воздухе — пробьёт. Стрелка во время удара меняет направление: к сетке — коротко, назад — в глубину. <strong>ПРЫЖОК</strong> у сетки — блок. <strong>ПРИЁМ</strong> в момент подлёта мяча — точный приём, только так достаётся сильная атака. На своей подаче эта кнопка становится <strong>СИЛОВОЙ</strong> — подача с места, быстрая, но может уйти в аут. Подача бывает обычной и силовой. <strong>ПРИЁМ + стрелка</strong> — скольжение: спасает дальний мяч, но потом игрок поднимается с пола. <strong>ПРИЁМ в прыжке</strong> — скидка: стрелка к сетке — коротко за блок, от сетки — в угол. Блок в верхней точке прыжка надёжнее. Каждое «ИДЕАЛЬНО!» заполняет шкалу <strong>СИНХРОН</strong> — полная даёт усиленный удар. Ты управляешь одним игроком (его выбираешь в меню), двое других играют сами. Твой игрок — под синей стрелкой, игрок друга — под красной.</p>
           <button class="ghost" id="tutBtn" type="button">ОБУЧЕНИЕ · 60 С</button>
         </details>
       </div>
@@ -704,6 +711,11 @@ body[data-tut="act"] .ctl.act, body[data-tut="hit"] .ctl.hit { animation: tutp .
             </button>
           </div>
           <p class="note" id="modeNote"></p>
+        </div>
+        <div id="optPick" class="pickbox">
+          <p class="label" id="pickLbl">Кем играть</p>
+          <div class="seg pk" id="pickSeg" role="group" aria-label="Кем играть"></div>
+          <div class="seg pk" id="pickSeg2" role="group" aria-label="Игрок 2: кем играть" hidden></div>
         </div>
         <div class="twocol" id="opts">
           <div id="optDiff">
@@ -1019,7 +1031,8 @@ const DIFF = {
   normal: { speed: .92, react: .13, err: 8,  block: .35, spike: .8,  power: 390, dig: .5, pserve: .3, slide: .55, atkW: [.36, .26, .24, .14] },
   hard:   { speed: 1.06, react: .05, err: 3, block: .6,  spike: .95, power: 440, dig: .68, pserve: .5, slide: .8, atkW: [.15, .3, .3, .25] },
 };
-const HUMAN_D = { speed: 1.0, react: .07, err: 4, block: .35, spike: 1, power: 470, dig: .45, pserve: 0, slide: 0, atkW: [.36, .26, .24, .14] };
+const PARTNER_D = { speed: 1.0, react: .09, err: 6, block: .45, spike: .9, power: 430, dig: .55, pserve: .3, slide: .5, atkW: [.36, .26, .24, .14] };   // партнёры под ИИ в команде человека: между normal и hard (управляемый игрок остаётся на HUMAN_D)
+const HUMAN_D = { speed: 1.0, react: .07, err: 4, block: .35, spike: 1, power: 470, dig: .45, pserve: .3, slide: 0, atkW: [.36, .26, .24, .14] };   // pserve — только для партнёров под ИИ (управляемый игрок подаёт сам)
 const slideK = () => ARENA === 'beach' ? 6.5 : 4.5;
 
 const $ = id => document.getElementById(id);
@@ -1502,9 +1515,9 @@ const readSets = () => { try { return +JSON.parse(localStorage.getItem('vb-sets'
 /* модификаторы забега «Колизея» (f_ui.js): суммы эффектов карт и штрафа; null вне забега. Действуют только на команду игрока (TL) */
 let RUN = null;
 const rm = (T, k) => RUN && T === TL ? (RUN[k] || 0) : 0;
-const recvDmg = (p, pw) => clamp(Math.round(27 * Math.pow(pw / 430, 1.6) * .5 / Math.max(.15, (p.team.D.dig + .035 * upLv(p, 'dig')) * condMul(p, 'def'))), 5, 45);   // урон запасу: сила удара против защиты
+const recvDmg = (p, pw) => clamp(Math.round(27 * Math.pow(pw / 430, 1.6) * .5 / Math.max(.15, (dFor(p).dig +.035 * upLv(p, 'dig')) * condMul(p, 'def'))), 5, 45);   // урон запасу: сила удара против защиты
 function agileTry(p) {   // «ЛОВКОСТЬ!»: быстрый игрок иногда достаёт мяч без сил / после провала
-  const sp = p.team.D.speed * (1 + .03 * upLv(p, 'spd')) * condMul(p, 'spd');
+  const sp = dFor(p).speed * (1 + .03 * upLv(p, 'spd')) * condMul(p, 'spd');
   if (Math.random() < clamp(.15 + (sp - .8) * .96, .15, .4)) { p.agile = 1.0; return true; }
   return false;
 }
@@ -1517,10 +1530,13 @@ const ownLoose = (T, x) => (x - NETX) * T.side >= -3;
 const homeOf = p => mirror(p.team, p.team === TL ? HOMES_TL[p.idx] : HOMES[p.idx]);   // у TL: Арис у сетки справа от центра, Рэй на атаке, либеро сзади
 const platX = p => p.x + p.face * PLAT * p.look.tall;
 
+let pickIdx = [1, 1];   // закреплённый игрок команды (0..2): [0] — TL (слева), [1] — TR (справа, если там человек); меню задаёт до newMatch()
+const ctl = p => !!p && p.team.human && p === p.team.act;   // этим игроком сейчас управляет человек (остальные — ИИ)
+const dFor = p => p.team.human && !ctl(p) ? PARTNER_D : p.team.D;   // таблица сложности игрока: партнёр под ИИ — PARTNER_D, остальные — таблица команды
 function mkTeam(side, D, name) {
   return { side, D, name, players: [], touches: 0, roles: {}, receiver: null, blocker: null, serveIdx: 0, score: 0, tick: 0,
     blockRoll: 1, blockUsed: false, spikeRoll: 0, digRoll: 0, recvT: 9, setT: 9,
-    atk: 'open', setH: 74, plan: null, human: false, inp: null, act: null, hdir: 0, moving: false, lastMove: -9, sync: 0, slideChk: false };   // sync — шкала «СИНХРОН» (0..3), slideChk — ИИ уже решал, скользить ли к этому мячу
+    atk: 'open', setH: 74, plan: null, human: false, inp: null, act: null, pickIdx: 1, hdir: 0, moving: false, lastMove: -9, sync: 0, slideChk: false };   // sync — шкала «СИНХРОН» (0..3), slideChk — ИИ уже решал, скользить ли к этому мячу
 }
 function mkPlayer(team, idx, num, kitName) {
   const p = { team, idx, num, kit: KIT[kitName], look: LOOKS[num], face: team.side < 0 ? 1 : -1,
@@ -1546,6 +1562,7 @@ function newMatch() {
   if (twoHumans) { TR.human = true; TR.inp = input2; }
   for (const k of Object.keys(input)) input[k] = input2[k] = false;
   active = active2 = null;
+  TL.pickIdx = clamp(pickIdx[0] | 0, 0, 2); TR.pickIdx = clamp(pickIdx[1] | 0, 0, 2);
   TL.players = [mkPlayer(TL, 0, 9, 'org'), mkPlayer(TL, 1, 10, 'blk'), mkPlayer(TL, 2, 4, 'lib')];
   TR.players = [mkPlayer(TR, 0, 2, 'wht'), mkPlayer(TR, 1, 5, 'wht'), mkPlayer(TR, 2, 8, 'wht')];
   ball = { x: 0, h: 0, vx: 0, vh: 0, rot: 0, spiked: false, lane: LANE0, laneT: 0, laneDur: 1, laneTarget: null, laneTeam: null, trail: [], landX: null, landLane: LANE0, path: null, pathT: 0, atkPow: 0 };
@@ -1559,7 +1576,7 @@ function resetServe() {
     T.touches = 0; T.atk = 'open'; T.setH = 74; T.roles = {}; T.receiver = null; T.blocker = null; T.tick = 0; T.recvT = T.setT = 9; T.lastHit = null;
     for (const p of T.players) {
       p.x = homeOf(p); p.h = 0; p.vx = p.vh = 0; p.ground = true; p.swing = 0; p.goal = p.x;
-      p.blocking = false; p.toss = 0; p.landT = 0; p.diveDone = false; p.cd = 0; p.jumpServe = false; p.jsJumped = false; p.recvWin = 0;
+      p.blocking = false; p.toss = 0; p.landT = 0; p.diveDone = false; p.cd = 0; p.recvWin = 0;
       p.slide = 0; p.rise = 0; p.slideHit = 0; p.aiSlide = 0;
       p.blkCh = p.blkHold = 0; p.agTry = -1; p.serveKind = 'float'; p.tossQ = 0;
     }
@@ -1570,10 +1587,11 @@ function resetServe() {
   state = 'serve'; serveT = 0; lastToucher = null; lastTeam = null; blockDone = false; netHitThisRally = false; pointWinner = null; rallyN = 0;
   ball.spiked = false; ball.trail = []; ball.laneTarget = server; ball.laneTeam = null;
   holdBall();
+  const mine = servingTeam === TL && TL.human && server === pickActive(TL);   // «ТВОЯ ПОДАЧА» и подсказки — только когда подаёт сам управляемый игрок
   const sTxt = mode === 'local2' ? (servingTeam === TL ? 'ПОДАЧА СЛЕВА' : 'ПОДАЧА СПРАВА')
-    : servingTeam === TL ? 'ТВОЯ ПОДАЧА' : mode === 'solo' ? 'ПОДАЧА ГОСТЕЙ' : 'ПОДАЧА ДРУГА';   // онлайн: текст с точки зрения хоста, гость меняет местами
+    : servingTeam === TL ? (mine ? 'ТВОЯ ПОДАЧА' : 'ПОДАЧА ПАРТНЁРА') : mode === 'solo' ? 'ПОДАЧА ГОСТЕЙ' : 'ПОДАЧА ДРУГА';   // онлайн: текст с точки зрения хоста, гость меняет местами
   banner(sTxt, servingTeam === TL ? 'org' : 'teal', 1.4);
-  if (servingTeam === TL && serveHints < 2) { serveHints++; banner('УДАР — ОБЫЧНАЯ  ·  СИЛОВАЯ — В ПРЫЖКЕ', 'gold', 2.2, true, 'L'); }
+  if (mine && serveHints < 2) { serveHints++; banner('УДАР — ОБЫЧНАЯ  ·  СИЛОВАЯ — С МЕСТА', 'gold', 2.2, true, 'L'); }
 }
 function holdBall() {
   const k = server.look.tall;
@@ -1670,7 +1688,7 @@ function receive(p, perfect, em = 1, force = false) {   // em — множите
   else if (sp) {
     if (force || (perfect && rw >= .27)) g = 'perfect';
     else if (perfect) g = 'good';
-    else if (!Tm.human) { const q = Tm.digRoll / Math.max(.05, Tm.D.dig + .035 * upLv(p, 'dig')); g = q < .3 ? 'perfect' : q < .75 ? 'good' : 'bad'; }   // ИИ: качество приёма по броску
+    else if (!ctl(p)) { const q = Tm.digRoll / Math.max(.05, dFor(p).dig +.035 * upLv(p, 'dig')); g = q < .3 ? 'perfect' : q < .75 ? 'good' : 'bad'; }   // ИИ: качество приёма по броску
     else g = 'bad';
     if (p.sta <= 0 || p.agNow) { if (p.agNow || agileTry(p)) { g = 'bad'; } else { p.agNow = false; shank(p); return; } }
     p.agNow = false;
@@ -1689,7 +1707,7 @@ function receive(p, perfect, em = 1, force = false) {   // em — множите
   // человек со стрелкой выбирает сторону приёма: пас сдвигается туда, а тип атаки задаётся сразу (к сетке — квик, назад — пайп)
   const hd = T.human && p === T.act ? (T.hdir || 0) : 0;
   T.recvPick = -T.side * hd;   // +1 — к сетке, −1 — назад, 0 — без выбора
-  passTo(mirror(T, SET_X) + 22 * hd + (Math.random() * 2 - 1) * (perfect ? 1 : T.D.err * em), 42, 1.15);
+  passTo(mirror(T, SET_X) + 22 * hd + (Math.random() * 2 - 1) * (perfect ? 1 : dFor(p).err * em), 42, 1.15);
   aimLane(setter, 1.15); sfx.pass(g === 'perfect' || (!g && perfect) ? 1.5 : g === 'bad' ? .5 : 1); ring('w');
   if (perfect) { p.recvWin = 0; spray(12, ['#f2c230', '#ffffff'], 70, .4); banner('ОТЛИЧНЫЙ ПРИЁМ!', 'gold', 1.0, true); }
 }
@@ -1730,9 +1748,9 @@ function setBall(p, low) {
   const T = p.team; snapBall(p, low ? 'receive' : 'set', 14); touch(p, low ? 'receive' : 'set');
   let h = T.roles.hitter; if (!h || h === p) h = pickHitter(T, p);
   T.roles.hitter = h;
-  T.atk = T.human ? humanAtk(T, h) : (T.plan || chooseAtk(T)); T.recvPick = 0;
+  T.atk = ctl(h) ? humanAtk(T, h) : (T.plan || chooseAtk(T)); T.recvPick = 0;
   const A = ATK[T.atk]; T.setH = A.h; T.plan = null;
-  passTo(NETX + T.side * A.d + (Math.random() * 2 - 1) * T.D.err * .6, A.h, A.t);
+  passTo(NETX + T.side * A.d + (Math.random() * 2 - 1) * dFor(p).err * .6, A.h, A.t);
   aimLane(h, A.t); sfx.set(); ring('w'); tutEvt('set', p);
   T.spikeRoll = Math.random(); other(T).blockRoll = Math.random() / A.blk; other(T).blockUsed = false;
   if (T === TL) {
@@ -1778,7 +1796,7 @@ function spike(p, human, boost = false, perf = false) {   // perf — удар �
   }
   touch(p, 'spike'); { T.lastHit.atk = T.atk; T.lastHit.sup = !!boost; const m = msOf(T); m.spikes++; if (m.spikeTypes[T.atk] !== undefined) m.spikeTypes[T.atk]++; }
   let ok = false, flight = .5;
-  for (let sp = (T.D.power + 12 * upLv(p, 'pow') + (T.atk === 'pipe' ? 30 : 0) + (boost ? (p.job === 'hit' ? 60 + 8 * (superLv(p) - 1) : 40) : 0) + (perf ? 25 : 0) + rm(T, 'pow')) * condMul(p, 'atk'); sp >= 160; sp -= 20) {
+  for (let sp = (dFor(p).power + 12 * upLv(p, 'pow') + (T.atk === 'pipe' ? 30 : 0) + (boost ? (p.job === 'hit' ? 60 + 8 * (superLv(p) - 1) : 40) : 0) + (perf ? 25 : 0) + rm(T, 'pow')) * condMul(p, 'atk'); sp >= 160; sp -= 20) {
     const vx = Math.sign(xt - ball.x) * sp, t = (xt - ball.x) / vx, vh = (0 - ball.h + .5 * G * t * t) / t;
     const tn = (NETX - ball.x) / vx, hn = ball.h + vh * tn - .5 * G * tn * tn;
     if (tn < 0 || hn > NET_H + BR + 2) { ball.vx = vx; ball.vh = vh; ok = true; flight = t; break; }
@@ -1813,20 +1831,19 @@ function startToss(p, kind = 'float', hq = 0) {
   if (p.toss > 0 || state !== 'serve') return;
   p.toss = .001; p.serveKind = kind; p.tossQ = hq; ball.vx = -p.face * 11; ball.vh = (46 * p.look.tall + (kind === 'basic' ? -6 : 18 * hq) - ball.h + 165 * .09) / .3; sfx.toss();
 }
-function startPowerServe(p, hq = 0) {
+function startPowerServe(p, hq = 0) {   // силовая СТОЯ: высокий подброс (p.toss — таймер .001….45), удар в верхней точке с места
   if (p.toss > 0 || state !== 'serve') return;
-  p.toss = .001; p.jumpServe = true; p.jsJumped = false; p.serveKind = 'power'; p.tossQ = hq;
   const k = p.look.tall;
-  passTo(p.x + p.face * (50 * .555 + 5 * k), (80 + 14 * hq) * k, .555); sfx.toss();
+  p.toss = .001; p.serveKind = 'power'; p.tossQ = hq; ball.vx = 0; ball.vh = ((60 + 14 * hq) * k - ball.h + 165 * .2025) / .45; sfx.toss();
 }
 function powerServe(p) {
   const T = p.team, O = other(T), o = -T.side;
-  snapBall(p, 'spike', 22); touch(p, 'spike'); T.touches = 3; p.toss = 0; p.jumpServe = false; T.lastHit = { p, type: 'pserve' }; msOf(T).powerServes++;
-  const hd = T.human ? (T.hdir || 0) * o : 0;   // человек со стрелкой целится: >0 — в глубину (рискованно), <0 — к сетке; без стрелки — как раньше
+  ball.lane = p.lane; touch(p, 'spike'); T.touches = 3; p.toss = 0; T.lastHit = { p, type: 'pserve' }; msOf(T).powerServes++;
+  const hd = ctl(p) ? (T.hdir || 0) * o : 0;   // человек со стрелкой целится: >0 — в глубину (рискованно), <0 — к сетке; без стрелки — как раньше
   const tp = tossPow(p, p.tossQ || 0), fault = (!hd && Math.random() < (T === TL ? .1 : .15)) || Math.random() < tp.flt;
   const xt = NETX + o * (fault ? 224 + Math.random() * 22 : hd > 0 ? 176 + Math.random() * 34 : hd < 0 ? 84 + Math.random() * 40 : 70 + Math.random() * 140);
   let flight = 1;
-  for (let sp = (T.D.power + 12 * upLv(p, 'pow') + 40) * tp.pf * condMul(p, 'atk'); sp >= 160; sp -= 20) {
+  for (let sp = (dFor(p).power + 12 * upLv(p, 'pow') + 40) * tp.pf * condMul(p, 'atk'); sp >= 160; sp -= 20) {
     const vx = Math.sign(xt - ball.x) * sp, t = (xt - ball.x) / vx, vh = (0 - ball.h + .5 * G * t * t) / t;
     const tn = (NETX - ball.x) / vx, hn = ball.h + vh * tn - .5 * G * tn * tn;
     if (hn > NET_H + BR + 3) { ball.vx = vx; ball.vh = vh; flight = t; break; }
@@ -1855,12 +1872,12 @@ function aiServeX(T, o) {   // ИИ подаёт туда, где меньше �
   return bx;
 }
 function serveBall(p) {
-  if (p.jumpServe) { powerServe(p); return; }
-  const T = p.team, o = -T.side, hd = T.human ? (T.hdir || 0) * o : 0, basic = p.serveKind === 'basic';   // человек со стрелкой: >0 — в глубину, <0 — к сетке
+  if (p.serveKind === 'power') { powerServe(p); return; }
+  const T = p.team, o = -T.side, hd = ctl(p) ? (T.hdir || 0) * o : 0, basic = p.serveKind === 'basic';   // человек со стрелкой: >0 — в глубину, <0 — к сетке
   const tp = tossPow(p, p.tossQ || 0), fault = !basic && Math.random() < tp.flt;
   snapBall(p, 'serve', 10); touch(p, 'serve'); T.touches = 3; p.toss = 0;
   const xt = fault ? NETX + o * (228 + Math.random() * 20) : hd ? NETX + o * (hd > 0 ? 170 + Math.random() * 36 : 80 + Math.random() * 30)
-    : basic ? NETX + o * (75 + Math.random() * (T.human ? 90 : 70)) : T.human ? NETX + o * (60 + Math.random() * 130) : aiServeX(T, o);
+    : basic ? NETX + o * (75 + Math.random() * (ctl(p) ? 90 : 70)) : ctl(p) ? NETX + o * (60 + Math.random() * 130) : aiServeX(T, o);
   let fl = basic ? 1.9 : 1.45 / (basic ? 1 : tp.pf);   // подбираем время полёта так, чтобы мяч перелетел сетку (как в tip); обычная — медленно и с запасом над сеткой
   for (; fl < 2.6; fl += .05) { passTo(xt, 0, fl); const tn = (NETX - ball.x) / ball.vx; if (tn <= 0 || ball.h + ball.vh * tn - .5 * G * tn * tn > NET_H + BR + (basic ? 16 : 4)) break; }
   aimLaneTeam(other(T), fl);
@@ -1880,9 +1897,9 @@ function checkContacts() {
         continue;
       }
       if (T.touches === 2) {
-        if (!T.human && p === T.roles.hitter && !p.ground && spikeReach(p, 13)) {   // ИИ: против поставленного блока иногда скидывает за него
+        if (!ctl(p) && p === T.roles.hitter && !p.ground && spikeReach(p, 13)) {   // ИИ: против поставленного блока иногда скидывает за него
           const blk = blockUp(other(T));
-          if (T.spikeRoll < T.D.spike && ball.h > 52 && !(blk && Math.random() < .3)) spike(p, false);
+          if (T.spikeRoll < dFor(p).spike && ball.h > 52 && !(blk && Math.random() < .3)) spike(p, false);
           else tip(p, blk ? 1 : Math.random() < .5 ? 1 : -1);
           return;
         }
@@ -1890,7 +1907,8 @@ function checkContacts() {
         continue;
       }
       if (!p.ground) continue;
-      if (T.human && T.sync >= 3 && p.job === 'lib' && T.touches === 0 && ball.spiked && ball.vh < 0 && ball.h < 40 && ball.h > 3 && dxp < 32 + 4 * (superLv(p) - 1)) {   // суперсила либеро (Дан): «ЯКОРЬ» — сам достаёт любой удар в широкой зоне идеальным приёмом
+      if (tut && tut.drill === 'recv' && T === TL && T.touches === 0 && !ctl(p)) continue;   // упражнение «Приём»: мяч берёт только закреплённый игрок, партнёры не перехватывают
+      if (T.human && p === T.act && T.sync >= 3 && p.job === 'lib' && T.touches === 0 && ball.spiked && ball.vh < 0 && ball.h < 40 && ball.h > 3 && dxp < 32 + 4 * (superLv(p) - 1)) {   // суперсила либеро (Дан): «ЯКОРЬ» — сам достаёт любой удар в широкой зоне идеальным приёмом
         T.sync = 0; receive(p, true, 1, true); p.swing = .5; p.swingType = 'dive';
         banner('ЯКОРЬ!', 'gold', 1.1); cutin = { p, team: T, act: superTag('ЯКОРЬ', p), t: 0, life: 1.1 };
         if (!REDUCED) { freeze = .08; slowmo = .2; } return;
@@ -1900,7 +1918,7 @@ function checkContacts() {
       }
       if (T.touches === 0 && ball.vh < 0 && ball.h < 30 && ball.h > 4) {
         if (ball.spiked) {
-          const dg = (T.D.dig + .035 * upLv(p, 'dig')) * condMul(p, 'def');
+          const dg = (dFor(p).dig +.035 * upLv(p, 'dig')) * condMul(p, 'def');
           if (dxp < 7 && T.digRoll < dg) { receive(p); return; }
           if (dxp < 18 && !p.diveDone && T.digRoll >= dg) {
             p.diveDone = true;
@@ -1924,14 +1942,14 @@ function checkBlock() {
   if (Math.abs(ball.x - NETX) > 8 || ball.vx * att.side >= 0) return;
   for (const b of def.players) {
     const hum = def.human && b === def.act, sh = hum ? (def.hdir || 0) * 4 : 0;   // человек: стрелка в полёте сдвигает руки на ±4
-    const wall = def.human && def.sync >= 3 && b.job === 'set';   // суперсила связующего (Арис): «СТЕНА» — шире руки, блок без промаха, мяч вбивается в пол
+    const wall = hum && def.sync >= 3 && b.job === 'set';   // суперсила связующего (Арис): «СТЕНА» — шире руки, блок без промаха, мяч вбивается в пол
     if (b.ground || Math.abs(b.x + sh - NETX) > (wall ? 30 + 3 * (superLv(b) - 1) : 22)) continue;
     const k = b.look.tall;
     if (ball.h > b.h + (wall ? 25 : 33) * k && ball.h < b.h + (wall ? 66 : 58) * k) {
       blockDone = true; ball.spiked = false; lastToucher = null; lastTeam = def; def.lastHit = { p: b, type: 'block' }; rallyN++; slideReset(); b.touchedR = true;
       b.swing = SW; b.swingType = 'set'; ball.lane = b.lane;
       // человек: блок в верхней точке прыжка (|vh| < 60) — «БЛОК!» в 90%, иначе только касание; ИИ — шанс по сложности (≈ прежние 55%)
-      const stuff = wall || Math.random() < rm(def, 'blk') || (hum ? Math.abs(b.vh) < 60 && Math.random() < .9 - (b.blkBad > 0 ? .3 : 0) : Math.random() < .4 + def.D.block * .4);
+      const stuff = wall || Math.random() < rm(def, 'blk') || (hum ? Math.abs(b.vh) < 60 && Math.random() < .9 - (b.blkBad > 0 ? .3 : 0) : Math.random() < .4 + dFor(b).block * .4);
       if (hum) timeMark(b, Math.abs(b.vh) < 60 ? 'ИДЕАЛЬНО!' : b.vh > 0 ? 'Рано' : 'Поздно');
       if (stuff) {
         ball.x = NETX + att.side * (BR + 1);
@@ -2075,7 +2093,7 @@ function makeConfetti() {
 
 /* ================= AI ================= */
 function planTeam(T) {
-  const D = T.D, O = other(T);
+  const D = T.human ? PARTNER_D : T.D, O = other(T);   // у команды человека ИИ-решения принимают только партнёры → PARTNER_D
   for (const p of T.players) p.aiJump = false;
   T.recvT -= frameDt; T.setT -= frameDt;
   if (T.touches === 0) T.plan = null;
@@ -2100,8 +2118,8 @@ function planTeam(T) {
         const st = T.roles.setter;
         if (st) { const pr = predict(42); st.goal = pr.x + T.side * 2.6; T.setT = pr.t; }
         const ht = T.roles.hitter;
-        if (!T.human && !T.plan) T.plan = chooseAtk(T);
-        if (ht && ht !== st) ht.goal = T.human || T.plan === 'open' ? mirror(T, ATT_X) + T.side * 22 : NETX + T.side * (ATK[T.plan].d + 5);
+        if (!ctl(ht) && !T.plan) T.plan = chooseAtk(T);
+        if (ht && ht !== st) ht.goal = ctl(ht) || T.plan === 'open' ? mirror(T, ATT_X) + T.side * 22 : NETX + T.side * (ATK[T.plan].d + 5);
       }
       if (onOwn && T.touches === 2 && T.roles.hitter) { const pr = predict(T.setH); T.roles.hitter.goal = pr.x + T.side * 5; }
       if (!onOwn && O.touches >= 1 && O.roles.hitter) {
@@ -2112,13 +2130,13 @@ function planTeam(T) {
     }
   }
   if (state !== 'play') return;
-  if (!T.human) aiSlideTick(T, D);
+  aiSlideTick(T, D);
   const onOwn = ownSide(T, ball.x);
-  if (!T.human && onOwn && T.touches === 2) {
+  if (onOwn && T.touches === 2) {
     const ht = T.roles.hitter;
-    if (ht && ht.ground) { const jw = ATK[T.atk].jw, pr = predict(T.setH); if (pr.t < jw[1] && pr.t > jw[0] && Math.abs(pr.x + T.side * 5 - ht.x) < 14) ht.aiJump = true; }
+    if (ht && !ctl(ht) && ht.ground) { const jw = ATK[T.atk].jw, pr = predict(T.setH); if (pr.t < jw[1] && pr.t > jw[0] && Math.abs(pr.x + T.side * 5 - ht.x) < 14) ht.aiJump = true; }
   }
-  if (!onOwn && T.blocker && !T.blockUsed) {
+  if (!onOwn && T.blocker && !T.blockUsed && !ctl(T.blocker)) {
     const oh = O.roles.hitter;
     if (oh && !oh.ground && oh.vh > 0 && Math.abs(oh.x - NETX) < (O.atk === 'pipe' ? 150 : 50) && T.blocker.ground && Math.abs(T.blocker.x - NETX) < 26) {
       T.blockUsed = true;
@@ -2128,7 +2146,7 @@ function planTeam(T) {
 }
 function aiSlideTick(T, D) {   // ИИ-приёмщик решает скользить, если бегом не успевает (или как второй шанс при проваленном digRoll)
   const r = T.receiver;
-  if (!r) return;
+  if (!r || ctl(r)) return;
   if (r.aiSlide > 0) { if ((r.aiSlide -= frameDt) <= 0) { r.aiSlide = 0; if (T.touches === 0) startSlide(r, r.slideDir); } return; }
   if (T.slideChk || T.touches !== 0 || ball.vh >= 0 || !r.ground || r.slide > 0 || r.rise > 0 || r === lastToucher) return;
   if (!ownSide(T, ball.x) && ball.vx * T.side <= 0) return;
@@ -2142,21 +2160,18 @@ function aiSlideTick(T, D) {   // ИИ-приёмщик решает сколь�
   r.slideDir = gap < 0 ? -1 : 1;
   r.aiSlide = Math.max(.001, land.t - .18 + (Math.random() * 2 - 1) * D.err * .004);   // касание ≈ на .18 с скольжения
 }
-function pickActive(T) {   // каким игроком команды T управляет человек
+function pickActive(T) {   // каким игроком команды T управляет человек: всегда закреплённым (T.pickIdx), остальные двое — ИИ
   if (tut && tut.who && T === TL && state !== 'serve') return tut.who;   // упражнение «Удар»/«Блок»: всегда Рэй
-  if (state === 'serve' && servingTeam === T) return server;
-  if (T.roles.hitter && ownSide(T, ball.x) && T.touches >= 1) return T.roles.hitter;
-  if (T.receiver) return T.receiver;
-  return T.act && T.act.team === T ? T.act : T.players[2];
+  return T.players[T.pickIdx] || T.players[1];
 }
 
 /* ================= simulation ================= */
 function stepPlayer(p, dir, jump, dt, slow) {
-  const sp = SPEED * p.team.D.speed * slow * (1 + .03 * upLv(p, 'spd') + rm(p.team, 'spd')) * condMul(p, 'spd'), sl = p.slide > 0, ri = p.rise > 0;
+  const sp = SPEED * dFor(p).speed * slow * (1 + .03 * upLv(p, 'spd') + rm(p.team, 'spd')) * condMul(p, 'spd'), sl = p.slide > 0, ri = p.rise > 0;
   if (sl) { p.vx = p.slideDir * SLIDE_V * Math.exp(-slideK() * (SLIDE_DUR - p.slide)); jump = false; }
   else if (ri) { p.vx = 0; jump = false; }   // лежит после скольжения: не бежит и не прыгает
   else if (p.ground) p.vx = dir * sp;
-  if (jump && p.ground && (state === 'play' || p.jumpServe)) {
+  if (jump && p.ground && state === 'play') {
     const bm = p.blocking ? (p.blkBad > 0 ? .88 : 1 + .15 * (p.blkCh || 0)) : 1;   // блок: заряд 0..1 даёт +15% высоты, передержка — прыжок ниже
     p.vh = JUMP_V * (1 + .025 * upLv(p, 'jmp') + rm(p.team, 'jmp')) * condMul(p, 'jmp') * bm; p.blkCh = 0; p.ground = false; if (p.team.human && p === p.team.act) sfx.jump();
   }
@@ -2270,8 +2285,8 @@ function update(dt) {
   if (MT.toT > 0) { MT.toT = Math.max(0, MT.toT - dt); return; }   // тайм-аут: игра стоит
   for (const T of [TL, TR]) for (const p of T.players) if (p.cond && (p.condT -= dt) <= 0) { p.cond = null; p.condT = 0; }
   if (state === 'serve') serveT += dt;
-  planTeam(TL); planTeam(TR);
   TL.act = pickActive(TL); TR.act = TR.human ? pickActive(TR) : null;
+  planTeam(TL); planTeam(TR);
   active = TL.act; active2 = TR.act;
   for (const T of [TL, TR]) {   // ввод любой человеческой команды (стрелки экранные: left/right не зависят от стороны корта)
     if (!T.human) continue;
@@ -2280,7 +2295,7 @@ function update(dt) {
     if (T.hdir) T.lastMove = clock;
     T.moving = clock - T.lastMove < .35;
     const hj = inp.jumpQ; inp.jumpQ = false;
-    if ((mode === 'solo' || mode === 'local2') && state === 'serve' && servingTeam === T && !(server.toss > 0)) {   // подача с удержанием: высота подброса
+    if ((mode === 'solo' || mode === 'local2') && state === 'serve' && servingTeam === T && server === T.act && !(server.toss > 0)) {   // подача с удержанием: высота подброса
       if (inp.actQ || inp.hitQ) { if (!MT.sk) { MT.sk = inp.actQ ? 'act' : 'hit'; MT.serveHold = 0; } inp.hitQ = inp.actQ = false; }
       if (MT.sk) {
         if (inp[MT.sk]) MT.serveHold = Math.min(1, MT.serveHold + dt / .9);
@@ -2293,7 +2308,7 @@ function update(dt) {
     if (inp.hitQ) { inp.hitQ = false; humanAction(a); }
     if (inp.actQ) {
       inp.actQ = false;
-      if (state === 'serve' && servingTeam === T) startPowerServe(server);
+      if (state === 'serve' && servingTeam === T && server === a) startPowerServe(server);
       else if (state === 'play' && a && a.ground) {
         if (T.hdir && !a.slide && !a.rise) startSlide(a, T.hdir);   // ПРИЁМ + стрелка — скользящий приём
         else if (!a.slide && !a.rise) { a.recvWin = .42; a.actAt = clock; sfx.jump(); }
@@ -2320,10 +2335,10 @@ function update(dt) {
     }
   }
   if (state === 'serve' && !(server.toss > 0)) {
-    if (servingTeam.human) { if (serveT > 6 && !MT.sk) startToss(server, 'basic'); }
-    else if (serveT > 1.2) { const D = servingTeam.D; if (Math.random() < D.pserve) startPowerServe(server, .25 + Math.random() * .4); else startToss(server, Math.random() < .7 - D.pserve * 1.1 ? 'basic' : 'float', Math.random() * .5); }
+    if (ctl(server)) { if (serveT > 6 && !MT.sk) startToss(server, 'basic'); }
+    else if (serveT > 1.2) { const D = servingTeam.human ? PARTNER_D : servingTeam.D; if (Math.random() < D.pserve) startPowerServe(server, .25 + Math.random() * .4); else startToss(server, Math.random() < .7 - D.pserve * 1.1 ? 'basic' : 'float', Math.random() * .5); }
   }
-  if (state === 'serve' && server.toss > 0) { server.toss += dt; if (server.toss >= (server.jumpServe ? .555 : .3)) serveBall(server); }
+  if (state === 'serve' && server.toss > 0) { server.toss += dt; if (server.toss >= (server.serveKind === 'power' ? .45 : .3)) serveBall(server); }
   if (state === 'point') for (const p of pointWinner.players) if (p.ground && Math.random() < .025) p.aiJump = true;
   const steps = 4, h = dt / steps;
   for (let i = 0; i < steps; i++) {
@@ -2331,7 +2346,6 @@ function update(dt) {
       const human = T.human && p === T.act && state !== 'point';
       const lockServer = state === 'serve' && p === server;
       let dir = 0, slow = 1;
-      if (lockServer && p.jumpServe && p.toss > 0) { dir = p.face; slow = 50 / (SPEED * T.D.speed); if (p.toss >= .28 && !p.jsJumped) { p.jsJumped = true; p.forceJump = true; } }
       if (!lockServer && state !== 'point') {
         if (human && T.moving) dir = T.hdir;
         else { const d = p.goal - p.x; dir = Math.abs(d) > 2.5 ? Math.sign(d) : 0; if (Math.abs(d) < 7) slow = .5; }
@@ -2434,6 +2448,16 @@ function poseServeHit(s) {
   const e = easeOut(s);
   return P_({ hipH: 19.6, lean: lerp(-.22, .38, e), head: lerp(-.62, -.1, e), ffx: lerp(-3.0, -3.6, e), nfx: lerp(2.7, 3.2, e), fu: lerp(2.9, .3, e), fl: lerp(3.0, .7, e), nu: lerp(4.05, 1.0, e), nl: lerp(5.4, 1.25, ease(s)) });
 }
+/* силовая подача стоя: t = p.toss (0….45). Подброс -> замах (прогиб назад) -> удар вперёд-вниз, ноги на полу */
+function poseServePower(t) {
+  const A = poseServeHold(), B = P_({ hipH: 20.2, lean: -.2, head: -.7, ffx: -3.6, nfx: 3.2, fu: 2.9, fl: 3.0, nu: 3.3, nl: 3.3 });   /* подброс: рука тянется вверх за мячом */
+  const C = P_({ hipX: -.8, hipH: 19.4, lean: -.62, head: -.85, ffx: -4.2, nfx: 3.6, fu: 3.2, fl: 3.5, nu: 4.5, nl: 5.7 });            /* замах: корпус назад, рука за голову */
+  const D = P_({ hipX: .8, hipH: 20.0, lean: .66, head: .05, ffx: -3.3, nfx: 3.4, fu: .5, fl: .7, nu: 2.5, nl: 2.7 });                /* удар: корпус вперёд, рука по мячу сверху */
+  const mix = (a, b, s) => { const o = {}; for (const k of PF) o[k] = lerp(a[k], b[k], s); return o; };
+  if (t < .3) return mix(A, B, easeOut(clamp(t / .3, 0, 1)));
+  if (t < .4) return mix(B, C, ease(clamp((t - .3) / .1, 0, 1)));
+  return mix(C, D, easeOut(clamp((t - .4) / .05, 0, 1)));
+}
 function poseDive(s) {
   const e = easeOut(Math.min(1, s * 1.6));
   return P_({ hipX: lerp(0, 3, e), hipH: lerp(15, 9.5, e), lean: lerp(.6, 1.15, e), head: -.9, ffx: -7.5, ffy: lerp(0, 1.5, e), nfx: 4.5, fu: 1.5, fl: 1.55, nu: 1.55, nl: 1.6 });
@@ -2466,7 +2490,7 @@ function targetPose(p) {
   if (state === 'point' || state === 'over') return p.team === pointWinner ? (p.ground ? poseCeleb(p) : poseAir()) : poseSad();
   if (state === 'menu' || !T) return poseStand();
   if (state === 'serve' && p === server) {
-    if (p.jumpServe) return p.ground ? poseRun(p) : poseSpikeCock();
+    if (p.serveKind === 'power' && p.toss > 0) return poseServePower(p.toss);
     return p.toss > 0 ? poseServeToss() : poseServeHold();
   }
   if (p.slide > 0) return poseSlide(p);
@@ -4208,7 +4232,11 @@ function drawBanners(c) {
     const fs = (b.small ? 13 : 26) * u;
     c.font = `700 ${fs}px Oswald, "Arial Narrow", sans-serif`;
     const tw = c.measureText(b.text).width, w = tw + fs * 1.7, h = fs * 1.45;
-    const x = cssW / 2 - w / 2 - (1 - easeOut(inT)) * 70 * u + (1 - outT) * 50 * u, y = (b.small ? 68 * u + cssH * .1 : cssH * .3) - h / 2;
+    let x = cssW / 2 - w / 2 - (1 - easeOut(inT)) * 70 * u + (1 - outT) * 50 * u, y = (b.small ? 68 * u + cssH * .1 : cssH * .3) - h / 2;
+    if (b.small) {   // мелкая подсказка не наезжает на крупный баннер: если он есть при появлении, подсказка ставится под ним и остаётся там
+      if (b.low === undefined) b.low = banners.some(o => !o.small);
+      if (b.low) y = cssH * .3 + 26 * u * .725 + 7 * u;
+    }
     c.globalAlpha = Math.min(inT, outT);
     c.fillStyle = 'rgba(13,15,20,.88)'; skew(c, x, y, w, h, h * .35); c.fill();
     c.fillStyle = TONE[b.tone] || TONE.org; skew(c, x - h * .32, y, h * .5, h, h * .35); c.fill();
@@ -5214,11 +5242,13 @@ function sendInit() {
 function hostStart() {
   if (!net || net.connected || net.role !== 'host') return;
   net.connected = true; net.srv = srvText(net.tr); net.lastRx = performance.now(); net.gn = null; net.acc = 0; net.akAt = performance.now(); net.hzCur = NET.hz;
+  pickIdx[1] = net.pk === undefined ? 1 : net.pk;   // hello мог прийти раньше onopen — берём уже сохранённый выбор гостя (по умолчанию 1)
   mode = 'host'; audio(); newMatch(); show(null); updateCamera(0, true);
   sendInit(); netStatus('Друг подключился' + (net.srv ? ' (' + net.srv + ')' : ''));
 }
 function netRestart() {   // реванш для хоста: новая игра у обоих; false — онлайна нет
   if (mode !== 'host' || !net || !net.connected) return false;
+  pickIdx[1] = net.pk === undefined ? 1 : net.pk;   // startMatch() в f_ui.js записал туда выбор хоста — возвращаем выбор гостя
   audio(); newMatch(); show(null); updateCamera(0, true); sendInit(); return true;
 }
 function hostPeerLost(text) {
@@ -5236,7 +5266,12 @@ function hostOnMsg(m) {
   if (m.t === 'bye') { hostPeerLost(); return; }
   if (m.t === 'hello') {
     if (m.v !== PROTO) { net.tr.send({ t: 'bye' }); hostPeerLost(NET_VER); }
-    else if (m.rtc && net.connected && rtcOk(net) && !net.pc && !net.p2pOff) p2pOffer(net);   // гость умеет прямое соединение — предлагаем
+    else if (m.pk !== undefined || !net.pkDone) {   // выбор гостя; не пришёл или мусор — по умолчанию 1
+      net.pkDone = true;
+      const pk = Number.isInteger(m.pk) && m.pk >= 0 && m.pk <= 2 ? m.pk : 1;
+      net.pk = pk; pickIdx[1] = pk; if (TR) TR.pickIdx = pk;   // net.pk — источник правды для hostStart/netRestart
+    }
+    if (m.v === PROTO && m.rtc && net.connected && rtcOk(net) && !net.pc && !net.p2pOff) p2pOffer(net);   // гость умеет прямое соединение — предлагаем
     return;
   }
   if (m.t === 'rtc') { p2pSig(m); return; }
@@ -5333,7 +5368,7 @@ async function netJoin(code, kind) {
     lastSig: '', lastSend: 0, inQ: 0, rtt: 0, q: 0, rep: 0, pp: null, ph: [], po: 0, poH: 0, pjT: 0, prJ: presses.jump, prH: presses.hit, xpDone: false, bad: 0, srv: srvText(r.tr), dTarget: NET.delay, dBump: 0, jit: [], ivl: 0, jc: 0, under: 0, saved: { names: Object.assign({}, names), target: TARGET, arena: ARENA }, hb: setInterval(netBeat, 1000) };
   r.tr.listen(guestOnMsg);
   r.tr.onclose = () => guestLost('Соединение потеряно');
-  r.tr.send({ t: 'hello', v: PROTO, rtc: rtcOk({ kind }) ? 1 : 0 });
+  r.tr.send({ t: 'hello', v: PROTO, rtc: rtcOk({ kind }) ? 1 : 0, pk: clamp(pickIdx[1] | 0, 0, 2) });   // pk — выбранный гостем игрок (закрепляется за TR на хосте)
   netStatus('Подключено' + (net.srv ? ' через ' + net.srv : '') + ', ждём начала матча…');
   return true;
 }
@@ -5456,7 +5491,7 @@ function netGuestSend() {
   if (sig !== net.lastSig || now - net.lastSend > (net.p2p ? 50 : 100)) { net.lastSig = sig; net.lastSend = now; net.rep = net.p2p ? now + 25 : 0; nsend(m); }
   else if (net.rep && now >= net.rep) { net.rep = 0; nsend(m); }   // прямой канал без повторов: изменение ввода шлём дважды (хост отсекает дубли по q и счётчикам нажатий)
 }
-const BN_SWAP = { 'ТВОЯ ПОДАЧА': 'ПОДАЧА ДРУГА', 'ПОДАЧА ДРУГА': 'ТВОЯ ПОДАЧА' };
+const BN_SWAP = { 'ТВОЯ ПОДАЧА': 'ПОДАЧА ДРУГА', 'ПОДАЧА ДРУГА': 'ТВОЯ ПОДАЧА', 'ПОДАЧА ПАРТНЁРА': 'ПОДАЧА ДРУГА' };
 function guestDiscrete(s) {   // то, что не интерполируется: счёт, состояния, табло, баннеры, активные
   if (s.sc[0] > TL.score) scorePop[0] = 1;
   if (s.sc[1] > TR.score) scorePop[1] = 1;
@@ -6186,6 +6221,7 @@ const isOnline = () => mode === 'host' || mode === 'guest';
 /* startMatch(m): m = 'solo' | 'local2' (без сети). Без аргумента (или с событием клика) — повтор текущего режима;
    онлайн: хост перезапускает матч для обоих, гость ждёт хоста. Онлайн-режимы запускаются через netHost/netJoin (g_net.js). */
 function startMatch(m) {
+  { const mm = typeof m === 'string' ? m : mode; pickIdx[0] = who[0]; pickIdx[1] = mm === 'local2' ? who[1] : who[0]; }
   if (typeof m !== 'string') m = mode;
   if (m === 'guest') { netStatus('Ждём, пока друг начнёт заново'); return; }
   if (m === 'host') { if (netRestart()) return; m = 'solo'; }
@@ -6293,6 +6329,30 @@ document.addEventListener('visibilitychange', () => { if (document.hidden) pause
 
 /* ================= режимы: меню и онлайн-экран ================= */
 let pick = 'solo';   // выбор в меню: 'solo' | 'local2' | 'online'
+/* «Кем играть»: индекс игрока в команде (0 Арис №9, 1 Рэй №10, 2 Дан №4); хранится в localStorage 'vb-who' = [левая, правая]; пишется в pickIdx до newMatch() */
+const PK_L = [[1, 10], [0, 9], [2, 4]];   // [индекс, номер] у нашей команды
+const PK_R = [[0, 2], [1, 5], [2, 8]];    // соперник в local2: №2 · №5 · №8
+let who = (() => { const v = lsGet('vb-who'); return Array.isArray(v) && v.length === 2 ? [clamp(v[0] | 0, 0, 2), clamp(v[1] | 0, 0, 2)] : [1, 1]; })();
+function applyPicks() { pickIdx[0] = who[0]; pickIdx[1] = pick === 'local2' ? who[1] : who[0]; }   // онлайн-гость играет справа тем же выбором
+function buildPick(box, list, side) {
+  box.innerHTML = '';
+  for (const [i, n] of list) {
+    const b = document.createElement('button'); b.dataset.who = i;
+    const nm = side ? 'ИГРОК' : HERO[n].name;
+    b.innerHTML = '<b>№' + n + '</b><small>' + nm + '</small>'; b.setAttribute('aria-label', 'Играть за №' + n);
+    b.addEventListener('click', () => { who[side] = i; lsSet('vb-who', who); syncPick(); });
+    box.appendChild(b);
+  }
+}
+function syncPick() {
+  const l2 = pick === 'local2';
+  $('pickLbl').textContent = l2 ? 'Игрок 1 · кем играть' : 'Кем играть';
+  $('pickSeg2').hidden = !l2;
+  $('pickSeg').querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', String(+x.dataset.who === who[0])));
+  $('pickSeg2').querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', String(+x.dataset.who === who[1])));
+  applyPicks();
+}
+buildPick($('pickSeg'), PK_L, 0); buildPick($('pickSeg2'), PK_R, 1);
 const MODE_NOTE = { solo: 'Играешь против компьютера.', local2: 'Игрок 1 слева, игрок 2 справа.', online: 'Каждый на своём телефоне. Паузы нет.', tour: 'Матчи, история, главы по порядку.', colo: 'Забег из 6 этапов: карты способностей, развилки, боссы.' };
 function syncMode() {
   document.querySelectorAll('[data-mode]').forEach(x => x.setAttribute('aria-pressed', String(x.dataset.mode === pick)));
@@ -6318,6 +6378,7 @@ function syncMode() {
     $('campLbl').textContent = 'Колизей'; $('campTxt').textContent = 'Рекорд: ' + coloBest + ' ' + pluralD(coloBest, 'этап', 'этапа', 'этапов') + ' из 6'; $('campReset').hidden = true; $('playBtn').textContent = 'В ЗАБЕГ';
   } else { $('chaps').hidden = true; $('campStars').textContent = ''; $('playBtn').disabled = false; $('playBtn').textContent = pick === 'online' ? 'ДАЛЕЕ' : 'ИГРАТЬ'; }
   $('modeNote').textContent = MODE_NOTE[pick];
+  syncPick();
 }
 document.querySelectorAll('[data-mode]').forEach(b => b.addEventListener('click', () => { pick = b.dataset.mode; syncMode(); }));
 syncMode();
@@ -6328,7 +6389,7 @@ $('playBtn').addEventListener('click', () => { audio(); if (pick === 'online') o
 function startTutorial() {
   if (mode === 'host' || mode === 'guest') netLeave();
   endCamp(); setArena(arenaPick); mode = 'solo'; audio();
-  const sh = serveHints; newMatch(); serveHints = sh; show(null); updateCamera(0, true);
+  const sh = serveHints; const pk0 = pickIdx.slice(); pickIdx = [1, 1]; newMatch(); pickIdx = pk0; serveHints = sh; show(null); updateCamera(0, true);
   banners = []; state = 'play';
   ball.x = 300; ball.h = BR; ball.vx = ball.vh = 0; ball.lane = LANE0; ball.trail = [];
   tut = { step: 0, t: 0, wait: 2.6, miss: 0, done: false, endT: 0, exit: false, msg: '', msgT: 0 };
@@ -7130,7 +7191,7 @@ function renderTrain() {
 }
 function startDrill(id) {
   if (isOnline()) netLeave(); endCamp(); setArena(arenaPick); mode = 'solo'; audio();
-  const sh = serveHints; newMatch(); serveHints = sh; show(null); updateCamera(0, true); banners = [];
+  const sh = serveHints; const pk0 = pickIdx.slice(); pickIdx = [1, 1]; newMatch(); pickIdx = pk0; serveHints = sh; show(null); updateCamera(0, true); banners = [];
   TR.D = Object.assign({}, DIFF.easy, { dig: -9, block: 0 });
   ball.x = 300; ball.h = BR; ball.vx = ball.vh = 0; ball.lane = LANE0; ball.trail = [];
   tut = { drill: id, step: 0, t: 0, wait: 2.2, miss: 0, done: false, endT: 0, exit: false, msg: '', msgT: 0, score: 0, n: 0, left: 60, started: false, scored: false, gold: 0, zones: id === 'hit' || id === 'serve' ? DRILL_ZONES : null, who: id === 'hit' || id === 'block' ? TL.players[1] : null, res: null };
